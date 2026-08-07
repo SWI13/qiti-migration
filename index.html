@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ar-DZ" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qiti — طوق ذكي بـ GPS للقطط | عمرك ما تضيّع قطّك</title>
+<meta name="description" content="Qiti طوق ذكي بـ GPS للقطط. شوف وين راهي قطّتك مباشرة من تيليفونك. مقاوم للماء، بطارية تدوم سنة كاملة، التوصيل لـ 58 ولاية والدفع عند الاستلام. 3900 دج.">
+<meta name="theme-color" content="#FF6B2C">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Qiti — عمرك ما تضيّع قطّك">
+<meta property="og:description" content="طوق ذكي بـ GPS للقطط. 3900 دج · الدفع عند الاستلام.">
+<meta property="og:image" content="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=1200&q=80&auto=format&fit=crop">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://images.unsplash.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/styles.css">
+
+<!-- نحطّو الثيم قبل ما ترسم الصفحة باش ما يبانش وميض -->
+<script>
+(function(){
+  try{
+    var s = localStorage.getItem('qiti-theme');
+    document.documentElement.dataset.theme =
+      s || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }catch(e){}
+})();
+</script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">اقفز للمحتوى</a>
+
+<!-- ─────────────────────────── ICON SPRITE ─────────────────────────── -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+<defs>
+  <g id="i-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></g>
+  <g id="i-zap"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></g>
+  <g id="i-drop"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-.94 2.84-2.08 3.77S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></g>
+  <g id="i-phone"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></g>
+  <g id="i-globe"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></g>
+  <g id="i-heart"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></g>
+  <g id="i-shield"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></g>
+  <g id="i-feather"><path d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/></g>
+  <g id="i-radio"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></g>
+  <g id="i-check"><path d="M20 6 9 17l-5-5"/></g>
+  <g id="i-chevron"><path d="m6 9 6 6 6-6"/></g>
+  <g id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></g>
+  <g id="i-x"><path d="M18 6 6 18M6 6l12 12"/></g>
+  <g id="i-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></g>
+  <g id="i-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></g>
+  <g id="i-arrow-rtl"><path d="M19 12H5m7-7-7 7 7 7"/></g>
+  <g id="i-play"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></g>
+  <g id="i-box"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="m7.5 4.27 9 5.15"/></g>
+  <g id="i-undo"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></g>
+  <g id="i-link"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></g>
+  <g id="i-cash"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></g>
+  <g id="i-truck"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></g>
+  <g id="i-store"><path d="m2 7 1.5-4h17L22 7"/><path d="M2 7h20v3a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8"/></g>
+  <g id="i-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>
+  <g id="i-call"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></g>
+  <g id="i-bubble"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></g>
+  <g id="i-send"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></g>
+</defs>
+</svg>
+
+<!-- ─────────────────────────── HEADER ─────────────────────────── -->
+<header class="nav" id="nav">
+  <div class="container nav__inner">
+    <a href="#" class="logo" aria-label="Qiti">
+      <span class="logo__mark"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+      <span class="logo__text">Qiti</span>
+    </a>
+
+    <nav class="nav__links" aria-label="القائمة الرئيسية">
+      <a href="#features">المميزات</a>
+      <a href="#how">كيفاش يخدم</a>
+      <a href="#product">المنتج</a>
+      <a href="#reviews">آراء الزبائن</a>
+      <a href="#faq">أسئلة</a>
+    </nav>
+
+    <div class="nav__actions">
+      <button class="icon-btn" id="themeToggle" aria-label="بدّل الوضع الليلي">
+        <svg class="ico ico--sun" viewBox="0 0 24 24"><use href="#i-sun"/></svg>
+        <svg class="ico ico--moon" viewBox="0 0 24 24"><use href="#i-moon"/></svg>
+      </button>
+      <a href="#order" class="btn btn--primary btn--sm nav__cta">أطلب دروك</a>
+      <button class="icon-btn nav__burger" id="burger" aria-label="حلّ القائمة" aria-expanded="false" aria-controls="mobileMenu">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-menu"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="mobile-menu" id="mobileMenu" hidden>
+    <a href="#features">المميزات</a>
+    <a href="#how">كيفاش يخدم</a>
+    <a href="#product">المنتج</a>
+    <a href="#reviews">آراء الزبائن</a>
+    <a href="#faq">أسئلة</a>
+    <a href="#order" class="btn btn--primary">أطلب دروك</a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ─────────────────────────── HERO ─────────────────────────── -->
+<section class="hero">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="container hero__grid">
+
+    <div class="hero__copy">
+      <div class="rating-pill reveal">
+        <span class="stars stars--solid" role="img" aria-label="تقييم 4.9 من 5">★★★★★</span>
+        <span><strong>4.9</strong> · أكثر من 200 زبون راضي</span>
+      </div>
+
+      <h1 class="hero__title reveal" style="--d:60ms">
+        عمرك ما تضيّع<br><em>قطّك</em> مرّة أخرى
+      </h1>
+
+      <p class="hero__sub reveal" style="--d:120ms">
+        شوف وين راهي قطّتك مباشرة من تيليفونك، في أي وقت وفي أي بلاصة —
+        بطوق خفيف حتى هي ما تحسّش بيه.
+      </p>
+
+      <div class="hero__price reveal" style="--d:150ms">
+        <span class="hero__price-amount">3900 <small>دج</small></span>
+        <span class="hero__price-note">الدفع عند الاستلام · التوصيل لـ 58 ولاية</span>
+      </div>
+
+      <div class="hero__cta reveal" style="--d:180ms">
+        <a href="#order" class="btn btn--primary btn--lg">
+          أطلب دروك <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
+        </a>
+        <a href="#how" class="btn btn--ghost btn--lg">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-play"/></svg> كيفاش يخدم
+        </a>
+      </div>
+
+      <ul class="hero__assurances reveal" style="--d:240ms">
+        <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg> تخلّص كي يوصلك</li>
+        <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg> ترجعو في 30 يوم</li>
+        <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg> ضمان سنتين</li>
+      </ul>
+    </div>
+
+    <div class="hero__media reveal" style="--d:100ms">
+      <div class="hero__photo">
+        <img
+          src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=1100&q=80&auto=format&fit=crop"
+          alt="قطّة لابسة طوق فيه جهاز تتبّع دائري وهي تمشي برّا"
+          width="1100" height="1300" fetchpriority="high" decoding="async">
+      </div>
+
+      <div class="float-card float-card--track" data-float>
+        <div class="track__head">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>البلاصة مباشرة</span>
+        </div>
+        <div class="track__map" aria-hidden="true">
+          <svg viewBox="0 0 200 110" preserveAspectRatio="none">
+            <path d="M0 70 Q40 55 78 66 T200 44" class="road"/>
+            <path d="M-5 20 Q60 34 120 18 T205 30" class="road road--thin"/>
+            <path d="M30 110 Q44 60 26 0" class="road road--thin"/>
+            <path d="M140 110 Q150 60 138 0" class="road road--thin"/>
+          </svg>
+          <span class="track__pin"><span></span></span>
+        </div>
+        <p class="track__label">حديقة الحيّ · <strong>على بعد 120 م</strong></p>
+      </div>
+
+      <div class="float-card float-card--batt" data-float style="--delay:-2.5s">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-zap"/></svg>
+        <div>
+          <strong>باقي 10 شهور</strong>
+          <span>البطارية 87%</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────────────────────────── TRUST ─────────────────────────── -->
+<section class="trust">
+  <div class="container">
+    <div class="trust__head reveal">
+      <span class="stars stars--solid stars--lg" role="img" aria-label="5 من 5">★★★★★</span>
+      <p>بعنا أكثر من 200 طوق، والزبائن راهم راضيين.</p>
+    </div>
+    <ul class="badges reveal" style="--d:80ms">
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-radio"/></svg> تتبّع GPS</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-drop"/></svg> ما يخافش من الماء</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-zap"/></svg> بطارية تدوم</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-feather"/></svg> خفيف بزاف</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg> آمن على القطّة</li>
+    </ul>
+
+    <div class="stats reveal" style="--d:140ms">
+      <div class="stat"><b data-count="200" data-suffix="+">0</b><span>قط محمي</span></div>
+      <div class="stat"><b data-count="98" data-suffix="%">0</b><span>يلقاوهم في أقل من ساعة</span></div>
+      <div class="stat"><b data-count="365" data-suffix=" يوم">0</b><span>تدوم البطارية</span></div>
+      <div class="stat"><b data-count="58" data-suffix=" ولاية">0</b><span>نوصّلو لكل الوطن</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FEATURES ─────────────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <header class="section__head reveal">
+      <span class="eyebrow">المميزات</span>
+      <h2 class="section__title">كلش اللي تحتاجو قطّتك.<br><em>وحتى حاجة ما تحسّ بيها.</em></h2>
+      <p class="section__sub">صغير، خفيف، ويخدم في كل بلاصة — بلا ما تبدّل روتين قطّتك.</p>
+    </header>
+
+    <div class="cards">
+      <article class="card reveal">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-radio"/></svg></span>
+        <h3>تتبّع مباشر GPS</h3>
+        <p>شوف بلاصة قطّتك في الوقت الحقيقي، تتحدّث كل ثواني، بدقّة توصل لـ 3 أمتار.</p>
+      </article>
+      <article class="card reveal" style="--d:60ms">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-zap"/></svg></span>
+        <h3>بطارية تدوم عام</h3>
+        <p>حتى لسنة كاملة بشحنة وحدة. وتشحنو كامل في 40 دقيقة برك على القاعدة المغناطيسية.</p>
+      </article>
+      <article class="card reveal" style="--d:120ms">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-drop"/></svg></span>
+        <h3>ما يخافش من الماء</h3>
+        <p>معيار IP68. الشتا، الماء، العشب الرطب، ولا حتى الحمّام — كلش عادي.</p>
+      </article>
+      <article class="card reveal" style="--d:180ms">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-phone"/></svg></span>
+        <h3>تطبيق في التيليفون</h3>
+        <p>تطبيق بسيط لـ iOS و Android. خريطة مباشرة، تاريخ التنقّل، وتنبيهات فورية.</p>
+      </article>
+      <article class="card reveal" style="--d:240ms">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-globe"/></svg></span>
+        <h3>يخدم في كل بلاصة</h3>
+        <p>يخدم في أكثر من 150 دولة. سافر ولا بدّل الدار، التغطية تتبعك وين ما رحت.</p>
+      </article>
+      <article class="card reveal" style="--d:300ms">
+        <span class="card__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg></span>
+        <h3>مريح للقطّة</h3>
+        <p>24 غرام برك، على طوق ناعم ينحلّ وحدو إذا تعلّق في حتى حاجة.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── HOW IT WORKS ─────────────────────────── -->
+<section class="section section--cream" id="how">
+  <div class="container">
+    <header class="section__head reveal">
+      <span class="eyebrow">كيفاش يخدم</span>
+      <h2 class="section__title">تركّبو في <em>أقل من 3 دقايق</em>.</h2>
+      <p class="section__sub">بلا أدوات، بلا تعقيد، وبلا كتاب تعليمات أكبر من القطّة.</p>
+    </header>
+
+    <ol class="steps">
+      <li class="step reveal">
+        <span class="step__num">1</span>
+        <span class="step__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-box"/></svg></span>
+        <h3>ركّب Qiti في الطوق</h3>
+        <p>دخّل الجهاز في الطوق اللي يجي معاه واغلقو. هذا هو الجزء الصعب، وصافي.</p>
+      </li>
+      <li class="step reveal" style="--d:100ms">
+        <span class="step__num">2</span>
+        <span class="step__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg></span>
+        <h3>اربطو بالتطبيق</h3>
+        <p>حلّ تطبيق Qiti، اسكاني الكود اللي على العلبة، ويتربط وحدو في ثواني.</p>
+      </li>
+      <li class="step reveal" style="--d:200ms">
+        <span class="step__num">3</span>
+        <span class="step__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+        <h3>تبّع قطّتك مباشرة</h3>
+        <p>شوفها تتحرّك على الخريطة، ويوصلك تنبيه ساعة ما تخرج من المنطقة الآمنة.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ─────────────────────────── LIFESTYLE ─────────────────────────── -->
+<section class="lifestyle">
+  <img class="lifestyle__bg"
+    src="https://images.unsplash.com/photo-1560114928-40f1f1eb26a0?w=1800&q=80&auto=format&fit=crop"
+    alt="قطّة تمشي وحدها في العشب" loading="lazy" decoding="async">
+  <div class="lifestyle__scrim" aria-hidden="true"></div>
+  <div class="container">
+    <div class="lifestyle__inner">
+      <h2 class="lifestyle__title reveal">على خاطرها <em>من العائلة</em>.</h2>
+      <p class="reveal" style="--d:100ms">
+        تستنّاك عند الباب. تختار حجرك على كل بلاصة في الدار.
+        تغيب ستّ سوايع وترجع كي ما صرا والو.
+      </p>
+      <p class="reveal" style="--d:160ms">
+        Qiti ما يمنعهاش من التجوال — هذي هي طبيعتها.
+        غير يخلّيك ما تبقاش تعيّط عليها في الليل وما تجاوبكش.
+      </p>
+      <a href="#order" class="btn btn--light btn--lg reveal" style="--d:220ms">
+        احمي قطّتك <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── PRODUCT GALLERY ─────────────────────────── -->
+<section class="section" id="product">
+  <div class="container">
+    <header class="section__head reveal">
+      <span class="eyebrow">المنتج</span>
+      <h2 class="section__title">صغير باش تنساه.<br><em>ذكي باش يفرق معاك.</em></h2>
+    </header>
+
+    <div class="gallery">
+      <!-- main viewer -->
+      <div class="gallery__main reveal">
+        <div class="gallery__stage" id="galleryStage">
+          <img id="galleryImg"
+            src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=1100&q=80&auto=format&fit=crop"
+            alt="قطّة لابسة طوق Qiti وهي تمشي برّا" decoding="async">
+        </div>
+        <div class="gallery__thumbs" role="tablist" aria-label="صور المنتج">
+          <button class="thumb is-active" role="tab" aria-selected="true"
+            data-src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=1100&q=80&auto=format&fit=crop"
+            data-alt="قطّة لابسة طوق Qiti وهي تمشي برّا">
+            <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+          <button class="thumb" role="tab" aria-selected="false"
+            data-src="https://images.unsplash.com/photo-1683047482345-360f43d3fcf0?w=1100&q=80&auto=format&fit=crop"
+            data-alt="صورة قريبة للطوق على رقبة القطّة">
+            <img src="https://images.unsplash.com/photo-1683047482345-360f43d3fcf0?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+          <button class="thumb" role="tab" aria-selected="false"
+            data-src="https://images.unsplash.com/photo-1595232170847-da4cab9e63ce?w=1100&q=80&auto=format&fit=crop"
+            data-alt="قط لابس الطوق مع الجهاز الدائري">
+            <img src="https://images.unsplash.com/photo-1595232170847-da4cab9e63ce?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+          <button class="thumb" role="tab" aria-selected="false"
+            data-src="https://images.unsplash.com/photo-1785023713148-2f5df1a017cb?w=1100&q=80&auto=format&fit=crop"
+            data-alt="القطّة لابسة الطوق برّا في الحوش">
+            <img src="https://images.unsplash.com/photo-1785023713148-2f5df1a017cb?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+          <button class="thumb" role="tab" aria-selected="false"
+            data-src="https://images.unsplash.com/photo-1710343512729-819eeb456843?w=1100&q=80&auto=format&fit=crop"
+            data-alt="قط برتقالي لابس الطوق">
+            <img src="https://images.unsplash.com/photo-1710343512729-819eeb456843?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+          <button class="thumb" role="tab" aria-selected="false"
+            data-src="https://images.unsplash.com/photo-1596822316110-288c7b8f24f8?w=1100&q=80&auto=format&fit=crop"
+            data-alt="قطّة لابسة الطوق وهي قاعدة">
+            <img src="https://images.unsplash.com/photo-1596822316110-288c7b8f24f8?w=220&h=220&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          </button>
+        </div>
+      </div>
+
+      <!-- device render + specs -->
+      <aside class="gallery__side">
+        <div class="showcase__stage reveal">
+          <div class="stage__rings" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="device" data-float>
+            <svg viewBox="0 0 260 260" role="img" aria-label="جهاز التتبّع Qiti">
+              <defs>
+                <linearGradient id="gBody" x1="0" y1="0" x2="0.3" y2="1">
+                  <stop offset="0" stop-color="#FF9257"/><stop offset=".55" stop-color="#FF6B2C"/><stop offset="1" stop-color="#DC4A0C"/>
+                </linearGradient>
+                <linearGradient id="gGloss" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                </linearGradient>
+                <linearGradient id="gStrap" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#3A322C"/><stop offset="1" stop-color="#221D19"/>
+                </linearGradient>
+              </defs>
+              <rect x="8" y="104" width="244" height="52" rx="14" fill="url(#gStrap)"/>
+              <g opacity=".28" fill="#fff">
+                <rect x="26" y="124" width="16" height="12" rx="3"/><rect x="58" y="124" width="16" height="12" rx="3"/>
+                <rect x="186" y="124" width="16" height="12" rx="3"/><rect x="218" y="124" width="16" height="12" rx="3"/>
+              </g>
+              <rect x="66" y="66" width="128" height="128" rx="42" fill="url(#gBody)"/>
+              <rect x="66" y="66" width="128" height="128" rx="42" fill="url(#gGloss)"/>
+              <rect x="66.75" y="66.75" width="126.5" height="126.5" rx="41.25" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+              <circle cx="130" cy="118" r="21" fill="#fff" fill-opacity=".16"/>
+              <g fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M130 108v20"/><path d="M120 118h20"/></g>
+              <circle cx="130" cy="118" r="5.5" fill="#fff"/>
+              <text x="130" y="164" text-anchor="middle" font-family="Tajawal,sans-serif" font-size="18" font-weight="700" fill="#fff" fill-opacity=".92" letter-spacing="1.5">qiti</text>
+              <circle class="device__led" cx="130" cy="82" r="4"/>
+            </svg>
+          </div>
+        </div>
+
+        <ul class="specs reveal" style="--d:80ms">
+          <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-feather"/></svg><span><b>24 غرام</b> أخفّ من بطارية صغيرة</span></li>
+          <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-drop"/></svg><span><b>IP68</b> غلاف مقاوم للماء</span></li>
+          <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-radio"/></svg><span><b>3 أمتار</b> دقّة التتبّع</span></li>
+          <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-zap"/></svg><span><b>سنة كاملة</b> عمر البطارية</span></li>
+        </ul>
+
+        <div class="price-box reveal" style="--d:140ms">
+          <div>
+            <span class="price-box__amount">3900 <small>دج</small></span>
+            <span class="price-box__note">الدفع عند الاستلام</span>
+          </div>
+          <a href="#order" class="btn btn--primary">أطلب دروك</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── التعليقات (Reviews) ─────────────────────────── -->
+<section class="section section--gray" id="reviews">
+  <div class="container container--narrow">
+    <header class="section__head reveal">
+      <span class="eyebrow">آراء الزبائن</span>
+      <h2 class="section__title">واش يقولو الناس <em>عليه</em>.</h2>
+    </header>
+
+    <div class="social-post reveal">
+      <div class="social-post__head">
+        <span class="social-post__avatar"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+        <div class="social-post__who">
+          <b>qiti.dz</b>
+          <small>منشور مموّل</small>
+        </div>
+      </div>
+
+      <div class="social-post__photo">
+        <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=900&q=75&auto=format&fit=crop" alt="قطّة لابسة طوق Qiti">
+      </div>
+
+      <div class="social-post__actions">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-bubble"/></svg>
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-send"/></svg>
+      </div>
+
+      <p class="social-post__likes"><b>2,347</b> إعجاب</p>
+      <p class="social-post__caption"><b>qiti.dz</b> راهم يهربو؟ ماعادش. 🐾📍 #Qiti #طوق_ذكي</p>
+      <p class="social-post__viewall">عرض كل الـ 214 تعليق</p>
+
+      <ul class="comments">
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1662850886700-4ec19bd30d11?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>meriem.dz</b> ماشاء الله يخدم مزيان 🔥 قطتي ما تهربش كيما قبل</p>
+            <div class="comment__meta"><span>يومين</span><span>34 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>amine_brahimi</b> رانا نستنّى نشريه، شكون جرّبو من وهران؟</p>
+            <div class="comment__meta"><span>3 أيام</span><span>12 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+
+        <li class="comment comment--reply">
+          <span class="comment__pic comment__pic--brand"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+          <div class="comment__body">
+            <p><b>qiti.dz</b> @amine_brahimi إيه أخويا، نوصّلو لـ 58 ولاية كاملة 🚚</p>
+            <div class="comment__meta"><span>يوم</span><span>8 إعجاب</span><span>ردّ</span></div>
+          </div>
+        </li>
+
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1544507888-56d73eb6046e?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>sarah.k</b> التوصيل جا في يومين، سريع بزاف 👏</p>
+            <div class="comment__meta"><span>4 أيام</span><span>21 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>yacine02</b> بصح البطارية تدوم كيما قالو ولا مبالغة؟ 🤔</p>
+            <div class="comment__meta"><span>5 أيام</span><span>6 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1594756154841-ac5d160dbf46?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>nour_bnt</b> قطتي هربت الشهر الي فات ولقيتها بفضل هذا 😭❤️</p>
+            <div class="comment__meta"><span>أسبوع</span><span>58 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+
+        <li class="comment">
+          <img class="comment__pic" src="https://images.unsplash.com/photo-1592234789031-94bf65f630ed?w=100&h=100&q=70&auto=format&fit=crop" alt="" loading="lazy">
+          <div class="comment__body">
+            <p><b>karim.hd</b> غالي شوي بصح يستاهل، دروك ماكانش نخاف عليها</p>
+            <div class="comment__meta"><span>أسبوع</span><span>19 إعجاب</span><span>ردّ</span></div>
+          </div>
+          <svg class="comment__heart ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        </li>
+      </ul>
+
+      <div class="social-post__add">
+        <input type="text" placeholder="زيد تعليق..." aria-label="زيد تعليق" disabled>
+        <button type="button" disabled>نشر</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── ORDER FORM ─────────────────────────── -->
+<section class="order" id="order">
+  <div class="container">
+    <header class="section__head reveal">
+      <span class="eyebrow">اطلب دروك</span>
+      <h2 class="section__title">عمّر المعلومات و<em>نتصلو بيك</em>.</h2>
+      <p class="section__sub">ما تخلّصش حتى يوصلك الطوق لباب الدار. التوصيل لـ 58 ولاية.</p>
+    </header>
+
+    <div class="order__card reveal">
+      <form class="order__form" id="orderForm" novalidate>
+
+        <div class="order__product">
+          <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=300&h=300&q=75&auto=format&fit=crop" alt="طوق Qiti الذكي" loading="lazy">
+          <div>
+            <h3>طوق Qiti الذكي بـ GPS</h3>
+            <p>يجي معاه: الجهاز + الطوق + قاعدة الشحن + كابل</p>
+            <span class="order__product-price">3900 دج</span>
+          </div>
+        </div>
+
+        <div class="fields">
+          <div class="field field--full">
+            <label for="fName">الاسم الكامل <span aria-hidden="true">*</span></label>
+            <div class="input-wrap">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-user"/></svg>
+              <input id="fName" name="name" type="text" required autocomplete="name" placeholder="مثال: محمد بن علي">
+            </div>
+            <p class="err" data-err-for="fName"></p>
+          </div>
+
+          <div class="field field--full">
+            <label for="fPhone">رقم الهاتف <span aria-hidden="true">*</span></label>
+            <div class="input-wrap">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-call"/></svg>
+              <input id="fPhone" name="phone" type="tel" required inputmode="numeric"
+                     autocomplete="tel" placeholder="0X XX XX XX XX" dir="ltr">
+            </div>
+            <p class="err" data-err-for="fPhone"></p>
+          </div>
+
+          <div class="field">
+            <label for="fWilaya">الولاية <span aria-hidden="true">*</span></label>
+            <select id="fWilaya" name="wilaya" required>
+              <option value="">اختر الولاية</option>
+            </select>
+            <p class="err" data-err-for="fWilaya"></p>
+          </div>
+
+          <div class="field">
+            <label for="fCommune">البلدية <span aria-hidden="true">*</span></label>
+            <input id="fCommune" name="commune" type="text" required placeholder="اكتب اسم البلدية">
+            <p class="err" data-err-for="fCommune"></p>
+          </div>
+
+          <div class="field field--full">
+            <span class="label">نوع التوصيل</span>
+            <div class="ship-opts">
+              <label class="ship">
+                <input type="radio" name="shipping" value="home" checked>
+                <span class="ship__box">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-truck"/></svg>
+                  <span class="ship__txt"><b>للدار</b><small>يوصلك لباب الدار</small></span>
+                  <span class="ship__price" data-price="home">—</span>
+                </span>
+              </label>
+              <label class="ship">
+                <input type="radio" name="shipping" value="desk">
+                <span class="ship__box">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-store"/></svg>
+                  <span class="ship__txt"><b>لمكتب التوصيل</b><small>تروح تجيبو وحدك — أرخص</small></span>
+                  <span class="ship__price" data-price="desk">—</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field field--full">
+            <span class="label">الكمية</span>
+            <div class="qty">
+              <button type="button" class="qty__btn" data-qty="-1" aria-label="نقّص">−</button>
+              <input id="fQty" class="qty__val" name="qty" type="number" value="1" min="1" max="10" inputmode="numeric" readonly>
+              <button type="button" class="qty__btn" data-qty="1" aria-label="زيد">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary" aria-live="polite">
+          <div class="summary__row"><span>المنتج <em id="sumQty">×1</em></span><b id="sumProduct">3900 دج</b></div>
+          <div class="summary__row"><span>التوصيل</span><b id="sumShip">—</b></div>
+          <div class="summary__row summary__row--total"><span>المجموع</span><b id="sumTotal">3900 دج</b></div>
+          <p class="summary__cod">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-cash"/></svg>
+            تخلّص كاش كي يوصلك الطلب
+          </p>
+          <button type="submit" class="btn btn--primary btn--xl" id="submitBtn">
+            أكّد الطلب <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
+          </button>
+          <p class="summary__note">نتصلو بيك في أقرب وقت باش نأكّدو الطلب.</p>
+        </div>
+      </form>
+
+      <div class="order__done" id="orderDone" hidden>
+        <span class="order__done-ico"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
+        <h3>تسجّل الطلب!</h3>
+        <p id="orderDoneMsg"></p>
+        <button type="button" class="btn btn--ghost" id="orderAgain">اطلب مرّة أخرى</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FAQ ─────────────────────────── -->
+<section class="section" id="faq">
+  <div class="container container--narrow">
+    <header class="section__head reveal">
+      <span class="eyebrow">أسئلة</span>
+      <h2 class="section__title">أسئلة يسقسيو عليها بزاف.</h2>
+    </header>
+
+    <div class="faq reveal">
+      <details class="faq__item">
+        <summary>واش يتحمّل الماء؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>إيه. Qiti عندو معيار IP68، يعني يتحمّل الشتا القوية، العشب الرطب، الماء، وحتى إذا طاح في الماء لعمق متر ونصف لمدة 30 دقيقة. قطّتك تدير اللي راهي تدير وما تخافش.</p></div>
+      </details>
+      <details class="faq__item">
+        <summary>شحال تدوم البطارية؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>حتى لسنة كاملة في وضعية التوفير (العادية). إذا فعّلت التتبّع المباشر على طول (البلاصة تتحدّث كل ثواني) البطارية تدوم تقريباً 30 ساعة، وترجع توفّر وحدها كي توقف تتبّع. الشحن الكامل يدّي 40 دقيقة برك.</p></div>
+      </details>
+      <details class="faq__item">
+        <summary>شحال دقّة الـ GPS؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>تقريباً 3 أمتار برّا في السماء الصافية. داخل الديار ولا تحت الشجر يقلب على شبكة الواي فاي والهاتف، الدقّة تولّي بين 15 و30 متر — ومازال تكفيك باش تعرف في أنهي حوش راهي.</p></div>
+      </details>
+      <details class="faq__item">
+        <summary>واش يخدم في كل الولايات؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>إيه، يخدم في كامل التراب الوطني ونوصّلو لـ 58 ولاية. الجهاز يجي بشريحة eSIM مدمجة تخدم في أكثر من 150 دولة، فإذا سافرت تتبعك التغطية.</p></div>
+      </details>
+      <details class="faq__item">
+        <summary>واش مريح للقطّة؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>الجهاز وزنو 24 غرام برك وجاي على طوق ناعم قابل للتعديل. الطوق ينحلّ وحدو إذا تعلّق في شجرة ولا حاجز — ما يخنقهاش. أغلب القطط تنسى بلي لابساه في يومين.</p></div>
+      </details>
+      <details class="faq__item">
+        <summary>نقدر نتبّع أكثر من قطّة؟<svg class="ico" viewBox="0 0 24 24"><use href="#i-chevron"/></svg></summary>
+        <div class="faq__body"><p>إيه. تقدر تزيد قداش ما حبّيت من الأجهزة في حساب واحد وتشوفهم كامل في نفس الخريطة، كل واحد بسميتو، صورتو، ومناطقو الآمنة. وإذا طلبت أكثر من واحد كاين تخفيض.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FINAL CTA ─────────────────────────── -->
+<section class="cta">
+  <div class="container cta__inner">
+    <h2 class="cta__title reveal">خلّي قطّتك تتجوّل<br><em>وانت مرتاح</em>.</h2>
+    <p class="reveal" style="--d:80ms">3900 دج · تخلّص كي يوصلك · ترجعو في 30 يوم · ضمان سنتين.</p>
+    <a href="#order" class="btn btn--dark btn--xl reveal" style="--d:140ms">
+      أطلب Qiti دروك <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
+    </a>
+    <ul class="cta__assurances reveal" style="--d:200ms">
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-box"/></svg> نرسلو في 24 ساعة</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-undo"/></svg> ترجعو في 30 يوم</li>
+      <li><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg> ضمان سنتين</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<!-- ─────────────────────────── FOOTER ─────────────────────────── -->
+<footer class="footer">
+  <div class="container footer__grid">
+    <div class="footer__brand">
+      <a href="#" class="logo">
+        <span class="logo__mark"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>
+        <span class="logo__text">Qiti</span>
+      </a>
+      <p>الطوق الذكي اللي يخلّي القطّة حرّة وصاحبها مرتاح.</p>
+      <div class="social">
+        <a href="#" aria-label="Instagram"><svg class="ico" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg></a>
+        <a href="#" aria-label="Facebook"><svg class="ico" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+        <a href="#" aria-label="TikTok"><svg class="ico" viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg></a>
+        <a href="#" aria-label="YouTube"><svg class="ico" viewBox="0 0 24 24"><path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49 49 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49 49 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg></a>
+      </div>
+    </div>
+
+    <nav class="footer__col" aria-label="الشركة">
+      <h4>الشركة</h4>
+      <a href="#">علينا</a>
+      <a href="#">اتصل بنا</a>
+      <a href="#reviews">آراء الزبائن</a>
+    </nav>
+    <nav class="footer__col" aria-label="المساعدة">
+      <h4>المساعدة</h4>
+      <a href="#">التوصيل</a>
+      <a href="#">الإرجاع</a>
+      <a href="#faq">أسئلة</a>
+    </nav>
+    <nav class="footer__col" aria-label="قانوني">
+      <h4>قانوني</h4>
+      <a href="#">سياسة الخصوصية</a>
+      <a href="#">الشروط</a>
+      <a href="#">الكوكيز</a>
+    </nav>
+  </div>
+
+  <div class="container footer__bottom">
+    <p>© <span id="year">2026</span> Qiti. كل الحقوق محفوظة.</p>
+    <p>مصنوع للقطط اللي تحبّ التجوال.</p>
+  </div>
+</footer>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>
