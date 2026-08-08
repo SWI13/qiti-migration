@@ -10,7 +10,7 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>.netlify.app/.netlify/functions/daily-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate } from '../lib/store.mjs';
+import { listOrdersForDay, algiersDate, listAwaitingDelivery, getStock } from '../lib/store.mjs';
 import { dz, esc } from '../lib/message.mjs';
 
 export const config = { schedule: '0 23 * * *' };
@@ -35,42 +35,69 @@ async function sendTelegram(text) {
   }
 }
 
-export function buildReport(day, orders) {
-  const accepted = orders.filter((o) => o.status === 'accepted');
-  const denied = orders.filter((o) => o.status === 'denied');
-  const pending = orders.filter((o) => o.status === 'pending');
-
-  const revenue = accepted.reduce((sum, o) => sum + (o.total ?? 0), 0);
-  const units = accepted.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-
-  const lines = [
-    `<b>📊 تقرير ${day}</b>`,
-    '',
-    `📥 الطلبات: <b>${orders.length}</b>`,
-    `✅ مقبولة: <b>${accepted.length}</b>${units ? ` (${units} طوق)` : ''}`,
-    `❌ مرفوضة: <b>${denied.length}</b>`,
-  ];
-
-  if (pending.length) lines.push(`⏳ ما زال بلا قرار: <b>${pending.length}</b>`);
-
-  lines.push('', `💰 مداخيل الطلبات المقبولة: <b>${dz(revenue)}</b>`);
-
-  if (denied.length) {
-    lines.push('', '<b>أسباب الرفض:</b>');
-    for (const order of denied) {
-      lines.push(`• ${esc(order.name)} — ${esc(order.reason || 'بلا سبب')}`);
-    }
-  }
-
-  if (pending.length) {
-    lines.push('', '<b>طلبات تستنّى قرار:</b>');
-    for (const order of pending) {
-      lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)}`);
-    }
-  }
+/*
+ * "مقبول" ماشي فلوس حقيقية — الطلبية تقدر ترجع مع المُوصّل. الفلوس
+ * الحقيقية هي غير الطلبات اللي "توصّلت" فعلاً (deliveryStatus === 'delivered').
+ * علاش المداخيل تتحسب من `delivered` وماشي من `accepted`.
+ */
+export function buildReport(day, orders, awaiting = [], stock = null) {
+  const lines = [`<b>📊 تقرير ${day}</b>`, ''];
 
   if (!orders.length) {
-    return [`<b>📊 تقرير ${day}</b>`, '', 'ما كان حتى طلب اليوم.'].join('\n');
+    lines.push('ما كان حتى طلب اليوم.');
+  } else {
+    const accepted = orders.filter((o) => o.status === 'accepted');
+    const denied = orders.filter((o) => o.status === 'denied');
+    const pending = orders.filter((o) => o.status === 'pending');
+    const delivered = accepted.filter((o) => o.deliveryStatus === 'delivered');
+    const returnedOrders = accepted.filter((o) => o.deliveryStatus === 'returned');
+    const stillShipping = accepted.filter((o) => !o.deliveryStatus);
+
+    const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const units = delivered.reduce((sum, o) => sum + (o.qty ?? 0), 0);
+
+    lines.push(
+      `📥 الطلبات: <b>${orders.length}</b>`,
+      `✅ مقبولة: <b>${accepted.length}</b>`,
+      `❌ مرفوضة: <b>${denied.length}</b>`,
+    );
+    if (pending.length) lines.push(`⏳ ما زال بلا قرار: <b>${pending.length}</b>`);
+
+    lines.push(
+      '',
+      `📦 توصّلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
+      `↩️ رجعت: <b>${returnedOrders.length}</b>`,
+    );
+    if (stillShipping.length) lines.push(`🚚 في الطريق (بلا نتيجة بعد): <b>${stillShipping.length}</b>`);
+
+    lines.push('', `💰 مداخيل فعلية (طلبات توصّلت): <b>${dz(revenue)}</b>`);
+
+    if (denied.length) {
+      lines.push('', '<b>أسباب الرفض:</b>');
+      for (const order of denied) {
+        lines.push(`• ${esc(order.name)} — ${esc(order.reason || 'بلا سبب')}`);
+      }
+    }
+
+    if (pending.length) {
+      lines.push('', '<b>طلبات تستنّى قرار:</b>');
+      for (const order of pending) {
+        lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)}`);
+      }
+    }
+  }
+
+  /* عبر كل الأيام — طلبات مقبولة ما وصلاتش لنتيجة توصيل بعد، حتى لو قديمة */
+  if (awaiting.length) {
+    lines.push('', `<b>⏳ كل الطلبات المعلّقة عند التوصيل (${awaiting.length}):</b>`);
+    for (const order of awaiting) {
+      lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} — ${esc(order.day ?? '')}`);
+    }
+  }
+
+  if (stock) {
+    const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
+    lines.push('', `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
   }
 
   return lines.join('\n');
@@ -93,7 +120,8 @@ export default async function handler(request) {
 
   try {
     const orders = await listOrdersForDay(dayJustEnded);
-    const report = buildReport(dayJustEnded, orders);
+    const [awaiting, stock] = await Promise.all([listAwaitingDelivery(), getStock()]);
+    const report = buildReport(dayJustEnded, orders, awaiting, stock);
     await sendTelegram(report);
     console.log(`Daily report sent for ${dayJustEnded}: ${orders.length} orders`);
     return new Response(JSON.stringify({ ok: true, day: dayJustEnded, orders: orders.length }), {

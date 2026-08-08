@@ -42,6 +42,12 @@ export function ownerMessage(record) {
 
   if (record.status === 'accepted') {
     lines.push('', `✅ <b>مقبول</b> — ${esc(record.actor ?? '')} · ${dzTime(new Date(record.decidedAt ?? Date.now()))}`);
+
+    if (record.deliveryStatus === 'delivered') {
+      lines.push('', `📦 <b>توصّل</b> — ${esc(record.deliveryActor ?? '')} · ${dzTime(new Date(record.deliveryDecidedAt ?? Date.now()))}`);
+    } else if (record.deliveryStatus === 'returned') {
+      lines.push('', `↩️ <b>رجعت الطلبية</b> — ${esc(record.deliveryActor ?? '')} · ${dzTime(new Date(record.deliveryDecidedAt ?? Date.now()))}`);
+    }
   } else if (record.status === 'denied') {
     lines.push('', `❌ <b>مرفوض</b> — ${esc(record.actor ?? '')} · ${dzTime(new Date(record.decidedAt ?? Date.now()))}`);
     if (record.reason) lines.push(`💬 ${esc(record.reason)}`);
@@ -69,9 +75,32 @@ export const orderButtons = (record) => ({
   ],
 });
 
-/** بعد ما يتقرّر الطلب، أزرار القرار تتنحّى ويبقى غير زر واتساب */
+/** بعد ما يتقرّر الطلب نهائياً (رفض، ولا توصيل تقرّر)، يبقى غير زر واتساب */
 export const whatsappOnlyButtons = (record) => ({
   inline_keyboard: [
     [{ text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(record.phone).replace('+', '')}` }],
   ],
 });
+
+/**
+ * بعد القبول، وقبل ما تعرف نتيجة التوصيل: زوج أزرار جداد يبانو فوق زر
+ * واتساب. التوصيل ياخذ يومين ولا ثلاثة، فهذوما يبقاو بايّنين في الرسالة
+ * حتى تنقر عليهم — ماشي كيما أزرار القبول/الرفض اللي تولّي تختفي بسرعة.
+ */
+export const deliveryButtons = (record) => ({
+  inline_keyboard: [
+    [
+      { text: '📦 توصّل', callback_data: `del:${record.id}` },
+      { text: '↩️ رجعت', callback_data: `ret:${record.id}` },
+    ],
+    [
+      { text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(record.phone).replace('+', '')}` },
+    ],
+  ],
+});
+
+/** الأزرار الصحيحة حسب حالة الطلب — نفس المنطق يخدم عند البعث وعند الرسم مجدّداً */
+export function buttonsFor(record) {
+  if (record.status === 'accepted' && !record.deliveryStatus) return deliveryButtons(record);
+  return whatsappOnlyButtons(record);
+}
