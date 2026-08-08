@@ -347,6 +347,48 @@ em {
 }
 .mobile-menu .btn { margin-top: 14px; border-bottom: 0; justify-content: center; }
 
+/*
+ * زر "اطلب الان" العائم — ثابت على الشاشة طول الوقت (position: fixed)،
+ * ما يختفيش مع السكرول ولا يخبّى وقت أي section، بخلاف زر النافبار اللي
+ * يبان غير كي الهيدر يكون بايّن.
+ */
+.floating-cta {
+  position: fixed;
+  inset-inline-end: 20px;
+  bottom: 20px;
+  z-index: 95;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 15px 26px;
+  border-radius: var(--r-full);
+  background: var(--accent); color: var(--accent-text);
+  font-weight: 700; font-size: .92rem;
+  text-decoration: none; white-space: nowrap;
+  box-shadow: var(--shadow-glow), var(--shadow-lg);
+  animation: floating-cta-in .5s var(--ease-out) .8s both;
+  transition: transform .25s var(--ease-out), background-color .2s var(--ease), box-shadow .25s var(--ease-out);
+}
+.floating-cta:hover { background: var(--accent-hover); transform: translateY(-3px); }
+.floating-cta:active { transform: translateY(0); }
+.floating-cta .ico { width: 16px; height: 16px; }
+
+@keyframes floating-cta-in {
+  from { opacity: 0; transform: translateY(18px) scale(.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating-cta { animation: none; }
+}
+
+/* موبايل: بار عريض قريب من إبهام اليد، بلاصة الزوايا الصغيرة */
+@media (max-width: 640px) {
+  .floating-cta {
+    inset-inline: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    justify-content: center;
+    padding: 16px 20px;
+  }
+}
+
 /* ── 6. HERO ───────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
