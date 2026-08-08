@@ -128,6 +128,8 @@ export default async function handler(request) {
     deliveryStatus: null,
     deliveryActor: null,
     deliveryDecidedAt: null,
+    returnReceivedAt: null,
+    returnReceivedActor: null,
   };
 
   /*

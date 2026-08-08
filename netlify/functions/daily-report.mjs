@@ -10,7 +10,7 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>.netlify.app/.netlify/functions/daily-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate, listAwaitingDelivery, getStock } from '../lib/store.mjs';
+import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock } from '../lib/store.mjs';
 import { dz, esc } from '../lib/message.mjs';
 
 export const config = { schedule: '0 23 * * *' };
@@ -40,7 +40,7 @@ async function sendTelegram(text) {
  * الحقيقية هي غير الطلبات اللي "توصّلت" فعلاً (deliveryStatus === 'delivered').
  * علاش المداخيل تتحسب من `delivered` وماشي من `accepted`.
  */
-export function buildReport(day, orders, awaiting = [], stock = null) {
+export function buildReport(day, orders, awaiting = [], awaitingReturn = [], stock = null) {
   const lines = [`<b>📊 تقرير ${day}</b>`, ''];
 
   if (!orders.length) {
@@ -51,6 +51,7 @@ export function buildReport(day, orders, awaiting = [], stock = null) {
     const pending = orders.filter((o) => o.status === 'pending');
     const delivered = accepted.filter((o) => o.deliveryStatus === 'delivered');
     const returnedOrders = accepted.filter((o) => o.deliveryStatus === 'returned');
+    const returnedNotReceived = returnedOrders.filter((o) => !o.returnReceivedAt);
     const stillShipping = accepted.filter((o) => !o.deliveryStatus);
 
     const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
@@ -66,7 +67,7 @@ export function buildReport(day, orders, awaiting = [], stock = null) {
     lines.push(
       '',
       `📦 توصّلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
-      `↩️ رجعت: <b>${returnedOrders.length}</b>`,
+      `↩️ رجعت: <b>${returnedOrders.length}</b>${returnedNotReceived.length ? ` (${returnedNotReceived.length} لسّا ما وصلاتش للمحل)` : ''}`,
     );
     if (stillShipping.length) lines.push(`🚚 في الطريق (بلا نتيجة بعد): <b>${stillShipping.length}</b>`);
 
@@ -95,9 +96,21 @@ export function buildReport(day, orders, awaiting = [], stock = null) {
     }
   }
 
+  /* رجعت مع المُوصّل بصح لسّا ما وصلاتش فيزيائياً للمحل — المخزون ما تزادش بعد */
+  const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
+  if (awaitingReturn.length) {
+    lines.push('', `<b>📥 رجعات تستنّى توصل للمحل (${awaitingReturn.length}${returnQty ? ` — ${returnQty} طوق` : ''}):</b>`);
+    for (const order of awaitingReturn) {
+      lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} — ${esc(order.day ?? '')}`);
+    }
+  }
+
   if (stock) {
     const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
     lines.push('', `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
+    if (returnQty) {
+      lines.push(`🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق — يولّي <b>${stock.qty + returnQty}</b> كي توصل كاملة`);
+    }
   }
 
   return lines.join('\n');
@@ -120,8 +133,10 @@ export default async function handler(request) {
 
   try {
     const orders = await listOrdersForDay(dayJustEnded);
-    const [awaiting, stock] = await Promise.all([listAwaitingDelivery(), getStock()]);
-    const report = buildReport(dayJustEnded, orders, awaiting, stock);
+    const [awaiting, awaitingReturn, stock] = await Promise.all([
+      listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(),
+    ]);
+    const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock);
     await sendTelegram(report);
     console.log(`Daily report sent for ${dayJustEnded}: ${orders.length} orders`);
     return new Response(JSON.stringify({ ok: true, day: dayJustEnded, orders: orders.length }), {

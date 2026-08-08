@@ -58,15 +58,37 @@ export async function listOrdersForDay(day) {
   return records.filter(Boolean);
 }
 
+/** كل الطلبات عبر كل الأيام — أساس لكل استعلام "عبر الأرشيف كامل" (/state، تقرير آخر النهار). */
+async function listAllOrders() {
+  const { blobs } = await orders().list();
+  const records = await Promise.all(blobs.map((blob) => orders().get(blob.key, { type: 'json' })));
+  return records.filter(Boolean);
+}
+
+/** طلبات لسّا بلا قرار قبول/رفض، مهما كان يوم وصولها. */
+export async function listPendingOrders() {
+  const all = await listAllOrders();
+  return all.filter((order) => order.status === 'pending');
+}
+
 /**
  * طلبات مقبولة ما زال بلا نتيجة توصيل (لا "توصّل" لا "رجعت")، مهما كان
  * يوم إنشاءهم — التوصيل يقدر يتأخّر يومين ولا ثلاثة، فما نحبّوش نضيّعوهم
  * وراء أرشيف الأيام.
  */
 export async function listAwaitingDelivery() {
-  const { blobs } = await orders().list();
-  const records = await Promise.all(blobs.map((blob) => orders().get(blob.key, { type: 'json' })));
-  return records.filter((order) => order && order.status === 'accepted' && !order.deliveryStatus);
+  const all = await listAllOrders();
+  return all.filter((order) => order.status === 'accepted' && !order.deliveryStatus);
+}
+
+/**
+ * طلبات "رجعت" مع المُوصّل بصح لسّا ما وصلاتش فيزيائياً للمحل — المخزون
+ * ما يتزادش حتى تتأكّد بـ "استلمت الرجعة"، باش المخزون المكتوب يبقى مطابق
+ * للي عندك بين يديك فعلاً.
+ */
+export async function listAwaitingReturnReceipt() {
+  const all = await listAllOrders();
+  return all.filter((order) => order.status === 'accepted' && order.deliveryStatus === 'returned' && !order.returnReceivedAt);
 }
 
 /* ── المخزون ──────────────────────────────────────────────────────── */
