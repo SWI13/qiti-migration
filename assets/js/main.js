@@ -200,8 +200,41 @@
   });
 
   /* ── فورم الطلب ────────────────────────────────────────────── */
-  var PRODUCT_PRICE = 3900;
-  var SHIPPING = { home: 600, desk: 400 };
+
+  /*
+   * التسعير يجي من السيرفر في وسم <script id="qiti-pricing"> اللي يكتبو
+   * قسم الطلب. قبل، السومة كانت مكتوبة باليد هنا **وفي** message.mjs —
+   * زوج بلايص لازم تبدّلهم مع بعض، وكي تنسى وحدة الزبون يشوف سومة
+   * والسيرفر يحسب وحدة أخرى.
+   *
+   * الصفحة القديمة (index.html) ما فيهاش هذا الوسم، فنرجعو للقيم
+   * الثابتة كي ما نلقاوهش — باش الموقع الحالي يبقى خدّام كيما هو.
+   *
+   * ⚠️ هذي القيم للعرض برك. السيرفر يعاود يحسب المجموع في order.mjs
+   * وما يثق حتى في رقم جاي من هنا.
+   */
+  var PRICING = (function () {
+    var fallback = { price: 3900, shipping: { home: 600, desk: 400 }, options: [], variants: [] };
+    var el = document.getElementById('qiti-pricing');
+    if (!el) return fallback;
+    try {
+      var parsed = JSON.parse(el.textContent);
+      return {
+        productId: parsed.productId || null,
+        price: typeof parsed.price === 'number' ? parsed.price : fallback.price,
+        shipping: parsed.shipping || fallback.shipping,
+        options: parsed.options || [],
+        variants: parsed.variants || []
+      };
+    } catch (e) {
+      return fallback;   /* JSON مهرّس ما يوقّفش الفورم */
+    }
+  })();
+
+  var PRODUCT_PRICE = PRICING.price;
+  var SHIPPING = PRICING.shipping;
+
+  /* الولايات — الصفحات الجديدة تعمّرهم في السيرفر، والقديمة هنا */
   var WILAYAS = [
     'أدرار', 'الشلف', 'الأغواط', 'أم البواقي', 'باتنة', 'بجاية', 'بسكرة', 'بشار',
     'البليدة', 'البويرة', 'تمنراست', 'تبسة', 'تلمسان', 'تيارت', 'تيزي وزو', 'الجزائر',
@@ -215,13 +248,16 @@
 
   var form = document.getElementById('orderForm');
   if (form) {
+    /* إذا السيرفر عمّرهم من قبل ما نعاودوش — وإلا يتضاعفو */
     var wilayaSelect = document.getElementById('fWilaya');
-    WILAYAS.forEach(function (name, i) {
-      var opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = (i + 1) + ' - ' + name;
-      wilayaSelect.appendChild(opt);
-    });
+    if (wilayaSelect.options.length <= 1) {
+      WILAYAS.forEach(function (name, i) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = (i + 1) + ' - ' + name;
+        wilayaSelect.appendChild(opt);
+      });
+    }
 
     var qtyInput = document.getElementById('fQty');
     var qtyButtons = document.querySelectorAll('.qty__btn');
@@ -238,13 +274,42 @@
       return checked ? checked.value : 'home';
     }
 
+    /* المقاس واللون اللي اختار — فارغ في المنتجات بلا خيارات */
+    function selectedOptions() {
+      var chosen = {};
+      form.querySelectorAll('input[data-option]:checked').forEach(function (el) {
+        chosen[el.dataset.option] = el.value;
+      });
+      return chosen;
+    }
+
+    /*
+     * الفاريانت اللي يوافق الاختيار. نقارنو بالقيم ماشي بالـ sku — نفس
+     * منطق matchVariant في catalog.mjs، باش السومة المعروضة تطابق اللي
+     * يحسبها السيرفر.
+     */
+    function currentVariant() {
+      if (!PRICING.options.length) return PRICING.variants[0] || null;
+      var chosen = selectedOptions();
+      for (var i = 0; i < PRICING.variants.length; i++) {
+        var v = PRICING.variants[i];
+        var match = PRICING.options.every(function (opt) {
+          return v.options[opt.name] === chosen[opt.name];
+        });
+        if (match) return v;
+      }
+      return null;
+    }
+
     function updateSummary() {
       var qty = Math.max(1, Math.min(10, parseInt(qtyInput.value, 10) || 1));
       qtyInput.value = qty;
 
       var shipKey = currentShipping();
       var shipCost = SHIPPING[shipKey];
-      var productCost = PRODUCT_PRICE * qty;
+      var variant = currentVariant();
+      var unitPrice = PRODUCT_PRICE + ((variant && variant.priceDelta) || 0);
+      var productCost = unitPrice * qty;
 
       sumQty.textContent = '×' + qty;
       sumProduct.textContent = dz(productCost);
@@ -265,6 +330,10 @@
       });
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
+    /* تبديل المقاس/اللون يقدر يبدّل السومة (priceDelta) */
+    form.querySelectorAll('input[data-option]').forEach(function (el) {
+      el.addEventListener('change', updateSummary);
+    });
     updateSummary();
 
     /* التحقّق من الحقول */
@@ -349,7 +418,12 @@
           shipping: currentShipping(),
           qty: qtyInput.value,
           website: document.getElementById('fWebsite').value,
-          attribution: attribution
+          attribution: attribution,
+          /* واش راه يتطلب — السيرفر يجيب السومة من عندو بهذا، ما ياخذش
+             حتى رقم من هنا */
+          productId: PRICING.productId,
+          campaignId: (form.querySelector('input[name="campaignId"]') || {}).value || null,
+          options: selectedOptions()
         })
       })
         .then(function (res) {
