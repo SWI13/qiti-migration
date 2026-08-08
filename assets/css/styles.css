@@ -348,9 +348,9 @@ em {
 .mobile-menu .btn { margin-top: 14px; border-bottom: 0; justify-content: center; }
 
 /*
- * زر "اطلب الان" العائم — ثابت على الشاشة طول الوقت (position: fixed)،
- * ما يختفيش مع السكرول ولا يخبّى وقت أي section، بخلاف زر النافبار اللي
- * يبان غير كي الهيدر يكون بايّن.
+ * زر "اطلب الان" العائم — ثابت على الشاشة (position: fixed)، بصح مخبّي
+ * غير كي تكون فوق الصفحة (`.is-visible` يزيدها JS بعد ما تنزل بالسكرول)،
+ * باش ما يبانش فوق hero اللي عندو زوج أزرار أصلاً.
  */
 .floating-cta {
   position: fixed;
@@ -364,19 +364,19 @@ em {
   font-weight: 700; font-size: .92rem;
   text-decoration: none; white-space: nowrap;
   box-shadow: var(--shadow-glow), var(--shadow-lg);
-  animation: floating-cta-in .5s var(--ease-out) .8s both;
-  transition: transform .25s var(--ease-out), background-color .2s var(--ease), box-shadow .25s var(--ease-out);
+  opacity: 0;
+  transform: translateY(18px) scale(.92);
+  pointer-events: none;
+  transition: opacity .3s var(--ease-out), transform .3s var(--ease-out),
+              background-color .2s var(--ease), box-shadow .25s var(--ease-out);
 }
+.floating-cta.is-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 .floating-cta:hover { background: var(--accent-hover); transform: translateY(-3px); }
 .floating-cta:active { transform: translateY(0); }
 .floating-cta .ico { width: 16px; height: 16px; }
 
-@keyframes floating-cta-in {
-  from { opacity: 0; transform: translateY(18px) scale(.9); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .floating-cta { animation: none; }
+  .floating-cta { transition: opacity .01ms; transform: none; }
 }
 
 /* موبايل: بار عريض قريب من إبهام اليد، بلاصة الزوايا الصغيرة */

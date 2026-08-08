@@ -26,10 +26,17 @@
     if (!stored) root.dataset.theme = e.matches ? 'dark' : 'light';
   });
 
-  /* ── ظل شريط التنقّل عند التمرير ──────────────────────────── */
+  /* ── ظل شريط التنقّل + ظهور زر "اطلب الان" العائم عند التمرير ─── */
   var nav = document.getElementById('nav');
+  var floatingCta = document.querySelector('.floating-cta');
+  var floatThreshold = window.innerHeight * 0.6;
+  window.addEventListener('resize', function () {
+    floatThreshold = window.innerHeight * 0.6;
+  }, { passive: true });
+
   var onScroll = function () {
     nav.classList.toggle('is-stuck', window.scrollY > 12);
+    if (floatingCta) floatingCta.classList.toggle('is-visible', window.scrollY > floatThreshold);
   };
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -328,20 +335,6 @@
         form.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
       });
     }
-  }
-
-  /* ── أزرار "اطلب الان": نزل للفورم وركّز على حقل الاسم مباشرة ─────
-     باش الزبون يبدا يكتب على طول بلا ما يدوّر على الحقل بعد ما ينزل. */
-  var orderCtas = document.querySelectorAll('a[href="#order"]');
-  var nameField = document.getElementById('fName');
-  if (orderCtas.length && nameField) {
-    orderCtas.forEach(function (cta) {
-      cta.addEventListener('click', function () {
-        window.setTimeout(function () {
-          nameField.focus({ preventScroll: true });
-        }, reduceMotion ? 0 : 650);
-      });
-    });
   }
 
   /* ── سنة الفوتر ────────────────────────────────────────────── */
