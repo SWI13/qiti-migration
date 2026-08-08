@@ -17,7 +17,8 @@
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
-import { ownerMessage, orderButtons, toE164Dz, totalFor } from '../lib/message.mjs';
+import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith } from '../lib/message.mjs';
+import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
@@ -121,6 +122,37 @@ export default async function handler(request) {
   const attribution = sanitizeAttribution(payload.attribution);
 
   /*
+   * واش راه يتطلب — نجيبوه من التخزين بالـ id، ماشي من الـ payload.
+   * المتصفّح يبعث `productId` برك؛ السومة والخيارات نقراوهم من عندنا.
+   *
+   * علاش هذا حرج: قبل، السيرفر كان يحسب PRODUCT_PRICE=3900 مهما كان
+   * المنتج. منتج بـ 5500 كان يتسجّل بـ 3900 — الزبون يشوف رقم في
+   * الصفحة، والمُوصّل يجبى رقم آخر.
+   *
+   * الصفحة القديمة (index.html) ما تبعثش productId، فنرجعو للطريق
+   * القديم بلاه — الموقع الحالي يبقى خدّام كيما هو.
+   */
+  const product = payload.productId
+    ? await getProduct(String(payload.productId)).catch((err) => {
+        console.error('Product lookup failed:', err.message, '| id:', payload.productId);
+        return null;
+      })
+    : null;
+
+  let variant = null;
+  if (product) {
+    variant = matchVariant(product, payload.options ?? {});
+    /*
+     * منتج بخيارات (مقاس/لون) والزبون ما اختارش وحدة صحيحة — نوقفو.
+     * أحسن ما نسجّلو طلبية ما نعرفوش واش نبعثو فيها.
+     */
+    if (!variant) return json(400, { error: 'اختر المقاس واللون قبل ما تأكّد.' });
+  }
+
+  const unitPrice = product && variant ? variantPrice(product, variant) : null;
+  const total = unitPrice !== null ? totalWith(unitPrice, order) : totalFor(order);
+
+  /*
    * تاريخ الزبون بهذا الرقم — لازم **قبل** ما نسجّلو الطلب الجديد، وإلا
    * يدخل هو نفسو في العدّ (نفس الرقم) ويفسد النتيجة.
    *
@@ -141,7 +173,7 @@ export default async function handler(request) {
     checkTrust({
       phone: order.phone,
       wilayaId: wilayaId(order.wilaya),
-      orderValue: totalFor(order),
+      orderValue: total,
       ip: clientIp(request),
     }),
     getBlockEntry(order.phone).catch((err) => {
@@ -159,9 +191,18 @@ export default async function handler(request) {
   const record = {
     ...order,
     id: newOrderId(now),
-    total: totalFor(order),
+    total,
     day: algiersDate(now),
     createdAt: now.toISOString(),
+    /*
+     * واش تباع بالضبط — لقطة وقت الطلب، ماشي إشارة للمنتج.
+     * لو خزّنا الإشارة برك، تبديل سومة المنتج غداً يعاود يكتب تاريخ
+     * الطلبيات القديمة ويخرّب حساب الربح تاع الشهر اللي فات.
+     */
+    productId: product?.id ?? null,
+    campaignId: typeof payload.campaignId === 'string' ? payload.campaignId.slice(0, 64) : null,
+    variant: variant ? { sku: variant.sku, options: variant.options } : null,
+    unitPrice,
     /* منين جا الزبون — يبان في الرسالة ويتجمّع في التقارير حسب القناة */
     attribution,
     channel: channelKey(attribution),

@@ -16,6 +16,7 @@
 import { resolveRoute, getCampaign, getProduct, getCategory, listProducts } from '../lib/catalog.mjs';
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
+import { esc, escAttr, dz } from '../lib/render/html.mjs';
 
 const html = (body, status = 200, extraHeaders = {}) =>
   new Response(body, {
@@ -161,12 +162,18 @@ async function renderCategory(id, origin) {
   const all = await listProducts();
   const items = all.filter((p) => p.categoryId === category.id && p.status === 'active');
 
-  /* شبكة بسيطة — الشكل الكامل للفئات يجي مع صفحة الرئيسية */
+  /*
+   * شبكة بسيطة — الشكل الكامل للفئات يجي مع صفحة الرئيسية.
+   *
+   * ⚠️ اسم الفئة والمنتج يكتبهم المستخدم في اللوحة ويتخزّنو خام (نفس
+   * قاعدة store raw / escape at render). لازم يمرّو على esc هنا —
+   * هذا الفنكشن نساها في أوّل نسخة وكانت ثقب XSS مخزّن.
+   */
   const grid = items.length
     ? `<div class="cards">${items.map((p) => `
-        <a class="card" href="/p/${p.slug}">
-          <h3>${p.name}</h3>
-          <p>${p.price} دج</p>
+        <a class="card" href="/p/${escAttr(p.slug)}">
+          <h3>${esc(p.name)}</h3>
+          <p>${dz(p.price)}</p>
         </a>`).join('')}</div>`
     : '<p class="section__sub">ما كاين حتى منتج في هذي الفئة دروك.</p>';
 
@@ -181,8 +188,8 @@ async function renderCategory(id, origin) {
   return html(
     renderPage({
       content: `<section class="section"><div class="container">
-        <header class="section__head"><h2 class="section__title">${category.name}</h2>
-        ${category.tagline ? `<p class="section__sub">${category.tagline}</p>` : ''}</header>
+        <header class="section__head"><h2 class="section__title">${esc(category.name)}</h2>
+        ${category.tagline ? `<p class="section__sub">${esc(category.tagline)}</p>` : ''}</header>
         ${grid}
       </div></section>`,
       campaign: pseudoCampaign,

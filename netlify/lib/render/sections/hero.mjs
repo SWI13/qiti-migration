@@ -41,7 +41,7 @@ export default function hero({ data = {}, priceView }) {
   /* السومة تجي من المنتج (خادم)، ماشي من نصوص الحملة */
   const priceBlock = priceView
     ? `<div class="hero__price reveal" style="--d:150ms">
-        <span class="hero__price-amount">${esc(priceView.amount)} <small>دج</small></span>
+        <span class="hero__price-amount">${esc(Number(priceView.amount).toLocaleString('en-US'))} <small>دج</small></span>
         ${priceNote ? `<span class="hero__price-note">${esc(priceNote)}</span>` : ''}
       </div>`
     : '';

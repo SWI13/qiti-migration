@@ -29,7 +29,22 @@ export const dz = (n) => `${n.toLocaleString('en-US')} دج`;
 /** 0661445566 → +213661445566 (صيغة E.164) */
 export const toE164Dz = (localPhone) => `+213${String(localPhone).replace(/\D/g, '').replace(/^0/, '')}`;
 
-export const totalFor = ({ shipping, qty }) => PRODUCT_PRICE * qty + SHIPPING[shipping];
+/*
+ * المجموع بسومة وحدة معطاة — هذا هو الحساب الصحيح كي يكون عندنا منتج.
+ * السومة تجي من المنتج (وزيادة الفاريانت إذا كان)، ماشي من ثابت.
+ */
+export const totalWith = (unitPrice, { shipping, qty }) =>
+  Number(unitPrice) * qty + SHIPPING[shipping];
+
+/*
+ * الطريق القديم — الصفحة الحالية (index.html) ما تبعثش productId،
+ * فنحسبو بالسومة الثابتة.
+ *
+ * ⚠️ ما تستعملوش في كود جديد. كل طلبية جايّة من صفحة معروضة من
+ * المعطيات لازم تمرّ على totalWith بسومة المنتج الحقيقية، وإلا
+ * السيرفر يحسب 3900 مهما كانت سومة المنتج المعروضة.
+ */
+export const totalFor = ({ shipping, qty }) => totalWith(PRODUCT_PRICE, { shipping, qty });
 
 /*
  * الربح الصافي التقديري لطلب وحدة — تقريب بسيط، ماشي محاسبة دقيقة.
@@ -129,11 +144,26 @@ export function ownerMessage(record) {
 
   const campaign = campaignLabel(record.attribution);
 
+  /*
+   * المقاس واللون — **ضروري**، ماشي زينة.
+   *
+   * إذا ما بانوش في الرسالة، تشدّ الطلبية وتبعث الحجم الغالط، والزبون
+   * يرفضها في الباب وتخسر الرجعة كاملة. هذا هو أوّل شي لازم يخدم في
+   * الحوايج، قبل أي حاجة أخرى في نظام الفاريانتات.
+   *
+   * نقراو من `record.variant.options` (لقطة محفوظة وقت الطلب) باش
+   * تبقى صحيحة حتى لو المنتج تبدّل من بعد.
+   */
+  const variantLine = record.variant?.options && Object.keys(record.variant.options).length
+    ? Object.entries(record.variant.options).map(([k, v]) => `${esc(k)}: <b>${esc(v)}</b>`).join(' · ')
+    : null;
+
   lines.push(
     '',
     `<b>${esc(record.name)}</b>`,
     `📞 ${esc(toE164Dz(record.phone))}`,
     `📍 ${esc(record.wilaya)} / ${esc(record.commune)}`,
+    ...(variantLine ? [`🏷️ ${variantLine}`] : []),
     `🚚 ${SHIPPING_LABEL[record.shipping]} — الكمية ×${record.qty}`,
     `📣 ${esc(channelLabel(record.attribution))}${campaign ? ` · ${esc(campaign)}` : ''}`,
     '',

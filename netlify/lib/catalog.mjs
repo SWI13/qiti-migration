@@ -84,6 +84,17 @@ export function slugify(input) {
     .slice(0, 60);
 }
 
+/**
+ * رقم فلوس صالح: عدد حقيقي، موجب، ومحدود.
+ * يرمي خطأ بدل ما يرجع NaN — الخطأ يوصل للوحة ويتصلّح، وNaN يمشي
+ * للتخزين ويبان في الصفحة بعد أيام.
+ */
+function money(value, label) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error(`${label} لازم تكون رقم صحيح.`);
+  return Math.round(n);
+}
+
 /** واش هذا الرابط محجوز للمتجر روحو؟ */
 export const isReservedSlug = (slug) => RESERVED_SLUGS.has(String(slug ?? '').toLowerCase());
 
@@ -117,12 +128,24 @@ export async function claimRoute(path, kind, id) {
     throw new Error(`الرابط "${slug}" محجوز للمتجر. اختر واحد آخر.`);
   }
 
+  /*
+   * الحجز لازم يكون ذرّي (atomic). لو قرينا ومن بعد كتبنا، زوج حفظات
+   * في نفس اللحظة بنفس الرابط يشوفو الزوج "فاضي" ويكتبو، والأخير يغلب
+   * — الحملة الأولى تتخزّن بصح ما توصلهاش حتى زيارة، بلا حتى خطأ.
+   *
+   * `onlyIfNew` يخلّي الكتابة تفشل إذا المفتاح موجود، فالثاني ياخذ
+   * خطأ واضح بدل ما يضيع بالسكات.
+   */
+  const key = `route:${path}`;
+  const { modified } = await routes().setJSON(key, { kind, id }, { onlyIfNew: true });
+  if (modified) return path;
+
+  /* المفتاح موجود — نشوفو واش تاعنا (إعادة حفظ) ولا تاع واحد آخر */
   const existing = await resolveRoute(path);
   if (existing && existing.id !== id) {
     throw new Error(`الرابط "${path}" مستعمل من قبل.`);
   }
-
-  await routes().setJSON(`route:${path}`, { kind, id });
+  await routes().setJSON(key, { kind, id });
   return path;
 }
 
@@ -217,11 +240,17 @@ export async function saveProduct(input) {
     name: input.name ?? existing?.name ?? '',
     type: input.type ?? existing?.type ?? 'life',
     categoryId: input.categoryId ?? existing?.categoryId ?? null,
-    price: Number(input.price ?? existing?.price ?? 0),
-    compareAtPrice: input.compareAtPrice ?? existing?.compareAtPrice ?? null,
+    /*
+     * ⚠️ Number('3900 دج') = NaN، وJSON.stringify يكتبو `null`.
+     * السومة تولّي مفقودة والصفحة تعرض "NaN دج" — فنرفضو من هنا بدل
+     * ما نخزّنو رقم مكسور.
+     */
+    price: money(input.price ?? existing?.price ?? 0, 'السومة'),
+    compareAtPrice: input.compareAtPrice == null ? (existing?.compareAtPrice ?? null)
+      : money(input.compareAtPrice, 'السومة القديمة'),
     /* واش تخلّص انت في السلعة — كانت في costs/current العامّة، ودروك
        على كل منتج وحدو، على خاطر كل منتج عندو تكلفة مختلفة. */
-    unitCost: Number(input.unitCost ?? existing?.unitCost ?? 0),
+    unitCost: money(input.unitCost ?? existing?.unitCost ?? 0, 'تكلفة السلعة'),
     options,
     /* نحافظو على priceDelta/mediaId تاع الفاريانتات القدام كي الخيارات
        ما تبدّلوش — وإلا كل حفظ يمسح التعديلات اليدوية. */

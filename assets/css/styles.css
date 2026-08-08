@@ -1011,6 +1011,37 @@ input:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
+/*
+ * مختارات المقاس واللون. الراديو الأصلي مخبّي والمربّع هو اللي يتنقر —
+ * هدف اللمس 44px على الأقل، على خاطر أغلب الطلبيات تجي من التيليفون.
+ */
+.opt-values { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt { cursor: pointer; }
+.opt input {
+  position: absolute; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+}
+.opt__box {
+  display: grid; place-items: center;
+  min-width: 52px; min-height: 44px; padding: 0 14px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-weight: 600; font-size: .9rem;
+  transition: border-color .18s var(--ease), background-color .18s var(--ease), color .18s var(--ease);
+}
+.opt:hover .opt__box { border-color: var(--accent); }
+.opt input:checked + .opt__box {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+/* الراديو مخبّي، فالتركيز لازم يبان على المربّع وإلا الكيبورد يضيع */
+.opt input:focus-visible + .opt__box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .field.has-error input, .field.has-error select { border-color: var(--danger); }
 .err {
   font-size: .78rem; color: var(--danger);
