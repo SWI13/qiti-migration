@@ -1,0 +1,8 @@
+# مفاتيح Twilio — ما تدخلش هذا الملف لـ git أبداً
+.env
+.env.*
+!.env.example
+
+# Netlify
+.netlify/
+node_modules/

@@ -526,6 +526,12 @@
     <div class="order__card reveal">
       <form class="order__form" id="orderForm" novalidate>
 
+        <!-- فخّ البوتات: مخبّي على المستخدم، البوتات برك اللي تعمّرو -->
+        <div class="hp" aria-hidden="true">
+          <label for="fWebsite">لا تعمّر هذا الحقل</label>
+          <input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
         <div class="order__product">
           <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=300&h=300&q=75&auto=format&fit=crop" alt="طوق Qiti الذكي" loading="lazy">
           <div>
@@ -612,6 +618,7 @@
           <button type="submit" class="btn btn--primary btn--xl" id="submitBtn">
             أكّد الطلب <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
           </button>
+          <p class="err err--submit" id="submitErr" role="alert"></p>
           <p class="summary__note">نتصلو بيك في أقرب وقت باش نأكّدو الطلب.</p>
         </div>
       </form>
