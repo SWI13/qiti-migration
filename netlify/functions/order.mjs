@@ -141,7 +141,41 @@ async function notifyCustomer(order) {
   if (!response.ok) throw new Error(`Twilio ${response.status}: ${await response.text()}`);
 }
 
+/* ⚠️ مؤقّت — تشخيص الإعداد. يتنحّى كي نلقاو المشكل. ما يكشف حتى توكن. */
+async function diagnose() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const report = {
+    hasToken: Boolean(token),
+    tokenEndsWith: token ? token.slice(-4) : null,
+    tokenLength: token ? token.length : 0,
+    hasChatId: Boolean(chatId),
+    chatIdRaw: chatId ?? null,
+    hasWebhookSecret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
+  };
+  if (!token || !chatId) return report;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const body = await res.json().catch(() => ({}));
+    report.telegramCheck = body.ok
+      ? `OK — ${body.result?.title ?? body.result?.first_name}`
+      : `FAIL — ${body.description}`;
+  } catch (error) {
+    report.telegramCheck = `FAIL — ${error.message}`;
+  }
+  return report;
+}
+
 export default async function handler(request) {
+  if (request.method === 'GET' && new URL(request.url).searchParams.has('diag')) {
+    return json(200, await diagnose());
+  }
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   let payload;
