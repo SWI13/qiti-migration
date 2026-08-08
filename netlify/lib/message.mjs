@@ -8,6 +8,16 @@ export const PRODUCT_PRICE = 3900;
 export const SHIPPING = { home: 600, desk: 400 };
 export const SHIPPING_LABEL = { home: 'للدار', desk: 'لمكتب التوصيل' };
 
+/*
+ * ⚠️ هاذوما أرقام placeholder — ماشي التكلفة الحقيقية تاعك! لازم تبدّلهم
+ * قبل ما رقم "الربح الصافي" في تقرير آخر النهار يبان صحيح:
+ * PRODUCT_COST = شحال تخلص للمورد على كل طوق (سوما البضاعة، ماشي سعر البيع).
+ * COURIER_COST = تكلفة التوصيل التقديرية (تخلصها مهما كانت النتيجة —
+ * توصّلت الطلبية ولا رجعت، المُوصّل ياخذ فلوسه).
+ */
+export const PRODUCT_COST = 1500;
+export const COURIER_COST = 350;
+
 /** الاسم والبلدية يكتبهم الزبون — لازم نهربوهم وإلا `<` يهرّس الرسالة */
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -17,6 +27,27 @@ export const dz = (n) => `${n.toLocaleString('en-US')} دج`;
 export const toE164Dz = (localPhone) => `+213${String(localPhone).replace(/\D/g, '').replace(/^0/, '')}`;
 
 export const totalFor = ({ shipping, qty }) => PRODUCT_PRICE * qty + SHIPPING[shipping];
+
+/*
+ * الربح الصافي التقديري لطلب وحدة — تقريب بسيط، ماشي محاسبة دقيقة:
+ * - "توصّلت": المجموع اللي خلص الزبون، ناقص سوما البضاعة (PRODUCT_COST × الكمية)،
+ *   ناقص تكلفة التوصيل مرّة وحدة.
+ * - "رجعت": خسارة صافية — ما دخلش ولا سنتيم، وتكلفة التوصيل تخلصت مرّتين تقريباً
+ *   (رايحة للزبون + راجعة للمحل). نحسبها كي `deliveryStatus === 'returned'`
+ *   يتسجّل (ماشي كي تتأكد البضاعة "استلمت الرجعة" فعلياً) على خاطر تكلفة
+ *   التوصيل تخلصت وضاعت من ساعة ما المُوصّل رجّعها، بلا علاقة بوقت ما
+ *   البضاعة توصل فيزيائياً للمحل — هذاك برك يأثّر على المخزون، ماشي الربح.
+ * - أي حالة أخرى (pending، denied، في الطريق): 0 — ما فيه لا ربح لا خسارة بعد.
+ */
+export const profitFor = (order) => {
+  if (order.deliveryStatus === 'delivered') {
+    return (order.total ?? 0) - PRODUCT_COST * (order.qty ?? 0) - COURIER_COST;
+  }
+  if (order.deliveryStatus === 'returned') {
+    return -COURIER_COST * 2;
+  }
+  return 0;
+};
 
 export const dzTime = (date = new Date()) =>
   date.toLocaleString('fr-DZ', {
@@ -38,9 +69,19 @@ export function elapsedLabel(iso) {
  * الرقم مكتوب نص عادي (ماشي <code>) قصداً: تيليغرام يتعرّف على أرقام الهاتف
  * ويديرها قابلة للنقر — تنقر عليها وتعيّط مباشرة. <code> يديرها نسخ برك.
  */
-export function ownerMessage(record) {
-  const lines = [
-    '<b>🐱 طلب جديد — Qiti</b>',
+export function ownerMessage(record, { customerHistory } = {}) {
+  const lines = ['<b>🐱 طلب جديد — Qiti</b>'];
+
+  /*
+   * فقط عند البعث الأول (order.mjs يعطي customerHistory) وفقط إذا عندو
+   * تاريخ فعلاً — بلا ضجّة على الزبائن العاديين. الويبهوك يعاود يرسم
+   * الرسالة بلا هذا الطرف الثاني، فالتنبيه يختفي وحدو بعد أول قرار.
+   */
+  if (customerHistory && customerHistory.denied + customerHistory.returned > 0) {
+    lines.push(`⚠️ زبون عندو تاريخ: ${customerHistory.denied} رفض، ${customerHistory.returned} رجعة`);
+  }
+
+  lines.push(
     '',
     `<b>${esc(record.name)}</b>`,
     `📞 ${esc(toE164Dz(record.phone))}`,
@@ -48,7 +89,7 @@ export function ownerMessage(record) {
     `🚚 ${SHIPPING_LABEL[record.shipping]} — الكمية ×${record.qty}`,
     '',
     `<b>المجموع: ${dz(record.total)}</b> — كاش عند الاستلام`,
-  ];
+  );
 
   if (record.status === 'accepted') {
     lines.push('', `✅ <b>مقبول</b> — ${esc(record.actor ?? '')} · ${dzTime(new Date(record.decidedAt ?? Date.now()))}`);
