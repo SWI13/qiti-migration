@@ -1,0 +1,8 @@
+{
+  "name": "qiti",
+  "private": true,
+  "description": "صفحة هبوط Qiti — الصفحة روحها ستاتيك بلا dependencies. هذا الملف موجود غير باش الـ Netlify Functions تلقى @netlify/blobs.",
+  "dependencies": {
+    "@netlify/blobs": "^10.7.12"
+  }
+}
