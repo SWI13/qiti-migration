@@ -202,22 +202,31 @@ WhatsApp Cloud API** مع template فيه 6 متغيّرات. قوللي ونب�
 الرقم مكتوب نص عادي بصيغة `+213…`، وتيليغرام يتعرّف عليه أوتوماتيكياً ويديرو
 قابل للنقر — تنقر عليه في التيليفون وتعيّط.
 
-#### تشبيك الأزرار — خطوة وحدة بعد الـ deploy
+#### تشبيك الأزرار — حلّ رابط برك
 
-الأزرار يحتاجو **webhook**: تيليغرام لازم يعرف وين يبعث النقرة. دير هذا مرّة
-وحدة بعد أوّل deploy (بدّل `<TOKEN>`، `<SECRET>`، و`<موقعك>`):
+الأزرار يحتاجو **webhook**: تيليغرام لازم يعرف وين يبعث النقرة. بعد كل
+deploy جديد (ولا كي تبدّل `TELEGRAM_WEBHOOK_SECRET`)، حلّ هذا الرابط:
 
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -d "url=https://<موقعك>.netlify.app/.netlify/functions/telegram-webhook" \
-  -d "secret_token=<SECRET>"
+```
+https://qitishop.netlify.app/.netlify/functions/telegram-webhook?setup=1
 ```
 
-`<SECRET>` لازم يكون **نفسو** اللي حطّيتو في `TELEGRAM_WEBHOOK_SECRET`.
-تيليغرام يزيدو في كل طلب، والفنكشن ترفض أي حاجة بلاه — بلا هذا، أي واحد
-يعرف رابط الفنكشن يقدر يبعث نقرات مزوّرة ويبدّل حالة الطلبات.
+الفنكشن تسجّل روحها عند تيليغرام: هي روحها تعرف الـ secret (من الـ env)
+وتعرف رابط الموقع، فما تحتاجش تكتب حتى حاجة سرّية بيدك. الجواب يبان هكذا:
 
-باش تتأكّد أنّ التشبيك تمّ:
+```json
+{"ok":true,"url":"https://qitishop.netlify.app/.netlify/functions/telegram-webhook","pending":0}
+```
+
+**علاش الرابط ثابت وماشي ماخوذ من الطلب**: لو بنيناه من الـ request، أي
+واحد يبعث `Host: evil.com` يحوّل الويبهوك لسيرفر تاعو — وتيليغرام يبعثلو
+الـ secret في الـ header. علاش ناخذوه من `process.env.URL` (Netlify يحطّو
+وحدو)، فحتى لو حلّ الرابط شكون ما كان، ديما يتسجّل نفس الموقع.
+
+الـ secret روحو يمنع النقرات المزوّرة: تيليغرام يزيدو في كل طلب، والفنكشن
+ترفض أي حاجة بلاه.
+
+باش تتأكّد وقت ما تحب:
 
 ```bash
 curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
