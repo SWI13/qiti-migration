@@ -1,11 +1,13 @@
 /*
- * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت)، جواب سبب الرفض،
- * وأوامر المخزون (/stock, /restock, /setstock) من تيليغرام.
+ * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت / استلمت الرجعة)، جواب
+ * سبب الرفض، وأوامر المخزون وحالة الطلبات (/state, /stock, /restock,
+ * /setstock) من تيليغرام.
  *
  * ── قبول ─────────────────────────────────────────────────────────────
  *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، أزرار القرار
  *   تتبدّل بزوج أزرار "📦 توصّل" / "↩️ رجعت" (زر واتساب يبقى)، والمخزون
  *   ينقص بكمية الطلب. إذا هبط للحد ولا تحتو، يتبعث تنبيه مخزون وحدة برك.
+ *   وإذا المخزون ما يكفيش قبل القبول، القبول يتردّ والطلب يبقى بلا قرار.
  *
  * ── رفض ──────────────────────────────────────────────────────────────
  *   نقرة → البوت يردّ على الرسالة ويطلب السبب (ForceReply، يحلّ الكيبورد
@@ -14,17 +16,20 @@
  *
  * ── توصّل / رجعت (بعد القبول) ──────────────────────────────────────
  *   الطلب يبقى "مقبول" لأيام قبل ما نعرفو واش وصل فعلاً ولا رجع مع
- *   المُوصّل — علاش الأزرار تبقى بايّنة في نفس الرسالة، وتتسجّل في تقرير
- *   آخر النهار (قائمة "طلبات تستنّى نتيجة التوصيل") حتى لو ماشي من نفس
- *   اليوم. "رجعت" ترجّع الكمية للمخزون أوتوماتيكياً.
+ *   المُوصّل — علاش الأزرار تبقى بايّنة في نفس الرسالة، وتبان في /state
+ *   وتقرير آخر النهار حتى لو ماشي من نفس اليوم.
  *
- * الحالة كاملة تتخزّن في Netlify Blobs باش تقرير آخر النهار يقراها.
+ *   "رجعت" ما تزيدش المخزون فوراً — غير تعلّم إنو المُوصّل رجّعها. الطلبية
+ *   فيزيائياً تاخذ يوم ولا يومين باش توصل لعندك، فتبان زر جديد "📥 استلمت
+ *   الرجعة" — هو اللي يزيد الكمية للمخزون فعلياً، كي تتأكّد إنها بين يديك.
+ *
+ * الحالة كاملة تتخزّن في Netlify Blobs باش /state وتقرير آخر النهار يقراوها.
  *
  * ── environment variables ────────────────────────────────────────────
  *   TELEGRAM_BOT_TOKEN       — نفس التوكن تاع order.mjs
  *   TELEGRAM_WEBHOOK_SECRET  — كلمة سرّ تخترعها انت (أي نص عشوائي)
  *   TELEGRAM_CHAT_ID         — نفس id تاع order.mjs، يخدم هنا باش يحصر
- *                              أوامر المخزون في الگروب/الشات تاعك برك
+ *                              الأوامر (/state, /stock...) في الگروب/الشات تاعك برك
  *
  * ── تشبيك الـ webhook (مرّة وحدة بعد الـ deploy) ─────────────────────
  *   curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
@@ -34,8 +39,9 @@
 import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted,
+  listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
 } from '../lib/store.mjs';
-import { ownerMessage, buttonsFor, esc } from '../lib/message.mjs';
+import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -100,7 +106,8 @@ async function handleCallback(query) {
 
   const isDecision = action === 'ok' || action === 'no';
   const isDeliveryOutcome = action === 'del' || action === 'ret';
-  if (!message || (!isDecision && !isDeliveryOutcome)) return answer();
+  const isReturnReceipt = action === 'rcv';
+  if (!message || (!isDecision && !isDeliveryOutcome && !isReturnReceipt)) return answer();
 
   const order = orderId ? await getOrder(orderId).catch(() => null) : null;
 
@@ -117,6 +124,12 @@ async function handleCallback(query) {
       const label = order.deliveryStatus === 'delivered' ? 'توصّل' : 'رجعت';
       return answer(`الطلب راهو ${label} من قبل — ${order.deliveryActor ?? ''}`);
     }
+  }
+
+  /* زر "استلمت الرجعة" يحتاج طلب "رجعت" وبلا استلام مسجّل من قبل */
+  if (isReturnReceipt && order) {
+    if (order.deliveryStatus !== 'returned') return answer('الطلب ماشي مسجّل "رجعت".');
+    if (order.returnReceivedAt) return answer(`استلمتها من قبل — ${order.returnReceivedActor ?? ''}`);
   }
 
   if (action === 'ok') {
@@ -155,18 +168,36 @@ async function handleCallback(query) {
       });
       if (!updated) return answer('الطلب ماشي موجود.');
 
+      /*
+       * "رجعت" ما تزيدش المخزون هنا — هذا غير يعني المُوصّل قالها رجعت،
+       * الطلبية فيزيائياً لسّا في الطريق لعندك. المخزون يتزاد غير كي
+       * تنقر "📥 استلمت الرجعة" (زر يبان بعد هذي النقرة).
+       */
       await repaintOrder(message.chat.id, updated);
-
-      /* الطلبية رجعت للمخزن فعلياً — نرجّعو الكمية للمخزون */
-      if (deliveryStatus === 'returned') {
-        await adjustStock(updated.qty ?? 0).catch((error) =>
-          console.error('Restock after return failed:', error.message, '| order:', orderId));
-      }
     } catch (error) {
       console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
       return answer('صار خطأ، عاود حاول.');
     }
-    return answer(deliveryStatus === 'delivered' ? 'تسجّل: توصّل 📦' : 'تسجّل: رجعت الطلبية ↩️');
+    return answer(deliveryStatus === 'delivered' ? 'تسجّل: توصّل 📦' : 'تسجّل: رجعت مع المُوصّل ↩️');
+  }
+
+  if (action === 'rcv') {
+    try {
+      const updated = await updateOrder(orderId, {
+        returnReceivedAt: new Date().toISOString(), returnReceivedActor: who,
+      });
+      if (!updated) return answer('الطلب ماشي موجود.');
+
+      await repaintOrder(message.chat.id, updated);
+
+      /* دروك فعلاً بين يديك — تزيد للمخزون */
+      await adjustStock(updated.qty ?? 0).catch((error) =>
+        console.error('Restock after receiving return failed:', error.message, '| order:', orderId));
+    } catch (error) {
+      console.error('Return-receipt update failed:', error.message, '| order:', orderId);
+      return answer('صار خطأ، عاود حاول.');
+    }
+    return answer('تزادت للمخزون 📥');
   }
 
   /*
@@ -221,13 +252,55 @@ async function handleReply(message) {
   }
 }
 
-/* ── أوامر المخزون ────────────────────────────────────────────────
+/**
+ * حالة كل الطلبات المعلّقة دروك، على الطلب — بديل حيّ لتقرير آخر النهار،
+ * ما يحتاجش تستنّى 00:00. الأقسام الثلاثة: تستنّى قبول/رفض، مقبولة تستنّى
+ * نتيجة توصيل، ورجعت مع المُوصّل بصح لسّا ما وصلاتش فيزيائياً للمحل
+ * (المخزون ما يتزادش حتى تتأكّد بـ "استلمت الرجعة").
+ *
+ * ⚠️ فوق كل طلب قديم من 24 سا: علامة تفكّرك بيه قبل ما يفوت وقتو.
+ */
+async function buildStateMessage() {
+  const [pending, awaitingDelivery, awaitingReturn, stock] = await Promise.all([
+    listPendingOrders(), listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(),
+  ]);
+
+  const age = (order) => (Date.now() - new Date(order.createdAt).getTime() > 24 * 60 * 60 * 1000 ? ' ⚠️' : '');
+  const line = (order) => `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} — ${elapsedLabel(order.createdAt)}${age(order)}`;
+
+  const lines = ['<b>📋 حالة الطلبات دروك</b>'];
+
+  lines.push('', `⏳ <b>تستنّى قبول/رفض (${pending.length})</b>`);
+  lines.push(...(pending.length ? pending.map(line) : ['كاين والو هنا.']));
+
+  lines.push('', `🚚 <b>مقبولة، تستنّى نتيجة التوصيل (${awaitingDelivery.length})</b>`);
+  lines.push(...(awaitingDelivery.length ? awaitingDelivery.map(line) : ['كاين والو هنا.']));
+
+  const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
+  lines.push('', `↩️ <b>رجعت مع المُوصّل، تستنّى توصل للمحل (${awaitingReturn.length}${returnQty ? ` — ${returnQty} طوق` : ''})</b>`);
+  lines.push(...(awaitingReturn.length ? awaitingReturn.map(line) : ['كاين والو هنا.']));
+
+  const atStake = [...pending, ...awaitingDelivery].reduce((sum, o) => sum + (o.total ?? 0), 0);
+  lines.push('', `💵 فلوس معلّقة (بلا قرار ولا لسّا في الطريق): <b>${dz(atStake)}</b>`);
+
+  const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
+  lines.push(`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
+  if (returnQty) {
+    lines.push(`🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق — يولّي <b>${stock.qty + returnQty}</b> كي توصل كاملة`);
+  }
+
+  return lines.join('\n');
+}
+
+/* ── أوامر المخزون وحالة الطلبات ─────────────────────────────────
+ * /state, /status   — كل الطلبات المعلّقة دروك (بلا قرار / بلا نتيجة
+ *                      توصيل / رجعت بصح ما وصلاتش للمحل) + المخزون
  * /stock            — يعرض الكمية الحالية وحد التنبيه
  * /restock <عدد>    — يزيد كمية للمخزون (بعد تزويد)
  * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
  *
  * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
- * مباشرة مع البوت (خارج الگروب) ما يقدرش يبدّل المخزون.
+ * مباشرة مع البوت (خارج الگروب) ما يقدرش يشوف الطلبات ولا يبدّل المخزون.
  */
 async function handleCommand(message) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
@@ -238,10 +311,28 @@ async function handleCommand(message) {
     telegram('sendMessage', { chat_id: message.chat.id, text, parse_mode: 'HTML' })
       .catch((error) => console.error('Command reply failed:', error.message));
 
+  if (command === '/state' || command === '/status') {
+    try {
+      return reply(await buildStateMessage());
+    } catch (error) {
+      console.error('/state failed:', error.message);
+      return reply('⚠️ ما قدرتش نجيب الحالة، عاود حاول.');
+    }
+  }
+
   if (command === '/stock') {
-    const stock = await getStock();
+    const [stock, awaitingReturn] = await Promise.all([getStock(), listAwaitingReturnReceipt()]);
+    const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
     const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
-    return reply(`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}\nحد التنبيه: ${stock.threshold}`);
+    const lines = [`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`, `حد التنبيه: ${stock.threshold}`];
+    if (returnQty) {
+      lines.push(
+        '',
+        `🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق`,
+        `يولّي <b>${stock.qty + returnQty}</b> كي توصل كل الرجعات للمحل — /state يوريك أشمن طلبات`,
+      );
+    }
+    return reply(lines.join('\n'));
   }
 
   if (command === '/restock') {

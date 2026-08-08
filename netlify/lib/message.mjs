@@ -24,6 +24,16 @@ export const dzTime = (date = new Date()) =>
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   });
 
+/** "قبل 3 سوايع" / "قبل يومين" — يستعمل فـ /state باش يبان قداش عندو طلب بلا حركة */
+export function elapsedLabel(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  if (hours < 1) return 'دروك';
+  if (hours < 24) return `قبل ${hours} سا`;
+  const days = Math.floor(hours / 24);
+  return `قبل ${days} يوم`;
+}
+
 /*
  * الرقم مكتوب نص عادي (ماشي <code>) قصداً: تيليغرام يتعرّف على أرقام الهاتف
  * ويديرها قابلة للنقر — تنقر عليها وتعيّط مباشرة. <code> يديرها نسخ برك.
@@ -46,7 +56,12 @@ export function ownerMessage(record) {
     if (record.deliveryStatus === 'delivered') {
       lines.push('', `📦 <b>توصّل</b> — ${esc(record.deliveryActor ?? '')} · ${dzTime(new Date(record.deliveryDecidedAt ?? Date.now()))}`);
     } else if (record.deliveryStatus === 'returned') {
-      lines.push('', `↩️ <b>رجعت الطلبية</b> — ${esc(record.deliveryActor ?? '')} · ${dzTime(new Date(record.deliveryDecidedAt ?? Date.now()))}`);
+      lines.push('', `↩️ <b>رجعت مع المُوصّل</b> — ${esc(record.deliveryActor ?? '')} · ${dzTime(new Date(record.deliveryDecidedAt ?? Date.now()))}`);
+      if (record.returnReceivedAt) {
+        lines.push(`📥 <b>استلمتها فالمحل</b> — ${esc(record.returnReceivedActor ?? '')} · ${dzTime(new Date(record.returnReceivedAt))} · تزادت للمخزون`);
+      } else {
+        lines.push('⏳ لسّا ما وصلاتش فيزيائياً للمحل — المخزون ما تزادش بعد');
+      }
     }
   } else if (record.status === 'denied') {
     lines.push('', `❌ <b>مرفوض</b> — ${esc(record.actor ?? '')} · ${dzTime(new Date(record.decidedAt ?? Date.now()))}`);
@@ -99,8 +114,23 @@ export const deliveryButtons = (record) => ({
   ],
 });
 
+/**
+ * بعد "رجعت" وقبل ما توصل فيزيائياً للمحل: زر وحدة "استلمت الرجعة" —
+ * هو اللي يزيد المخزون، ماشي نقرة "رجعت" روحها (المُوصّل يقدر يقول
+ * "رجعت" واللي في يدو الطلبية تاخذ يوم ولا يومين باش توصل لعندك).
+ */
+export const receiveReturnButtons = (record) => ({
+  inline_keyboard: [
+    [{ text: '📥 استلمت الرجعة', callback_data: `rcv:${record.id}` }],
+    [{ text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(record.phone).replace('+', '')}` }],
+  ],
+});
+
 /** الأزرار الصحيحة حسب حالة الطلب — نفس المنطق يخدم عند البعث وعند الرسم مجدّداً */
 export function buttonsFor(record) {
   if (record.status === 'accepted' && !record.deliveryStatus) return deliveryButtons(record);
+  if (record.status === 'accepted' && record.deliveryStatus === 'returned' && !record.returnReceivedAt) {
+    return receiveReturnButtons(record);
+  }
   return whatsappOnlyButtons(record);
 }
