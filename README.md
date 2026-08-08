@@ -259,11 +259,13 @@ curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 صيفي، علاش الجدول مكتوب `0 23 * * *` (23:00 UTC = 00:00 عندنا) في
 `daily-report.mjs`. التقرير يغطّي النهار اللي **كمل**، ماشي اللي بدا.
 
-**باش تجرّبو دروك بلا ما تستنّى** (بدّل `<SECRET>` بـ `TELEGRAM_WEBHOOK_SECRET`):
+**⚠️ ما تقدرش تشغّلو بـ curl**: Netlify يمنع استدعاء الفنكشنز المجدولة عبر
+HTTP — يرجّع `403` ديما، حتى بالمفتاح الصحيح. (جرّبناها.)
 
-```bash
-curl "https://qitishop.netlify.app/.netlify/functions/daily-report?key=<SECRET>"
-```
+باش تشوفو قبل الوقت، عندك زوج طرق:
+- من لوحة Netlify: *Functions → daily-report → Run* (تشغيل يدوي).
+- ولا بدّل الجدول مؤقّتاً في `daily-report.mjs` لوقت قريب، مثلاً
+  `schedule: '*/5 * * * *'` (كل 5 دقايق)، وكي تتأكّد رجّعو لـ `0 23 * * *`.
 
 ### وين تتخزّن الطلبات
 
