@@ -4,6 +4,7 @@
  * التنسيق من النص اللي يعطيه تيليغرام.
  */
 import { channelLabel, campaignLabel } from './attribution.mjs';
+import { tierIcon, tierLabel, isRisky } from './trust.mjs';
 
 export const PRODUCT_PRICE = 3900;
 export const SHIPPING = { home: 600, desk: 400 };
@@ -83,6 +84,35 @@ export function ownerMessage(record) {
    * الأخضر مهمّ قد الأحمر: زبون خلّص وستلم قبل هذا هو أحسن طلب يجيك،
    * وقبل ما نزيدو `delivered` كان يبان كيما أي واحد جديد.
    */
+  /*
+   * قائمتك انت أوّلاً — إذا حظرتي هذا الرقم بيدك، هذا قرارك وما يغلبوش
+   * حتى فحص برّاني. يبان فوق كلش باش ما يفوتكش.
+   */
+  if (record.blocked) {
+    const reason = record.blocked.reason ? ` — ${esc(record.blocked.reason)}` : '';
+    lines.push(`🚫 <b>هذا الرقم محظور عندك</b>${reason}`);
+  }
+
+  /*
+   * فحص الثقة البرّاني يجي بعدها: هو اللي يشوف الزبائن اللي نصبو عند
+   * تجّار آخرين — الحاجة اللي تاريخك ما يقدرش يشوفها.
+   * العوامل تبان غير كي تكون النتيجة تستاهل الانتباه، بلا ضجّة على الزبون العادي.
+   */
+  const trust = record.trust;
+  if (trust?.tier) {
+    const score = typeof trust.score === 'number' ? ` (${trust.score.toFixed(2)})` : '';
+    lines.push(`${tierIcon(trust.tier)} فحص الثقة: <b>${esc(tierLabel(trust.tier))}</b>${score}`);
+
+    if (isRisky(trust) && trust.factors?.length) {
+      for (const factor of trust.factors) {
+        const weight = typeof factor.weight === 'number'
+          ? ` ${factor.weight > 0 ? '+' : ''}${factor.weight.toFixed(2)}`
+          : '';
+        lines.push(`   • ${esc(factor.name)}${weight}`);
+      }
+    }
+  }
+
   const history = record.customerHistory;
   if (history) {
     const delivered = history.delivered ?? 0;

@@ -51,6 +51,7 @@ import {
   getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
   listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
+  blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
 } from '../lib/store.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
@@ -388,6 +389,9 @@ async function buildStateMessage() {
  * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
  * /cost             — يعرض تكاليف الربح الحالية (سوما البضاعة، الإعلانات، خسارة الرجعة)
  * /cost product|ads|returns <عدد> — يبدّل واحدة منهم
+ * /block <رقم> [سبب] — يزيد رقم لقائمة الحظر اليدوية
+ * /unblock <رقم>    — يحيّد الحظر
+ * /blocked          — يعرض كل الأرقام المحظورة
  * /clear            — ⚠️ يمسح كل الطلبات ويرجّع المخزون لصفر (يطلب تأكيد بزوج أزرار أوّلاً)
  *
  * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
@@ -457,6 +461,38 @@ async function handleCommand(message) {
     if (!Number.isFinite(n) || n < 0) return reply('استعمل: /setstock 50');
     const stock = await setStock(n);
     return reply(`✅ تسجّل المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
+  }
+
+  /*
+   * قائمة الحظر اليدوية — تكملة لفحص الثقة، ماشي بديل.
+   * الحظر هنا ما يمنعش الطلب من الوصول (الزبون يقدر يعمّر الفورم عادي)،
+   * غير يبان في الرسالة بعلامة واضحة وانت تقرّر. نفس المبدأ: تنبيه ماشي
+   * منع تلقائي — المنع الصامت يخسّرك زبائن وما تعرف حتى.
+   */
+  if (command === '/block') {
+    const phone = normalizeDzPhone(arg);
+    if (!phone) return reply('استعمل: /block 0661445566 [السبب]');
+    const reason = parts.slice(2).join(' ') || null;
+    const entry = await blockPhone(phone, { reason, addedBy: displayName(message.from) });
+    return reply(`🚫 تحظر <b>${entry.phone}</b>${entry.reason ? `\nالسبب: ${esc(entry.reason)}` : ''}`);
+  }
+
+  if (command === '/unblock') {
+    const phone = normalizeDzPhone(arg);
+    if (!phone) return reply('استعمل: /unblock 0661445566');
+    const removed = await unblockPhone(phone);
+    return reply(removed ? `✅ تحيّد الحظر على <b>${phone}</b>` : `الرقم <b>${phone}</b> ماشي محظور أصلاً.`);
+  }
+
+  if (command === '/blocked') {
+    const entries = await listBlocked();
+    if (!entries.length) return reply('ما كان حتى رقم محظور.');
+    const lines = [`🚫 <b>الأرقام المحظورة (${entries.length})</b>`, ''];
+    for (const entry of entries) {
+      lines.push(`• <b>${entry.phone}</b>${entry.reason ? ` — ${esc(entry.reason)}` : ''}`);
+    }
+    lines.push('', 'حيّد واحد بـ: /unblock 0661445566');
+    return reply(lines.join('\n'));
   }
 
   if (command === '/cost') {
