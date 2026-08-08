@@ -34,6 +34,13 @@ export function safeUrl(value, fallback = '#') {
   const url = String(value ?? '').trim();
   if (!url) return fallback;
   if (/^https?:\/\//i.test(url)) return escAttr(url);
+  /*
+   * ⚠️ `//evil.com/x` يبان مسار داخلي وهو ماشي: المتصفّح يقراه
+   * "نفس البروتوكول + موقع برّاني". لازم نرفضوه قبل فحص المسارات،
+   * وإلا صورة ولا سكريبت من موقع آخر يدخل من الباب اللي دايرينو
+   * باش نسدّوه.
+   */
+  if (url.startsWith('//')) return fallback;
   if (/^[/#]/.test(url)) return escAttr(url);
   return fallback;
 }
