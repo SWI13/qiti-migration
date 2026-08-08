@@ -148,7 +148,55 @@ async function handleReply(message) {
   }
 }
 
+/*
+ * تسجيل الويبهوك بروحو: الفنكشن تعرف الـ secret (من الـ env) وتعرف رابط
+ * الموقع، فتقدر تسجّل روحها عند تيليغرام. هكذا ما نحتاجوش حتى واحد يكتب
+ * الـ secret بيدو في curl.
+ *
+ * 🔒 الرابط يتاخذ من `process.env.URL` (Netlify يحطّو، وهو رابط الموقع
+ * الرسمي) وماشي من الـ request. لو اعتمدنا على الـ request، أي واحد يبعث
+ * `Host: evil.com` يقدر يحوّل الويبهوك لعندو — وتيليغرام يبعثلو الـ secret
+ * في الـ header. هذي ثغرة حقيقية، علاش الرابط ثابت.
+ *
+ * الاستدعاء آمن حتى لو عمومي: ديما يسجّل نفس الرابط بنفس الـ secret.
+ */
+async function setupWebhook() {
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!secret) return { ok: false, error: 'TELEGRAM_WEBHOOK_SECRET is not configured' };
+
+  const site = process.env.URL ?? process.env.DEPLOY_URL;
+  if (!site) return { ok: false, error: 'Site URL is not available in the environment' };
+
+  const webhookUrl = `${site.replace(/\/$/, '')}/.netlify/functions/telegram-webhook`;
+
+  await telegram('setWebhook', {
+    url: webhookUrl,
+    secret_token: secret,
+    allowed_updates: ['callback_query', 'message'],
+    /* التحديثات القديمة تتمسح — نقرات تجريب قديمة ما تخدمش على طلبات راحت */
+    drop_pending_updates: true,
+  });
+
+  const info = await telegram('getWebhookInfo', {});
+  return { ok: true, url: info.url, pending: info.pending_update_count };
+}
+
 export default async function handler(request) {
+  if (request.method === 'GET' && new URL(request.url).searchParams.has('setup')) {
+    try {
+      const result = await setupWebhook();
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ ok: false, error: error.message }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+  }
+
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
   /*
