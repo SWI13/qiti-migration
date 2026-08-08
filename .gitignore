@@ -7,5 +7,7 @@
 .netlify/
 node_modules/
 
-# Claude Code agent worktrees
-.claude/
+# Claude Code — نحبسو worktrees تاع الوكلاء، بصح تعريفاتهم تتبع في git
+# باش تبقى نفس القواعد لكل واحد يخدم على المشروع
+.claude/*
+!.claude/agents/
