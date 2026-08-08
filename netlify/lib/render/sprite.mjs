@@ -10,6 +10,18 @@ export const ICON_SPRITE = "<svg width=\"0\" height=\"0\" aria-hidden=\"true\" s
 /** الأيقونات الموجودة — باش الأقسام ما تشيرش لوحدة ما كاينش */
 export const ICON_IDS = ["i-pin","i-zap","i-drop","i-phone","i-globe","i-heart","i-shield","i-feather","i-radio","i-check","i-chevron","i-menu","i-x","i-sun","i-moon","i-arrow-rtl","i-play","i-box","i-undo","i-link","i-cash","i-truck","i-store","i-user","i-call","i-bubble","i-send"];
 
-/** وسم أيقونة جاهز */
+/*
+ * وسم أيقونة جاهز.
+ *
+ * ⚠️ الاسم يتفحّص على القائمة فوق قبل ما يدخل في href. علاش: الأقسام
+ * تخلّي الحملة تختار الأيقونة باسمها، يعني الاسم يقدر يجي من المستخدم
+ * ولا من الذكاء الاصطناعي. بلا هذا الفحص، اسم فيه علامات يخرج من
+ * الخاصية ويزيد وحدة جديدة.
+ *
+ * القائمة البيضا أقوى من الهروب هنا: أيقونة ما نعرفوهاش ما عندها معنى
+ * أصلاً، فنرجعو '' بدل ما نعرضو مربّع خاوي.
+ */
 export const icon = (name) =>
-  `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#${name}"/></svg>`;
+  (ICON_IDS.includes(name)
+    ? `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#${name}"/></svg>`
+    : '');

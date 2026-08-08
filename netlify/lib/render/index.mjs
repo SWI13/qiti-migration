@@ -32,6 +32,15 @@ import { sanitizeTheme } from '../theme.mjs';
 import { variantPrice, SIMPLE_SKU } from '../catalog.mjs';
 
 import hero from './sections/hero.mjs';
+import trust from './sections/trust.mjs';
+import features from './sections/features.mjs';
+import how from './sections/how.mjs';
+import lifestyle from './sections/lifestyle.mjs';
+import gallery from './sections/gallery.mjs';
+import reviews from './sections/reviews.mjs';
+import faq from './sections/faq.mjs';
+import cta from './sections/cta.mjs';
+import order from './sections/order.mjs';
 
 /*
  * سجلّ الأقسام. المفتاح هو `type` اللي يتخزّن في الحملة.
@@ -41,6 +50,16 @@ import hero from './sections/hero.mjs';
  */
 export const SECTIONS = {
   hero,
+  trust,
+  features,
+  how,
+  lifestyle,
+  gallery,
+  reviews,
+  faq,
+  cta,
+  /* الوحيد اللي فيه فلوس — يقرا السومة والخيارات من المنتج، ماشي من الحملة */
+  order,
 };
 
 /*

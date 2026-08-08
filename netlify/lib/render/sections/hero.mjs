@@ -24,6 +24,7 @@ export default function hero({ data = {}, priceView }) {
     rating, ratingNote, ctaLabel, ctaHref = '#order',
     secondaryLabel, secondaryHref = '#how',
     assurances = [],
+    floatCards = [],
     priceNote,
   } = data;
 
@@ -51,12 +52,35 @@ export default function hero({ data = {}, priceView }) {
       </ul>`
     : '';
 
+  /*
+   * الكروت العائمة فوق الصورة — أيقونة + سطرين.
+   *
+   * ⚠️ الصفحة الحالية عندها كارت فيه خريطة SVG متحرّكة ("البلاصة
+   * مباشرة"). هذاك مرسوم خصّيصاً للطوق وما يتعمّمش، فما جبناهش. اللي
+   * يحبّو يقدر يديرو كقسم خاص ولا صورة. الكارت البسيط (أيقونة + نص)
+   * يخدم لأي منتج، وهو هذا.
+   *
+   * ما ناخذوش أكثر من زوج — فوق هذا يغطّيو الصورة روحها.
+   */
+  const cards = floatCards.slice(0, 2);
+  const floating = cards.length
+    ? mapJoin(cards, (card, i) => `
+        <div class="float-card float-card--${i === 0 ? 'batt' : 'start'}" data-float${i ? ' style="--delay:-2.5s"' : ''}>
+          ${icon(card.icon)}
+          <div>
+            ${card.title ? `<strong>${esc(card.title)}</strong>` : ''}
+            ${card.note ? `<span>${esc(card.note)}</span>` : ''}
+          </div>
+        </div>`)
+    : '';
+
   const media = image
     ? `<div class="hero__media reveal" style="--d:100ms">
         <div class="hero__photo">
           <img src="${safeUrl(image)}" alt="${escAttr(imageAlt ?? '')}"
                width="1100" height="1300" fetchpriority="high" decoding="async">
         </div>
+        ${floating}
       </div>`
     : '';
 

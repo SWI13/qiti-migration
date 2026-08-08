@@ -5,3 +5,40 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# روابط الميديا: /media/:id يوصل لفنكشن الخدمة. زوج قواعد — وحدة على
+# القياس الشائع (رابط بجزء واحد) وأخرى splat احتياطية — بلا ما نلمسو
+# جذر الموقع (catch-all راهو يتزاد في تغيير آخر).
+[[redirects]]
+  from = "/media/:id"
+  to = "/.netlify/functions/media-serve/:id"
+  status = 200
+
+[[redirects]]
+  from = "/media/*"
+  to = "/.netlify/functions/media-serve/:splat"
+  status = 200
+
+# صفحات المتجر: الفئات، المنتجات، والحملات في جذر الموقع.
+#
+# ⚠️ الترتيب مهم. Netlify يشوف الملفات الستاتيك الأول (index.html،
+# /assets/…)، ومن بعد القواعد بالترتيب المكتوب. الـ catch-all لازم
+# يبقى في الأخير وإلا يبلع كلش.
+#
+# الحملات تسكن في الجذر (qiti.com/toji-outfit) على خاطر هذا هو الرابط
+# اللي يتكتب في الإعلان. الفنكشن يرجع 404 حقيقية للروابط اللي ما
+# كايناش — ماشي 200 بصفحة "ما لقيناش"، وإلا غوغل يفهرس الأخطاء المطبعية.
+[[redirects]]
+  from = "/c/*"
+  to = "/.netlify/functions/render"
+  status = 200
+
+[[redirects]]
+  from = "/p/*"
+  to = "/.netlify/functions/render"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/render"
+  status = 200

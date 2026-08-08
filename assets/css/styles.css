@@ -583,14 +583,25 @@ em {
 }
 .track__label strong { color: var(--text); }
 
-.float-card--batt {
-  inset-inline-end: clamp(-24px, -1.5vw, -6px); top: 52px;
+/*
+ * كروت عائمة عامّة — أيقونة + سطر ثخين + سطر صغير.
+ * `--batt` فوق على اليسار، `--start` تحت على اليمين. الشكل واحد،
+ * البلاصة برك اللي تفرق، باش أي منتج يقدر يستعملهم ماشي الطوق برك.
+ */
+.float-card--batt,
+.float-card--start {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 17px;
 }
-.float-card--batt .ico { width: 22px; height: 22px; color: var(--accent); }
-.float-card--batt strong { display: block; font-size: .92rem; }
-.float-card--batt span { font-size: .76rem; color: var(--text-faint); }
+.float-card--batt { inset-inline-end: clamp(-24px, -1.5vw, -6px); top: 52px; }
+.float-card--start { inset-inline-start: clamp(-28px, -2vw, -8px); bottom: 44px; max-width: 232px; }
+
+.float-card--batt .ico,
+.float-card--start .ico { width: 22px; height: 22px; color: var(--accent); }
+.float-card--batt strong,
+.float-card--start strong { display: block; font-size: .92rem; }
+.float-card--batt span,
+.float-card--start span { font-size: .76rem; color: var(--text-faint); }
 
 /* ── 7. TRUST ──────────────────────────────────────────────────────────── */
 .trust {
