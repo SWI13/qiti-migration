@@ -91,6 +91,15 @@ export async function listAwaitingReturnReceipt() {
   return all.filter((order) => order.status === 'accepted' && order.deliveryStatus === 'returned' && !order.returnReceivedAt);
 }
 
+/**
+ * كل الطلبات السابقة بنفس رقم الهاتف — أساس لتنبيه "زبون عندو تاريخ" كي
+ * يجي طلب جديد بنفس الرقم (رفض ولا رجعة قبل هذا).
+ */
+export async function listOrdersByPhone(phone) {
+  const all = await listAllOrders();
+  return all.filter((order) => order.phone === phone);
+}
+
 /* ── المخزون ──────────────────────────────────────────────────────── */
 
 export async function getStock() {

@@ -16,7 +16,7 @@
  *   ⚠️ حساب Twilio Trial يبعث غير للأرقام المتحقّق منها — أرقام الزبائن
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
-import { newOrderId, saveOrder, updateOrder, algiersDate } from '../lib/store.mjs';
+import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone } from '../lib/store.mjs';
 import { ownerMessage, orderButtons, toE164Dz, totalFor } from '../lib/message.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -52,7 +52,7 @@ const customerMessage = ({ name }) =>
   `شكراً ${name.split(' ')[0]}! طلبك من Qiti تسجّل، نتصلو بيك قريباً باش نأكّدوه.`;
 
 /** يرجع message_id باش نخزّنوه ونقدرو نبدّلو الرسالة من بعد */
-async function notifyOwner(record) {
+async function notifyOwner(record, customerHistory) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) throw new Error('TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not configured');
@@ -62,7 +62,7 @@ async function notifyOwner(record) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: ownerMessage(record),
+      text: ownerMessage(record, { customerHistory }),
       parse_mode: 'HTML',
       disable_web_page_preview: true,
       reply_markup: orderButtons(record),
@@ -133,6 +133,20 @@ export default async function handler(request) {
   };
 
   /*
+   * تاريخ الزبون بهذا الرقم — قبل ما نسجّلو الطلب الجديد، وإلا يدخل هو
+   * نفسو في العدّ (نفس الرقم) ويفسد النتيجة. هذا برك لقطة وقتية للإشعار
+   * الأول، ما تتخزّنش في الطلب.
+   */
+  const pastOrders = await listOrdersByPhone(record.phone).catch((err) => {
+    console.error('Failed to fetch customer history:', err.message, '| phone:', record.phone);
+    return [];
+  });
+  const customerHistory = {
+    denied: pastOrders.filter((o) => o.status === 'denied').length,
+    returned: pastOrders.filter((o) => o.deliveryStatus === 'returned').length,
+  };
+
+  /*
    * نسجّلو الطلب قبل ما نبعثو: حتى لو تيليغرام طاح، الطلب يبقى محفوظ
    * ويبان في تقرير آخر النهار.
    */
@@ -147,7 +161,7 @@ export default async function handler(request) {
    * رسالة الزبون ثانوية: إذا فشلت وحدها، الطلب وصلك وخلاص، ما نوقفوش العملية.
    */
   const [ownerResult, customerResult] = await Promise.allSettled([
-    notifyOwner(record),
+    notifyOwner(record, customerHistory),
     notifyCustomer(record),
   ]);
 
