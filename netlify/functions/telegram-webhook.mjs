@@ -1,28 +1,41 @@
 /*
- * يستقبل نقرات الأزرار (قبول / رفض) وجواب سبب الرفض من تيليغرام.
+ * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت)، جواب سبب الرفض،
+ * وأوامر المخزون (/stock, /restock, /setstock) من تيليغرام.
  *
  * ── قبول ─────────────────────────────────────────────────────────────
- *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، وأزرار القرار
- *   تتنحّى (زر واتساب يبقى).
+ *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، أزرار القرار
+ *   تتبدّل بزوج أزرار "📦 توصّل" / "↩️ رجعت" (زر واتساب يبقى)، والمخزون
+ *   ينقص بكمية الطلب. إذا هبط للحد ولا تحتو، يتبعث تنبيه مخزون وحدة برك.
  *
  * ── رفض ──────────────────────────────────────────────────────────────
  *   نقرة → البوت يردّ على الرسالة ويطلب السبب (ForceReply، يحلّ الكيبورد
  *   مباشرة). كي تكتب السبب، رسالة الطلب تتبدّل وتزيد "❌ مرفوض" + السبب،
  *   ورسالة السؤال تتمسح.
  *
+ * ── توصّل / رجعت (بعد القبول) ──────────────────────────────────────
+ *   الطلب يبقى "مقبول" لأيام قبل ما نعرفو واش وصل فعلاً ولا رجع مع
+ *   المُوصّل — علاش الأزرار تبقى بايّنة في نفس الرسالة، وتتسجّل في تقرير
+ *   آخر النهار (قائمة "طلبات تستنّى نتيجة التوصيل") حتى لو ماشي من نفس
+ *   اليوم. "رجعت" ترجّع الكمية للمخزون أوتوماتيكياً.
+ *
  * الحالة كاملة تتخزّن في Netlify Blobs باش تقرير آخر النهار يقراها.
  *
  * ── environment variables ────────────────────────────────────────────
  *   TELEGRAM_BOT_TOKEN       — نفس التوكن تاع order.mjs
  *   TELEGRAM_WEBHOOK_SECRET  — كلمة سرّ تخترعها انت (أي نص عشوائي)
+ *   TELEGRAM_CHAT_ID         — نفس id تاع order.mjs، يخدم هنا باش يحصر
+ *                              أوامر المخزون في الگروب/الشات تاعك برك
  *
  * ── تشبيك الـ webhook (مرّة وحدة بعد الـ deploy) ─────────────────────
  *   curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
  *     -d "url=https://<موقعك>.netlify.app/.netlify/functions/telegram-webhook" \
  *     -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
  */
-import { getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt } from '../lib/store.mjs';
-import { ownerMessage, whatsappOnlyButtons, esc } from '../lib/message.mjs';
+import {
+  getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
+  getStock, adjustStock, setStock, markLowStockAlerted,
+} from '../lib/store.mjs';
+import { ownerMessage, buttonsFor, esc } from '../lib/message.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -60,8 +73,19 @@ async function repaintOrder(chatId, record) {
     text: ownerMessage(record),
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    reply_markup: whatsappOnlyButtons(record),
+    reply_markup: buttonsFor(record),
   });
+}
+
+/** كي المخزون يهبط للحد أو تحتو، يتبعث تنبيه وحدة برك (ماشي في كل طلب) */
+async function checkLowStock(chatId, stock) {
+  if (!stock || stock.qty > stock.threshold || stock.lowStockAlerted) return;
+  await telegram('sendMessage', {
+    chat_id: chatId,
+    text: `⚠️ <b>تنبيه مخزون</b>\nباقي <b>${stock.qty}</b> طوق فقط — وقت التزويد!`,
+    parse_mode: 'HTML',
+  }).catch((error) => console.error('Low stock alert failed:', error.message));
+  await markLowStockAlerted(true).catch((error) => console.error('markLowStockAlerted failed:', error.message));
 }
 
 /* ── نقرة زر ─────────────────────────────────────────────────────── */
@@ -74,14 +98,25 @@ async function handleCallback(query) {
     telegram('answerCallbackQuery', { callback_query_id: query.id, ...(text ? { text } : {}) })
       .catch((error) => console.error('answerCallbackQuery failed:', error.message));
 
-  if (!message || (action !== 'ok' && action !== 'no')) return answer();
+  const isDecision = action === 'ok' || action === 'no';
+  const isDeliveryOutcome = action === 'del' || action === 'ret';
+  if (!message || (!isDecision && !isDeliveryOutcome)) return answer();
 
   const order = orderId ? await getOrder(orderId).catch(() => null) : null;
 
-  /* الطلب تقرّر من قبل — ما نعاودوش، ونقولو لللي نقر */
-  if (order && order.status !== 'pending') {
+  /* قبول/رفض تقرّر من قبل — ما نعاودوش، ونقولو لللي نقر */
+  if (isDecision && order && order.status !== 'pending') {
     const label = order.status === 'accepted' ? 'مقبول' : 'مرفوض';
     return answer(`الطلب راهو ${label} من قبل — ${order.actor ?? ''}`);
+  }
+
+  /* زر التوصيل/الرجوع يحتاج طلب مقبول وبلا نتيجة توصيل مسبقة */
+  if (isDeliveryOutcome && order) {
+    if (order.status !== 'accepted') return answer('الطلب لازال ماشي مقبول.');
+    if (order.deliveryStatus) {
+      const label = order.deliveryStatus === 'delivered' ? 'توصّل' : 'رجعت';
+      return answer(`الطلب راهو ${label} من قبل — ${order.deliveryActor ?? ''}`);
+    }
   }
 
   if (action === 'ok') {
@@ -89,11 +124,40 @@ async function handleCallback(query) {
       const updated = await updateOrder(orderId, {
         status: 'accepted', actor: who, decidedAt: new Date().toISOString(), reason: null,
       });
-      await repaintOrder(message.chat.id, updated ?? { ...order, messageId: message.message_id });
+      const record = updated ?? { ...order, messageId: message.message_id };
+      await repaintOrder(message.chat.id, record);
+
+      const stock = await adjustStock(-(record.qty ?? 0)).catch((error) => {
+        console.error('Stock decrement failed:', error.message, '| order:', orderId);
+        return null;
+      });
+      await checkLowStock(message.chat.id, stock);
     } catch (error) {
       console.error('Accept failed:', error.message, '| order:', orderId);
     }
     return answer('تقبّل الطلب ✅');
+  }
+
+  if (action === 'del' || action === 'ret') {
+    const deliveryStatus = action === 'del' ? 'delivered' : 'returned';
+    try {
+      const updated = await updateOrder(orderId, {
+        deliveryStatus, deliveryActor: who, deliveryDecidedAt: new Date().toISOString(),
+      });
+      if (!updated) return answer('الطلب ماشي موجود.');
+
+      await repaintOrder(message.chat.id, updated);
+
+      /* الطلبية رجعت للمخزن فعلياً — نرجّعو الكمية للمخزون */
+      if (deliveryStatus === 'returned') {
+        await adjustStock(updated.qty ?? 0).catch((error) =>
+          console.error('Restock after return failed:', error.message, '| order:', orderId));
+      }
+    } catch (error) {
+      console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
+      return answer('صار خطأ، عاود حاول.');
+    }
+    return answer(deliveryStatus === 'delivered' ? 'تسجّل: توصّل 📦' : 'تسجّل: رجعت الطلبية ↩️');
   }
 
   /*
@@ -145,6 +209,44 @@ async function handleReply(message) {
       chat_id: message.chat.id,
       text: `⚠️ ما قدرناش نسجّلو سبب الرفض: ${esc(error.message)}`,
     }).catch(() => {});
+  }
+}
+
+/* ── أوامر المخزون ────────────────────────────────────────────────
+ * /stock            — يعرض الكمية الحالية وحد التنبيه
+ * /restock <عدد>    — يزيد كمية للمخزون (بعد تزويد)
+ * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
+ *
+ * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
+ * مباشرة مع البوت (خارج الگروب) ما يقدرش يبدّل المخزون.
+ */
+async function handleCommand(message) {
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
+
+  const [command, arg] = String(message.text ?? '').trim().split(/\s+/);
+  const reply = (text) =>
+    telegram('sendMessage', { chat_id: message.chat.id, text, parse_mode: 'HTML' })
+      .catch((error) => console.error('Command reply failed:', error.message));
+
+  if (command === '/stock') {
+    const stock = await getStock();
+    const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
+    return reply(`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}\nحد التنبيه: ${stock.threshold}`);
+  }
+
+  if (command === '/restock') {
+    const n = parseInt(arg, 10);
+    if (!Number.isFinite(n) || n <= 0) return reply('استعمل: /restock 20');
+    const stock = await adjustStock(n);
+    return reply(`✅ تزوّد المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
+  }
+
+  if (command === '/setstock') {
+    const n = parseInt(arg, 10);
+    if (!Number.isFinite(n) || n < 0) return reply('استعمل: /setstock 50');
+    const stock = await setStock(n);
+    return reply(`✅ تسجّل المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
   }
 }
 
@@ -219,6 +321,7 @@ export default async function handler(request) {
   try {
     if (update.callback_query) await handleCallback(update.callback_query);
     else if (update.message?.reply_to_message) await handleReply(update.message);
+    else if (update.message?.text?.startsWith('/')) await handleCommand(update.message);
   } catch (error) {
     console.error('Webhook handler error:', error.message);
   }

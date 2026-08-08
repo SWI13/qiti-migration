@@ -7,9 +7,14 @@ import { getStore } from '@netlify/blobs';
 const ORDERS = 'orders';
 /* ربط رسالة "علاش رفضتو؟" بالطلب اللي تخصّها، باش نعرفو الجواب لمن يرجع */
 const REPLIES = 'reply-prompts';
+/* عدّاد المخزون — قيمة وحدة مخزّنة تحت مفتاح ثابت */
+const STOCK = 'stock';
+const STOCK_KEY = 'current';
+const DEFAULT_STOCK_THRESHOLD = 10;
 
 const orders = () => getStore(ORDERS);
 const replies = () => getStore(REPLIES);
+const stockStore = () => getStore(STOCK);
 
 /** id قصير: التاريخ + عشوائي. لازم يكون قصير على خاطر callback_data محدود بـ 64 بايت. */
 export function newOrderId(now = new Date()) {
@@ -51,6 +56,56 @@ export async function listOrdersForDay(day) {
 
   const records = await Promise.all(todays.map((blob) => orders().get(blob.key, { type: 'json' })));
   return records.filter(Boolean);
+}
+
+/**
+ * طلبات مقبولة ما زال بلا نتيجة توصيل (لا "توصّل" لا "رجعت")، مهما كان
+ * يوم إنشاءهم — التوصيل يقدر يتأخّر يومين ولا ثلاثة، فما نحبّوش نضيّعوهم
+ * وراء أرشيف الأيام.
+ */
+export async function listAwaitingDelivery() {
+  const { blobs } = await orders().list();
+  const records = await Promise.all(blobs.map((blob) => orders().get(blob.key, { type: 'json' })));
+  return records.filter((order) => order && order.status === 'accepted' && !order.deliveryStatus);
+}
+
+/* ── المخزون ──────────────────────────────────────────────────────── */
+
+export async function getStock() {
+  const record = await stockStore().get(STOCK_KEY, { type: 'json' });
+  return record ?? { qty: 0, threshold: DEFAULT_STOCK_THRESHOLD, lowStockAlerted: false, updatedAt: null };
+}
+
+/**
+ * يبدّل الكمية بـ delta (سلبي عند القبول، إيجابي عند الرجوع/التزويد).
+ * كي الكمية تطلع فوق الحد، ينسى تنبيه المخزون القليل تلقائياً باش يعاود
+ * يبان إذا رجعت تهبط.
+ */
+export async function adjustStock(delta) {
+  const current = await getStock();
+  const qty = Math.max(0, current.qty + delta);
+  const lowStockAlerted = qty > current.threshold ? false : current.lowStockAlerted;
+  const updated = { ...current, qty, lowStockAlerted, updatedAt: new Date().toISOString() };
+  await stockStore().setJSON(STOCK_KEY, updated);
+  return updated;
+}
+
+export async function setStock(qty, threshold) {
+  const current = await getStock();
+  const updated = {
+    ...current,
+    qty: Math.max(0, qty),
+    threshold: threshold ?? current.threshold,
+    lowStockAlerted: false,
+    updatedAt: new Date().toISOString(),
+  };
+  await stockStore().setJSON(STOCK_KEY, updated);
+  return updated;
+}
+
+export async function markLowStockAlerted(value) {
+  const current = await getStock();
+  await stockStore().setJSON(STOCK_KEY, { ...current, lowStockAlerted: value });
 }
 
 /* ── ربط رسالة طلب السبب بالطلب ─────────────────────────────────── */

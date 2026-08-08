@@ -125,6 +125,9 @@ export default async function handler(request) {
     reason: null,
     decidedAt: null,
     messageId: null,
+    deliveryStatus: null,
+    deliveryActor: null,
+    deliveryDecidedAt: null,
   };
 
   /*
