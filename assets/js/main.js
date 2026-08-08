@@ -330,6 +330,20 @@
     }
   }
 
+  /* ── أزرار "اطلب الان": نزل للفورم وركّز على حقل الاسم مباشرة ─────
+     باش الزبون يبدا يكتب على طول بلا ما يدوّر على الحقل بعد ما ينزل. */
+  var orderCtas = document.querySelectorAll('a[href="#order"]');
+  var nameField = document.getElementById('fName');
+  if (orderCtas.length && nameField) {
+    orderCtas.forEach(function (cta) {
+      cta.addEventListener('click', function () {
+        window.setTimeout(function () {
+          nameField.focus({ preventScroll: true });
+        }, reduceMotion ? 0 : 650);
+      });
+    });
+  }
+
   /* ── سنة الفوتر ────────────────────────────────────────────── */
   var year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
