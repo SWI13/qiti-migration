@@ -246,12 +246,17 @@
     });
 
     var submitBtn = document.getElementById('submitBtn');
+    var submitErr = document.getElementById('submitErr');
     var orderDone = document.getElementById('orderDone');
     var orderDoneMsg = document.getElementById('orderDoneMsg');
     var orderAgain = document.getElementById('orderAgain');
 
+    /* الفنكشن اللي تبعث إشعار واتساب — الكود تاعها في netlify/functions/order.mjs */
+    var ORDER_ENDPOINT = '/.netlify/functions/order';
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      submitErr.textContent = '';
 
       var ok = Object.keys(validators).reduce(function (acc, id) {
         return validateField(id) && acc;
@@ -262,33 +267,55 @@
         return;
       }
 
+      var originalLabel = submitBtn.innerHTML;
       submitBtn.disabled = true;
       submitBtn.classList.add('is-loading');
-      var originalLabel = submitBtn.innerHTML;
       submitBtn.textContent = 'جارٍ التسجيل...';
 
-      /*
-       * ملاحظة للمطوّر: هذا نموذج واجهة أمامية فقط (بلا سيرفر).
-       * باش يخدم بشكل حقيقي، بدّل هذا الجزء بـ fetch() يبعث لـ
-       * API تاعك، أو Google Sheet، أو مباشرة لخدمة زبائن عبر واتساب.
-       */
-      window.setTimeout(function () {
-        var name = document.getElementById('fName').value.trim();
-        var wilaya = document.getElementById('fWilaya').value;
-        var total = document.getElementById('sumTotal').textContent;
-
-        orderDoneMsg.textContent =
-          'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
-          '. راح يتّصل بيك فريقنا في أقرب وقت باش يأكّد الطلب.';
-
-        form.hidden = true;
-        orderDone.hidden = false;
-        orderDone.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-
+      function restoreButton() {
         submitBtn.disabled = false;
         submitBtn.classList.remove('is-loading');
         submitBtn.innerHTML = originalLabel;
-      }, 700);
+      }
+
+      var name = document.getElementById('fName').value.trim();
+      var wilaya = document.getElementById('fWilaya').value;
+      var total = document.getElementById('sumTotal').textContent;
+
+      fetch(ORDER_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          phone: document.getElementById('fPhone').value,
+          wilaya: wilaya,
+          commune: document.getElementById('fCommune').value.trim(),
+          shipping: currentShipping(),
+          qty: qtyInput.value,
+          website: document.getElementById('fWebsite').value
+        })
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok) throw new Error(data.error || 'ما قدرناش نسجّلو الطلب دروك. عاود حاول.');
+            return data;
+          });
+        })
+        .then(function () {
+          orderDoneMsg.textContent =
+            'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
+            '. راح يتّصل بيك فريقنا في أقرب وقت باش يأكّد الطلب.';
+
+          form.hidden = true;
+          orderDone.hidden = false;
+          orderDone.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+          restoreButton();
+        })
+        .catch(function (err) {
+          submitErr.textContent = err.message || 'ما قدرناش نسجّلو الطلب دروك. عاود حاول.';
+          restoreButton();
+          submitBtn.focus();
+        });
     });
 
     if (orderAgain) {
