@@ -31,12 +31,20 @@ const REQUEST_TIMEOUT_MS = 4_000;
  * جديد ما نعرفوهش، يبان كيما هو بعلامة محايدة بدل ما يطيح الكود.
  */
 const TIER_ICON = {
+  /* التصنيفات المذكورة في موقع tkawen: trusted / cautious / high-risk */
   trusted: '✅',
   low: '✅',
+  cautious: '⚠️',
+  caution: '⚠️',
+  'حذر': '⚠️',
   neutral: 'ℹ️',
   medium: '⚠️',
   risky: '⚠️',
+  'high-risk': '🚫',
+  high_risk: '🚫',
+  highrisk: '🚫',
   high: '🚫',
+  'مرتفع المخاطر': '🚫',
   blocked: '🚫',
   fraud: '🚫',
 };
@@ -47,9 +55,14 @@ export const tierIcon = (tier) => TIER_ICON[String(tier ?? '').toLowerCase()] ??
 const TIER_LABEL = {
   trusted: 'موثوق',
   low: 'خطر ضعيف',
+  cautious: 'حذر',
+  caution: 'حذر',
   neutral: 'عادي',
   medium: 'خطر متوسّط',
   risky: 'خطر',
+  'high-risk': 'مرتفع المخاطر',
+  high_risk: 'مرتفع المخاطر',
+  highrisk: 'مرتفع المخاطر',
   high: 'خطر عالي',
   blocked: 'محظور',
   fraud: 'نصّاب',
