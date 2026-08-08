@@ -1,5 +1,6 @@
 /*
- * يستقبل الطلب من فورم `#orderForm` ويبعثلك إشعار على تيليغرام.
+ * يستقبل الطلب من فورم `#orderForm`، يسجّلو، ويبعثلك إشعار على تيليغرام
+ * فيه أزرار قبول / رفض.
  *
  * علاش تيليغرام ماشي واتساب: واتساب (سواء عبر Twilio ولا Meta) ما يخلّيكش
  * تبعث نص حر برّا نافذة 24 ساعة — لازم template معتمد من Meta على كل تغيير
@@ -7,7 +8,7 @@
  *
  * ── environment variables (في Netlify، ماشي في أي ملف هنا) ───────────
  *   TELEGRAM_BOT_TOKEN   — من @BotFather، شكلو 1234567890:AA...
- *   TELEGRAM_CHAT_ID     — الـ id تاعك، رقم مثل 123456789
+ *   TELEGRAM_CHAT_ID     — id تاع الشات ولا الگروب (الگروب يبدا بـ -)
  *
  * ── اختياري: SMS تأكيد للزبون عبر Twilio ─────────────────────────────
  *   TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_SMS_FROM
@@ -15,27 +16,15 @@
  *   ⚠️ حساب Twilio Trial يبعث غير للأرقام المتحقّق منها — أرقام الزبائن
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
+import { newOrderId, saveOrder, updateOrder, algiersDate } from '../lib/store.mjs';
+import { ownerMessage, orderButtons, toE164Dz, totalFor } from '../lib/message.mjs';
 
-const PRODUCT_PRICE = 3900;
-const SHIPPING = { home: 600, desk: 400 };
-const SHIPPING_LABEL = { home: 'للدار', desk: 'لمكتب التوصيل' };
 const REQUEST_TIMEOUT_MS = 10_000;
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json; charset=utf-8' },
 });
-
-/** 0661445566 → +213661445566 (صيغة E.164) */
-const toE164Dz = (localPhone) => `+213${localPhone.replace(/\D/g, '').replace(/^0/, '')}`;
-
-const dz = (n) => `${n.toLocaleString('en-US')} دج`;
-
-/*
- * الاسم والبلدية يكتبهم الزبون، فلازم نهربو الرموز اللي يفهمها تيليغرام كـ
- * HTML. بلا هذا، اسم فيه `<` يهرّس الرسالة كاملة (ولا يزيد markup ما بغيناهش).
- */
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /* نفس التحقّق اللي في المتصفّح — يتعاود هنا على خاطر ما نثقوش في الكليان */
 function validate(order) {
@@ -54,41 +43,6 @@ function validate(order) {
   return { order: { name, phone, wilaya, commune, shipping, qty } };
 }
 
-const totalFor = ({ shipping, qty }) => PRODUCT_PRICE * qty + SHIPPING[shipping];
-
-/*
- * الرقم مكتوب نص عادي (ماشي <code>) قصداً: تيليغرام يتعرّف على أرقام الهاتف
- * ويديرها قابلة للنقر — تنقر عليها وتعيّط مباشرة. <code> يديرها نسخ برك.
- */
-const ownerMessage = (order) =>
-  [
-    '<b>🐱 طلب جديد — Qiti</b>',
-    '',
-    `<b>${esc(order.name)}</b>`,
-    `📞 ${esc(toE164Dz(order.phone))}`,
-    `📍 ${esc(order.wilaya)} / ${esc(order.commune)}`,
-    `🚚 ${SHIPPING_LABEL[order.shipping]} — الكمية ×${order.qty}`,
-    '',
-    `<b>المجموع: ${dz(totalFor(order))}</b> — كاش عند الاستلام`,
-  ].join('\n');
-
-/*
- * أزرار تحت الرسالة. `callback_data` توصل لـ `telegram-webhook.mjs` كي تنقر.
- * ملاحظة: تيليغرام ما يقبلش روابط `tel:` في الأزرار ("Wrong port number") —
- * علاش زر الاتصال ما كاينش، وعوّضناه بالرقم القابل للنقر فوق + زر واتساب.
- */
-const orderButtons = (order) => ({
-  inline_keyboard: [
-    [
-      { text: '✅ قبول الطلب', callback_data: 'ok' },
-      { text: '❌ رفض الطلب', callback_data: 'no' },
-    ],
-    [
-      { text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(order.phone).replace('+', '')}` },
-    ],
-  ],
-});
-
 /*
  * رسالة الزبون — مقصودة قصيرة. الحروف العربية تتبعث بترميز UCS-2، يعني
  * 70 حرف في كل segment (مقابل 160 بالحروف اللاتينية). خلّيها تحت 70 حرف
@@ -97,7 +51,8 @@ const orderButtons = (order) => ({
 const customerMessage = ({ name }) =>
   `شكراً ${name.split(' ')[0]}! طلبك من Qiti تسجّل، نتصلو بيك قريباً باش نأكّدوه.`;
 
-async function notifyOwner(order) {
+/** يرجع message_id باش نخزّنوه ونقدرو نبدّلو الرسالة من بعد */
+async function notifyOwner(record) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) throw new Error('TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not configured');
@@ -107,10 +62,10 @@ async function notifyOwner(order) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: ownerMessage(order),
+      text: ownerMessage(record),
       parse_mode: 'HTML',
       disable_web_page_preview: true,
-      reply_markup: orderButtons(order),
+      reply_markup: orderButtons(record),
     }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
@@ -120,9 +75,10 @@ async function notifyOwner(order) {
   if (!response.ok || result.ok === false) {
     throw new Error(`Telegram ${response.status}: ${result.description ?? 'unknown error'}`);
   }
+  return result.result;
 }
 
-async function notifyCustomer(order) {
+async function notifyCustomer(record) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_SMS_FROM;
@@ -134,48 +90,14 @@ async function notifyCustomer(order) {
       authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
       'content-type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ To: toE164Dz(order.phone), From: from, Body: customerMessage(order) }),
+    body: new URLSearchParams({ To: toE164Dz(record.phone), From: from, Body: customerMessage(record) }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) throw new Error(`Twilio ${response.status}: ${await response.text()}`);
 }
 
-/* ⚠️ مؤقّت — تشخيص الإعداد. يتنحّى كي نلقاو المشكل. ما يكشف حتى توكن. */
-async function diagnose() {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  const report = {
-    hasToken: Boolean(token),
-    tokenEndsWith: token ? token.slice(-4) : null,
-    tokenLength: token ? token.length : 0,
-    hasChatId: Boolean(chatId),
-    chatIdRaw: chatId ?? null,
-    hasWebhookSecret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
-  };
-  if (!token || !chatId) return report;
-
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    const body = await res.json().catch(() => ({}));
-    report.telegramCheck = body.ok
-      ? `OK — ${body.result?.title ?? body.result?.first_name}`
-      : `FAIL — ${body.description}`;
-  } catch (error) {
-    report.telegramCheck = `FAIL — ${error.message}`;
-  }
-  return report;
-}
-
 export default async function handler(request) {
-  if (request.method === 'GET' && new URL(request.url).searchParams.has('diag')) {
-    return json(200, await diagnose());
-  }
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   let payload;
@@ -191,25 +113,57 @@ export default async function handler(request) {
   const { order, error } = validate(payload);
   if (error) return json(400, { error });
 
+  const now = new Date();
+  const record = {
+    ...order,
+    id: newOrderId(now),
+    total: totalFor(order),
+    day: algiersDate(now),
+    createdAt: now.toISOString(),
+    status: 'pending',
+    actor: null,
+    reason: null,
+    decidedAt: null,
+    messageId: null,
+  };
+
+  /*
+   * نسجّلو الطلب قبل ما نبعثو: حتى لو تيليغرام طاح، الطلب يبقى محفوظ
+   * ويبان في تقرير آخر النهار.
+   */
+  try {
+    await saveOrder(record);
+  } catch (err) {
+    console.error('Failed to persist order:', err.message, '| order:', JSON.stringify(record));
+  }
+
   /*
    * إشعارك انت هو الحرج — إذا فشل، الطلب يضيع، فنرجعو خطأ للزبون باش يعاود.
    * رسالة الزبون ثانوية: إذا فشلت وحدها، الطلب وصلك وخلاص، ما نوقفوش العملية.
    */
   const [ownerResult, customerResult] = await Promise.allSettled([
-    notifyOwner(order),
-    notifyCustomer(order),
+    notifyOwner(record),
+    notifyCustomer(record),
   ]);
 
   if (customerResult.status === 'rejected') {
-    console.error('Customer SMS failed:', customerResult.reason.message, '| phone:', order.phone);
+    console.error('Customer SMS failed:', customerResult.reason.message, '| phone:', record.phone);
   }
 
   if (ownerResult.status === 'rejected') {
-    /* الطلب يبقى في لوغ الفنكشن حتى إذا تيليغرام فشل — ما نخسروش زبون. */
-    console.error('Telegram notification failed:', ownerResult.reason.message, '| order:', JSON.stringify(order));
+    /* الطلب يبقى في اللوغ وفي التخزين حتى إذا تيليغرام فشل — ما نخسروش زبون. */
+    console.error('Telegram notification failed:', ownerResult.reason.message, '| order:', JSON.stringify(record));
     return json(502, { error: 'ما قدرناش نسجّلو الطلب دروك. عاود حاول أو اتصل بينا مباشرة.' });
   }
 
-  console.log('Order received:', JSON.stringify(order), '| customer SMS:', customerResult.status);
+  /* نخزّنو message_id باش الويبهوك يقدر يبدّل نفس الرسالة كي تنقر على زر */
+  const messageId = ownerResult.value?.message_id ?? null;
+  if (messageId) {
+    await updateOrder(record.id, { messageId }).catch((err) =>
+      console.error('Failed to store message id:', err.message),
+    );
+  }
+
+  console.log('Order received:', record.id, JSON.stringify(order), '| customer SMS:', customerResult.status);
   return json(200, { ok: true });
 }
