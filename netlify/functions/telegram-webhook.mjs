@@ -120,6 +120,15 @@ async function handleCallback(query) {
   }
 
   if (action === 'ok') {
+    /* ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو */
+    if (order) {
+      const needed = order.qty ?? 1;
+      const stockBefore = await getStock().catch(() => null);
+      if (stockBefore && stockBefore.qty < needed) {
+        return answer(`🚫 المخزون ما يكفيش — باقي ${stockBefore.qty}، الطلب يحتاج ${needed}. زوّدو بـ /restock.`);
+      }
+    }
+
     try {
       const updated = await updateOrder(orderId, {
         status: 'accepted', actor: who, decidedAt: new Date().toISOString(), reason: null,
