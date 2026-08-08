@@ -284,6 +284,125 @@
   </div>
 </section>
 
+<!-- ─────────────────────────── ORDER FORM ─────────────────────────── -->
+<section class="order" id="order">
+  <div class="container">
+    <header class="section__head reveal">
+      <span class="eyebrow">اطلب الان</span>
+      <h2 class="section__title">عمّر المعلومات و<em>نتصلو بيك</em>.</h2>
+      <p class="section__sub">ما تخلّصش حتى يوصلك الطوق لباب الدار. التوصيل لـ 58 ولاية.</p>
+    </header>
+
+    <div class="order__card reveal">
+      <form class="order__form" id="orderForm" novalidate>
+
+        <!-- فخّ البوتات: مخبّي على المستخدم، البوتات برك اللي تعمّرو -->
+        <div class="hp" aria-hidden="true">
+          <label for="fWebsite">لا تعمّر هذا الحقل</label>
+          <input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="order__product">
+          <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=300&h=300&q=75&auto=format&fit=crop" alt="طوق Qiti الذكي" loading="lazy">
+          <div>
+            <h3>طوق Qiti الذكي بـ GPS</h3>
+            <p>يجي معاه: الجهاز + الطوق + قاعدة الشحن + كابل</p>
+            <span class="order__product-price">3900 دج</span>
+          </div>
+        </div>
+
+        <div class="fields">
+          <div class="field field--full">
+            <label for="fName">الاسم الكامل <span aria-hidden="true">*</span></label>
+            <div class="input-wrap">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-user"/></svg>
+              <input id="fName" name="name" type="text" required autocomplete="name" placeholder="مثال: محمد بن علي">
+            </div>
+            <p class="err" data-err-for="fName"></p>
+          </div>
+
+          <div class="field field--full">
+            <label for="fPhone">رقم الهاتف <span aria-hidden="true">*</span></label>
+            <div class="input-wrap">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-call"/></svg>
+              <input id="fPhone" name="phone" type="tel" required inputmode="numeric"
+                     autocomplete="tel" placeholder="0X XX XX XX XX" dir="ltr">
+            </div>
+            <p class="err" data-err-for="fPhone"></p>
+          </div>
+
+          <div class="field">
+            <label for="fWilaya">الولاية <span aria-hidden="true">*</span></label>
+            <select id="fWilaya" name="wilaya" required>
+              <option value="">اختر الولاية</option>
+            </select>
+            <p class="err" data-err-for="fWilaya"></p>
+          </div>
+
+          <div class="field">
+            <label for="fCommune">البلدية <span aria-hidden="true">*</span></label>
+            <input id="fCommune" name="commune" type="text" required placeholder="اكتب اسم البلدية">
+            <p class="err" data-err-for="fCommune"></p>
+          </div>
+
+          <div class="field field--full">
+            <span class="label">نوع التوصيل</span>
+            <div class="ship-opts">
+              <label class="ship">
+                <input type="radio" name="shipping" value="home" checked>
+                <span class="ship__box">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-truck"/></svg>
+                  <span class="ship__txt"><b>للدار</b><small>يوصلك لباب الدار</small></span>
+                  <span class="ship__price" data-price="home">—</span>
+                </span>
+              </label>
+              <label class="ship">
+                <input type="radio" name="shipping" value="desk">
+                <span class="ship__box">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-store"/></svg>
+                  <span class="ship__txt"><b>لمكتب التوصيل</b><small>تروح تجيبو وحدك — أرخص</small></span>
+                  <span class="ship__price" data-price="desk">—</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field field--full">
+            <span class="label">الكمية</span>
+            <div class="qty">
+              <button type="button" class="qty__btn" data-qty="-1" aria-label="نقّص">−</button>
+              <input id="fQty" class="qty__val" name="qty" type="number" value="1" min="1" max="10" inputmode="numeric" readonly>
+              <button type="button" class="qty__btn" data-qty="1" aria-label="زيد">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary" aria-live="polite">
+          <div class="summary__row"><span>المنتج <em id="sumQty">×1</em></span><b id="sumProduct">3900 دج</b></div>
+          <div class="summary__row"><span>التوصيل</span><b id="sumShip">—</b></div>
+          <div class="summary__row summary__row--total"><span>المجموع</span><b id="sumTotal">3900 دج</b></div>
+          <p class="summary__cod">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-cash"/></svg>
+            تخلّص كاش كي يوصلك الطلب
+          </p>
+          <button type="submit" class="btn btn--primary btn--xl" id="submitBtn">
+            أكّد الطلب <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
+          </button>
+          <p class="err err--submit" id="submitErr" role="alert"></p>
+          <p class="summary__note">نتصلو بيك في أقرب وقت باش نأكّدو الطلب.</p>
+        </div>
+      </form>
+
+      <div class="order__done" id="orderDone" hidden>
+        <span class="order__done-ico"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
+        <h3>تسجّل الطلب!</h3>
+        <p id="orderDoneMsg"></p>
+        <button type="button" class="btn btn--ghost" id="orderAgain">اطلب مرّة أخرى</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ─────────────────────────── LIFESTYLE ─────────────────────────── -->
 <section class="lifestyle">
   <img class="lifestyle__bg"
@@ -509,125 +628,6 @@
       <div class="social-post__add">
         <input type="text" placeholder="زيد تعليق..." aria-label="زيد تعليق" disabled>
         <button type="button" disabled>نشر</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────── ORDER FORM ─────────────────────────── -->
-<section class="order" id="order">
-  <div class="container">
-    <header class="section__head reveal">
-      <span class="eyebrow">اطلب الان</span>
-      <h2 class="section__title">عمّر المعلومات و<em>نتصلو بيك</em>.</h2>
-      <p class="section__sub">ما تخلّصش حتى يوصلك الطوق لباب الدار. التوصيل لـ 58 ولاية.</p>
-    </header>
-
-    <div class="order__card reveal">
-      <form class="order__form" id="orderForm" novalidate>
-
-        <!-- فخّ البوتات: مخبّي على المستخدم، البوتات برك اللي تعمّرو -->
-        <div class="hp" aria-hidden="true">
-          <label for="fWebsite">لا تعمّر هذا الحقل</label>
-          <input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
-        </div>
-
-        <div class="order__product">
-          <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=300&h=300&q=75&auto=format&fit=crop" alt="طوق Qiti الذكي" loading="lazy">
-          <div>
-            <h3>طوق Qiti الذكي بـ GPS</h3>
-            <p>يجي معاه: الجهاز + الطوق + قاعدة الشحن + كابل</p>
-            <span class="order__product-price">3900 دج</span>
-          </div>
-        </div>
-
-        <div class="fields">
-          <div class="field field--full">
-            <label for="fName">الاسم الكامل <span aria-hidden="true">*</span></label>
-            <div class="input-wrap">
-              <svg class="ico" viewBox="0 0 24 24"><use href="#i-user"/></svg>
-              <input id="fName" name="name" type="text" required autocomplete="name" placeholder="مثال: محمد بن علي">
-            </div>
-            <p class="err" data-err-for="fName"></p>
-          </div>
-
-          <div class="field field--full">
-            <label for="fPhone">رقم الهاتف <span aria-hidden="true">*</span></label>
-            <div class="input-wrap">
-              <svg class="ico" viewBox="0 0 24 24"><use href="#i-call"/></svg>
-              <input id="fPhone" name="phone" type="tel" required inputmode="numeric"
-                     autocomplete="tel" placeholder="0X XX XX XX XX" dir="ltr">
-            </div>
-            <p class="err" data-err-for="fPhone"></p>
-          </div>
-
-          <div class="field">
-            <label for="fWilaya">الولاية <span aria-hidden="true">*</span></label>
-            <select id="fWilaya" name="wilaya" required>
-              <option value="">اختر الولاية</option>
-            </select>
-            <p class="err" data-err-for="fWilaya"></p>
-          </div>
-
-          <div class="field">
-            <label for="fCommune">البلدية <span aria-hidden="true">*</span></label>
-            <input id="fCommune" name="commune" type="text" required placeholder="اكتب اسم البلدية">
-            <p class="err" data-err-for="fCommune"></p>
-          </div>
-
-          <div class="field field--full">
-            <span class="label">نوع التوصيل</span>
-            <div class="ship-opts">
-              <label class="ship">
-                <input type="radio" name="shipping" value="home" checked>
-                <span class="ship__box">
-                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-truck"/></svg>
-                  <span class="ship__txt"><b>للدار</b><small>يوصلك لباب الدار</small></span>
-                  <span class="ship__price" data-price="home">—</span>
-                </span>
-              </label>
-              <label class="ship">
-                <input type="radio" name="shipping" value="desk">
-                <span class="ship__box">
-                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-store"/></svg>
-                  <span class="ship__txt"><b>لمكتب التوصيل</b><small>تروح تجيبو وحدك — أرخص</small></span>
-                  <span class="ship__price" data-price="desk">—</span>
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div class="field field--full">
-            <span class="label">الكمية</span>
-            <div class="qty">
-              <button type="button" class="qty__btn" data-qty="-1" aria-label="نقّص">−</button>
-              <input id="fQty" class="qty__val" name="qty" type="number" value="1" min="1" max="10" inputmode="numeric" readonly>
-              <button type="button" class="qty__btn" data-qty="1" aria-label="زيد">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="summary" aria-live="polite">
-          <div class="summary__row"><span>المنتج <em id="sumQty">×1</em></span><b id="sumProduct">3900 دج</b></div>
-          <div class="summary__row"><span>التوصيل</span><b id="sumShip">—</b></div>
-          <div class="summary__row summary__row--total"><span>المجموع</span><b id="sumTotal">3900 دج</b></div>
-          <p class="summary__cod">
-            <svg class="ico" viewBox="0 0 24 24"><use href="#i-cash"/></svg>
-            تخلّص كاش كي يوصلك الطلب
-          </p>
-          <button type="submit" class="btn btn--primary btn--xl" id="submitBtn">
-            أكّد الطلب <svg class="ico" viewBox="0 0 24 24"><use href="#i-arrow-rtl"/></svg>
-          </button>
-          <p class="err err--submit" id="submitErr" role="alert"></p>
-          <p class="summary__note">نتصلو بيك في أقرب وقت باش نأكّدو الطلب.</p>
-        </div>
-      </form>
-
-      <div class="order__done" id="orderDone" hidden>
-        <span class="order__done-ico"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
-        <h3>تسجّل الطلب!</h3>
-        <p id="orderDoneMsg"></p>
-        <button type="button" class="btn btn--ghost" id="orderAgain">اطلب مرّة أخرى</button>
       </div>
     </div>
   </div>
