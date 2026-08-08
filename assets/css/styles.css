@@ -55,6 +55,30 @@
   --accent-soft:   var(--orange-50);
   --accent-text:   #FFFFFF;
 
+  /* ألوان بمعنى ثابت — نجاح، خطأ، إعجاب. ماشي ألوان العلامة، فحملة
+     جديدة تقدر تبدّل --accent وهذي تبقى كيما هي وتفهم روحها. */
+  --success:        #22C55E;
+  --success-bright: #4ADE80;   /* أفتح — للضوء الصغير اللي يومض في الجهاز */
+  --on-success:     #FFFFFF;   /* الأبيض يخدم فوق الأخضر في الزوج ثيمات */
+  --danger:         #E5484D;
+  --like:           #ED4956;   /* قلب الإعجاب في بلوك الأنستغرام */
+
+  /* فوق الصور والأقسام الداكنة: هنا اللون ما يتبعش الثيم، يتبع الصورة
+     اللي تحتو — نص فاتح فوق سكريم داكن يبقى فاتح حتى في الوضع النهاري. */
+  --on-media:       #FFFFFF;
+  --btn-light-bg:   #FFFFFF;
+  --btn-light-text: var(--ink);
+  --btn-dark-bg:       var(--ink);
+  --btn-dark-bg-hover: var(--ink-soft);
+  --btn-dark-text:     #FFFFFF;
+  --surface-deep:      var(--bg-gray);   /* خلفية الخريطة الصغيرة في الهيرو */
+
+  /* تدرّج قسم النداء الأخير — مكتوب بـ tokens باش الحملة تقدر تبدّلو */
+  --cta-bg-1: var(--orange-100);
+  --cta-bg-2: var(--orange-50);
+  --cta-bg-3: var(--cream);
+  --cta-glow: rgba(255,255,255,.5);
+
   --shadow-xs: 0 1px 2px rgba(20,17,15,.05);
   --shadow-sm: 0 2px 8px rgba(20,17,15,.06);
   --shadow-md: 0 8px 28px -6px rgba(20,17,15,.12), 0 2px 8px rgba(20,17,15,.05);
@@ -96,6 +120,26 @@
   --accent-hover:  #FF8F5A;
   --accent-soft:   rgba(255,122,61,.13);
   --accent-text:   #1A0E07;
+
+  /* نفس المعاني، بصح أفتح شوية باش التباين يبقى مقروء فوق الخلفية الداكنة */
+  --success:        #34D07A;
+  --success-bright: #4ADE80;
+  --danger:         #FF6B6B;
+  --like:           #FF5A66;
+
+  --on-media:       #FFFFFF;
+  /* في الوضع الليلي الزر الداكن ينقلب: يولّي أبيض على خلفية سوداء */
+  --btn-light-bg:   #FFFFFF;
+  --btn-light-text: var(--ink);
+  --btn-dark-bg:       #FFFFFF;
+  --btn-dark-bg-hover: var(--cream);
+  --btn-dark-text:     var(--ink);
+  --surface-deep:      #0E0D0C;
+
+  --cta-bg-1: #1A120C;
+  --cta-bg-2: #141110;
+  --cta-bg-3: var(--bg);
+  --cta-glow: rgba(255,122,61,.16);
 
   --shadow-xs: 0 1px 2px rgba(0,0,0,.4);
   --shadow-sm: 0 2px 8px rgba(0,0,0,.45);
@@ -214,12 +258,18 @@ em {
 .btn--ghost:hover { border-color: var(--text); box-shadow: var(--shadow-sm); }
 .btn--ghost .ico:last-child { transform: none !important; }
 
-.btn--light { background: #fff; color: var(--ink); box-shadow: var(--shadow-md); }
+.btn--light { background: var(--btn-light-bg); color: var(--btn-light-text); box-shadow: var(--shadow-md); }
 .btn--light:hover { background: var(--cream); }
 
-.btn--dark { background: var(--ink); color: #fff; box-shadow: var(--shadow-lg); }
-[data-theme="dark"] .btn--dark { background: #fff; color: var(--ink); }
-.btn--dark:hover { background: var(--ink-soft); }
+/*
+ * في الوضع الليلي هذا الزر ينقلب وحدو عبر الـ tokens — بلا قاعدة زايدة.
+ *
+ * ⚠️ قبل، الـ hover كان مكتوب `background: var(--ink-soft)` ثابت. في الوضع
+ * الليلي الزر يولّي أبيض بنص داكن، فكي تمرّر عليه الخلفية ترجع داكنة والنص
+ * يبقى داكن — الكتابة تختفي. دروك الـ hover ثاني عندو token في كل ثيم.
+ */
+.btn--dark { background: var(--btn-dark-bg); color: var(--btn-dark-text); box-shadow: var(--shadow-lg); }
+.btn--dark:hover { background: var(--btn-dark-bg-hover); }
 [data-theme="dark"] .btn--dark:hover { background: var(--cream); }
 
 .btn--sm  { padding: 9px 18px; font-size: .875rem; }
@@ -493,20 +543,19 @@ em {
 }
 .live-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #22C55E; position: relative;
+  background: var(--success); position: relative;
 }
 .live-dot::after {
   content: ''; position: absolute; inset: -4px;
-  border-radius: 50%; border: 2px solid #22C55E;
+  border-radius: 50%; border: 2px solid var(--success);
   animation: pulse-ring 2s var(--ease) infinite;
 }
 .track__map {
   position: relative;
   height: 96px; border-radius: var(--r-md); overflow: hidden;
-  background: var(--bg-gray);
+  background: var(--surface-deep);
   border: 1px solid var(--border);
 }
-[data-theme="dark"] .track__map { background: #0E0D0C; }
 .track__map svg { width: 100%; height: 100%; }
 .track__map .road {
   fill: none;
@@ -685,7 +734,7 @@ em {
 }
 .lifestyle__inner {
   max-width: 600px; margin-left: auto;
-  color: #fff; padding-block: 80px;
+  color: var(--on-media); padding-block: 80px;
 }
 .lifestyle__title {
   font-size: clamp(2.1rem, 4.4vw, 3.3rem);
@@ -764,7 +813,7 @@ em {
 [data-theme="dark"] .device {
   filter: drop-shadow(0 24px 36px rgba(0,0,0,.7)) drop-shadow(0 6px 16px rgba(255,122,61,.26));
 }
-.device__led { fill: #4ADE80; animation: blink 2.4s ease-in-out infinite; }
+.device__led { fill: var(--success-bright); animation: blink 2.4s ease-in-out infinite; }
 
 .specs {
   display: flex; flex-direction: column; gap: 12px;
@@ -820,7 +869,7 @@ em {
   padding: 14px 16px 4px;
 }
 .social-post__actions .ico { width: 25px; height: 25px; color: var(--text); }
-.social-post__actions .ico:first-child { color: #ED4956; }
+.social-post__actions .ico:first-child { color: var(--like); }
 
 .social-post__likes { padding: 8px 16px 2px; font-size: .9rem; }
 .social-post__caption { padding: 4px 16px; font-size: .9rem; line-height: 1.6; text-wrap: pretty; }
@@ -951,9 +1000,9 @@ input:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
-.field.has-error input, .field.has-error select { border-color: #E5484D; }
+.field.has-error input, .field.has-error select { border-color: var(--danger); }
 .err {
-  font-size: .78rem; color: #E5484D;
+  font-size: .78rem; color: var(--danger);
   min-height: 1em;
 }
 .err--submit { text-align: center; margin-top: 10px; }
@@ -1050,7 +1099,7 @@ input:focus, select:focus {
   display: grid; place-items: center;
   width: 64px; height: 64px; margin: 0 auto 18px;
   border-radius: 50%;
-  background: #22C55E; color: #fff;
+  background: var(--success); color: var(--on-success);
 }
 .order__done-ico .ico { width: 30px; height: 30px; stroke-width: 2.6; }
 .order__done h3 { font-size: 1.4rem; margin-bottom: 10px; }
@@ -1085,15 +1134,11 @@ input:focus, select:focus {
 /* ── 14. FINAL CTA ─────────────────────────────────────────────────────── */
 .cta {
   padding: var(--section-y) 0;
+  /* الزوج ثيمات يخدمو بنفس القاعدة — الفرق كامل في الـ tokens */
   background:
-    radial-gradient(ellipse at 50% -10%, rgba(255,255,255,.5), transparent 60%),
-    linear-gradient(160deg, var(--orange-100) 0%, var(--orange-50) 55%, var(--cream) 100%);
+    radial-gradient(ellipse at 50% -10%, var(--cta-glow), transparent 61%),
+    linear-gradient(160deg, var(--cta-bg-1) 0%, var(--cta-bg-2) 57%, var(--cta-bg-3) 100%);
   text-align: center;
-}
-[data-theme="dark"] .cta {
-  background:
-    radial-gradient(ellipse at 50% -10%, rgba(255,122,61,.16), transparent 62%),
-    linear-gradient(160deg, #1A120C 0%, #141110 60%, var(--bg) 100%);
 }
 .cta__inner { max-width: 780px; margin-inline: auto; }
 .cta__title {
