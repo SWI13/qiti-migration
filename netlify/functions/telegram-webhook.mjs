@@ -1,7 +1,7 @@
 /*
- * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت / استلمت الرجعة)، جواب
- * سبب الرفض، وأوامر المخزون/التكاليف/حالة الطلبات (/state, /stock,
- * /restock, /setstock, /cost) من تيليغرام.
+ * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت / استلمت الرجعة / تأكيد
+ * ولا إلغاء /clear)، جواب سبب الرفض، وأوامر المخزون/التكاليف/حالة الطلبات
+ * (/state, /stock, /restock, /setstock, /cost, /clear) من تيليغرام.
  *
  * ── قبول ─────────────────────────────────────────────────────────────
  *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، أزرار القرار
@@ -38,9 +38,9 @@
  */
 import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
-  getStock, adjustStock, setStock, markLowStockAlerted,
+  getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
   listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
-  getCosts, setCost,
+  getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
 } from '../lib/store.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
 
@@ -95,10 +95,48 @@ async function checkLowStock(chatId, stock) {
   await markLowStockAlerted(true).catch((error) => console.error('markLowStockAlerted failed:', error.message));
 }
 
+/** تأكيد/إلغاء /clear — فعل عام ماشي مربوط بطلب وحدو، علاش معزول برّا منطق الطلبات */
+async function handleClearConfirmation(query, confirmed) {
+  const message = query.message;
+  const answer = (text) =>
+    telegram('answerCallbackQuery', { callback_query_id: query.id, ...(text ? { text } : {}) })
+      .catch((error) => console.error('answerCallbackQuery failed:', error.message));
+
+  if (!confirmed) {
+    await telegram('editMessageText', {
+      chat_id: message.chat.id, message_id: message.message_id,
+      text: '❌ تراجعت — ما تبدّل حتى حاجة.',
+    }).catch(() => {});
+    return answer('تراجعت ✅');
+  }
+
+  try {
+    const deletedCount = await clearAllOrders();
+    await clearAllReplyPrompts().catch((error) => console.error('clearAllReplyPrompts failed:', error.message));
+    await resetStock();
+    await telegram('editMessageText', {
+      chat_id: message.chat.id, message_id: message.message_id,
+      text: `🗑️ <b>تمسح كلش</b> — ${deletedCount} طلب اتمسحو، والمخزون رجع لصفر.`,
+      parse_mode: 'HTML',
+    }).catch(() => {});
+    return answer('تمسح كلش 🗑️');
+  } catch (error) {
+    console.error('/clear failed:', error.message);
+    return answer('صار خطأ، عاود حاول.');
+  }
+}
+
 /* ── نقرة زر ─────────────────────────────────────────────────────── */
 async function handleCallback(query) {
   const message = query.message;
-  const [action, orderId] = String(query.data ?? '').split(':');
+  const data = String(query.data ?? '');
+
+  if (data === 'clear-yes' || data === 'clear-no') {
+    if (!message) return;
+    return handleClearConfirmation(query, data === 'clear-yes');
+  }
+
+  const [action, orderId] = data.split(':');
   const who = displayName(query.from);
 
   const answer = (text) =>
@@ -254,10 +292,10 @@ async function handleReply(message) {
 }
 
 /**
- * حالة كل الطلبات المعلّقة دروك، على الطلب — بديل حيّ لتقرير آخر النهار،
- * ما يحتاجش تستنّى 00:00. الأقسام الثلاثة: تستنّى قبول/رفض، مقبولة تستنّى
- * نتيجة توصيل، ورجعت مع المُوصّل بصح لسّا ما وصلاتش فيزيائياً للمحل
- * (المخزون ما يتزادش حتى تتأكّد بـ "استلمت الرجعة").
+ * حالة كل الطلبات المعلّقة دروك — بديل حيّ لتقرير آخر النهار، ما يحتاجش
+ * تستنّى 00:00. ثلاث قوائم برك: بلا قرار، في الطريق، ورجعات لسّا ما
+ * وصلاتش للمحل فيزيائياً (المخزون ما يتزادش فيهم حتى تتأكّد بـ "استلمت
+ * الرجعة"). كل سطر خالي = خير، مكتوب واضح باش ما يبقاش شكّ.
  *
  * ⚠️ فوق كل طلب قديم من 24 سا: علامة تفكّرك بيه قبل ما يفوت وقتو.
  */
@@ -266,28 +304,33 @@ async function buildStateMessage() {
     listPendingOrders(), listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(),
   ]);
 
-  const age = (order) => (Date.now() - new Date(order.createdAt).getTime() > 24 * 60 * 60 * 1000 ? ' ⚠️' : '');
-  const line = (order) => `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} — ${elapsedLabel(order.createdAt)}${age(order)}`;
+  const isOld = (order) => Date.now() - new Date(order.createdAt).getTime() > 24 * 60 * 60 * 1000;
+  const line = (order) =>
+    `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} (${elapsedLabel(order.createdAt)})${isOld(order) ? ' ⚠️' : ''}`;
+  const section = (emoji, title, list) => {
+    const lines = [`${emoji} <b>${title} — ${list.length} طلب</b>`];
+    lines.push(...(list.length ? list.map(line) : ['لا شيء هنا، صافي ✅']));
+    return lines;
+  };
 
-  const lines = ['<b>📋 حالة الطلبات دروك</b>'];
+  const lines = ['<b>📋 حالة الطلبات</b>', ''];
 
-  lines.push('', `⏳ <b>تستنّى قبول/رفض (${pending.length})</b>`);
-  lines.push(...(pending.length ? pending.map(line) : ['كاين والو هنا.']));
+  lines.push(...section('⏳', 'بلا قرار (قبول/رفض)', pending));
+  lines.push('', ...section('🚚', 'مقبولة، في الطريق', awaitingDelivery));
+  lines.push('', ...section('↩️', 'رجعات لسّا ما وصلاتش للمحل', awaitingReturn));
 
-  lines.push('', `🚚 <b>مقبولة، تستنّى نتيجة التوصيل (${awaitingDelivery.length})</b>`);
-  lines.push(...(awaitingDelivery.length ? awaitingDelivery.map(line) : ['كاين والو هنا.']));
-
+  const pendingCash = [...pending, ...awaitingDelivery].reduce((sum, o) => sum + (o.total ?? 0), 0);
   const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-  lines.push('', `↩️ <b>رجعت مع المُوصّل، تستنّى توصل للمحل (${awaitingReturn.length}${returnQty ? ` — ${returnQty} طوق` : ''})</b>`);
-  lines.push(...(awaitingReturn.length ? awaitingReturn.map(line) : ['كاين والو هنا.']));
+  const stockWarn = stock.qty <= stock.threshold ? ' ⚠️ قليل' : '';
 
-  const atStake = [...pending, ...awaitingDelivery].reduce((sum, o) => sum + (o.total ?? 0), 0);
-  lines.push('', `💵 فلوس معلّقة (بلا قرار ولا لسّا في الطريق): <b>${dz(atStake)}</b>`);
-
-  const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
-  lines.push(`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
+  lines.push(
+    '',
+    '➖➖➖➖➖➖➖➖',
+    `💵 فلوس تستنّى قرار نهائي (بلا قرار + في الطريق): <b>${dz(pendingCash)}</b>`,
+    `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${stockWarn}`,
+  );
   if (returnQty) {
-    lines.push(`🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق — يولّي <b>${stock.qty + returnQty}</b> كي توصل كاملة`);
+    lines.push(`🔁 رجعات ما تزادتش للمخزون بعد: <b>${returnQty}</b> طوق (يولّي ${stock.qty + returnQty} كي توصل كاملة)`);
   }
 
   return lines.join('\n');
@@ -301,6 +344,7 @@ async function buildStateMessage() {
  * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
  * /cost             — يعرض تكاليف الربح الحالية (سوما البضاعة، الإعلانات، خسارة الرجعة)
  * /cost product|ads|returns <عدد> — يبدّل واحدة منهم
+ * /clear            — ⚠️ يمسح كل الطلبات ويرجّع المخزون لصفر (يطلب تأكيد بزوج أزرار أوّلاً)
  *
  * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
  * مباشرة مع البوت (خارج الگروب) ما يقدرش يشوف الطلبات ولا يبدّل المخزون/التكاليف.
@@ -322,6 +366,24 @@ async function handleCommand(message) {
       console.error('/state failed:', error.message);
       return reply('⚠️ ما قدرتش نجيب الحالة، عاود حاول.');
     }
+  }
+
+  /*
+   * فعل خطير وبلا تراجع — نطلبو تأكيد بزوج أزرار (نفس منطق قبول/رفض)
+   * قبل ما نمسحو والو، باش نقرة وحدة غالطة ما تخسّرش التاريخ كامل.
+   */
+  if (command === '/clear') {
+    return telegram('sendMessage', {
+      chat_id: message.chat.id,
+      text: '⚠️ <b>متأكد؟</b>\nهذا يمسح <b>كل الطلبات</b> (التاريخ كامل) ويرجّع <b>المخزون لصفر</b>.\nما يترجعش لور!',
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '✅ ايه، امسح كلش', callback_data: 'clear-yes' },
+          { text: '❌ لا، تراجعت', callback_data: 'clear-no' },
+        ]],
+      },
+    }).catch((error) => console.error('/clear prompt failed:', error.message));
   }
 
   if (command === '/stock') {

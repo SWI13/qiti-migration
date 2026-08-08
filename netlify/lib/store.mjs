@@ -144,6 +144,26 @@ export async function markLowStockAlerted(value) {
   await stockStore().setJSON(STOCK_KEY, { ...current, lowStockAlerted: value });
 }
 
+/** يمسح الكمية كاملة — يرجع لصفر (وحد التنبيه الافتراضي) في next getStock() */
+export async function resetStock() {
+  await stockStore().delete(STOCK_KEY);
+}
+
+/* ── /clear — يمسح كل شيء (خطر، بلا تراجع) ──────────────────────── */
+
+/** يمسح كل الطلبات من التخزين — يرجع عدد الطلبات اللي تمسحو */
+export async function clearAllOrders() {
+  const { blobs } = await orders().list();
+  await Promise.all(blobs.map((blob) => orders().delete(blob.key)));
+  return blobs.length;
+}
+
+/** طلبات الرد على سبب الرفض ما بقاتش يلزمها بعد ما الطلبات راحو */
+export async function clearAllReplyPrompts() {
+  const { blobs } = await replies().list();
+  await Promise.all(blobs.map((blob) => replies().delete(blob.key)));
+}
+
 /* ── تكاليف الربح (سوما البضاعة، الإعلانات، خسارة الرجعة) ──────────── */
 
 export async function getCosts() {
