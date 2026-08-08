@@ -10,7 +10,7 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>.netlify.app/.netlify/functions/daily-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock } from '../lib/store.mjs';
+import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock, getCosts } from '../lib/store.mjs';
 import { dz, esc, profitFor } from '../lib/message.mjs';
 
 export const config = { schedule: '0 23 * * *' };
@@ -40,7 +40,7 @@ async function sendTelegram(text) {
  * الحقيقية هي غير الطلبات اللي "توصّلت" فعلاً (deliveryStatus === 'delivered').
  * علاش المداخيل تتحسب من `delivered` وماشي من `accepted`.
  */
-export function buildReport(day, orders, awaiting = [], awaitingReturn = [], stock = null) {
+export function buildReport(day, orders, awaiting = [], awaitingReturn = [], stock = null, costs = null) {
   const lines = [`<b>📊 تقرير ${day}</b>`, ''];
 
   if (!orders.length) {
@@ -57,12 +57,14 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
     const units = delivered.reduce((sum, o) => sum + (o.qty ?? 0), 0);
     /*
-     * الربح الصافي التقديري: ربح الطلبات اللي توصّلت، ناقص خسارة التوصيل
-     * تاع الطلبات اللي رجعت. مبني على PRODUCT_COST/COURIER_COST في message.mjs —
-     * إذا ما بدّلتهمش بالأرقام الحقيقية تاعك، هذا الرقم يبقى تقريبي برك.
+     * الربح الصافي التقديري: ربح الطلبات اللي توصّلت، ناقص خسارة الرجعة
+     * تاع الطلبات اللي رجعت. مبني على costs (من getCosts في store.mjs —
+     * تتبدّل بـ /cost في تيليغرام) + COURIER_COST الثابتة في message.mjs.
      */
-    const profit = delivered.reduce((sum, o) => sum + profitFor(o), 0)
-      + returnedOrders.reduce((sum, o) => sum + profitFor(o), 0);
+    const profit = costs
+      ? delivered.reduce((sum, o) => sum + profitFor(o, costs), 0)
+        + returnedOrders.reduce((sum, o) => sum + profitFor(o, costs), 0)
+      : null;
 
     lines.push(
       `📥 الطلبات: <b>${orders.length}</b>`,
@@ -78,11 +80,8 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     );
     if (stillShipping.length) lines.push(`🚚 في الطريق (بلا نتيجة بعد): <b>${stillShipping.length}</b>`);
 
-    lines.push(
-      '',
-      `💰 مداخيل فعلية (طلبات توصّلت): <b>${dz(revenue)}</b>`,
-      `💵 الربح الصافي التقديري: <b>${dz(profit)}</b>`,
-    );
+    lines.push('', `💰 مداخيل فعلية (طلبات توصّلت): <b>${dz(revenue)}</b>`);
+    if (profit !== null) lines.push(`💵 الربح الصافي التقديري: <b>${dz(profit)}</b>`);
 
     if (denied.length) {
       lines.push('', '<b>أسباب الرفض:</b>');
@@ -144,10 +143,10 @@ export default async function handler(request) {
 
   try {
     const orders = await listOrdersForDay(dayJustEnded);
-    const [awaiting, awaitingReturn, stock] = await Promise.all([
-      listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(),
+    const [awaiting, awaitingReturn, stock, costs] = await Promise.all([
+      listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(), getCosts(),
     ]);
-    const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock);
+    const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock, costs);
     await sendTelegram(report);
     console.log(`Daily report sent for ${dayJustEnded}: ${orders.length} orders`);
     return new Response(JSON.stringify({ ok: true, day: dayJustEnded, orders: orders.length }), {

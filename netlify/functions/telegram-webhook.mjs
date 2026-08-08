@@ -1,7 +1,7 @@
 /*
  * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت / استلمت الرجعة)، جواب
- * سبب الرفض، وأوامر المخزون وحالة الطلبات (/state, /stock, /restock,
- * /setstock) من تيليغرام.
+ * سبب الرفض، وأوامر المخزون/التكاليف/حالة الطلبات (/state, /stock,
+ * /restock, /setstock, /cost) من تيليغرام.
  *
  * ── قبول ─────────────────────────────────────────────────────────────
  *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، أزرار القرار
@@ -40,6 +40,7 @@ import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted,
   listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
+  getCosts, setCost,
 } from '../lib/store.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
 
@@ -292,21 +293,24 @@ async function buildStateMessage() {
   return lines.join('\n');
 }
 
-/* ── أوامر المخزون وحالة الطلبات ─────────────────────────────────
+/* ── أوامر المخزون، التكاليف، وحالة الطلبات ───────────────────────
  * /state, /status   — كل الطلبات المعلّقة دروك (بلا قرار / بلا نتيجة
  *                      توصيل / رجعت بصح ما وصلاتش للمحل) + المخزون
  * /stock            — يعرض الكمية الحالية وحد التنبيه
  * /restock <عدد>    — يزيد كمية للمخزون (بعد تزويد)
  * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
+ * /cost             — يعرض تكاليف الربح الحالية (سوما البضاعة، الإعلانات، خسارة الرجعة)
+ * /cost product|ads|returns <عدد> — يبدّل واحدة منهم
  *
  * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
- * مباشرة مع البوت (خارج الگروب) ما يقدرش يشوف الطلبات ولا يبدّل المخزون.
+ * مباشرة مع البوت (خارج الگروب) ما يقدرش يشوف الطلبات ولا يبدّل المخزون/التكاليف.
  */
 async function handleCommand(message) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
 
-  const [command, arg] = String(message.text ?? '').trim().split(/\s+/);
+  const parts = String(message.text ?? '').trim().split(/\s+/);
+  const [command, arg] = parts;
   const reply = (text) =>
     telegram('sendMessage', { chat_id: message.chat.id, text, parse_mode: 'HTML' })
       .catch((error) => console.error('Command reply failed:', error.message));
@@ -347,6 +351,31 @@ async function handleCommand(message) {
     if (!Number.isFinite(n) || n < 0) return reply('استعمل: /setstock 50');
     const stock = await setStock(n);
     return reply(`✅ تسجّل المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
+  }
+
+  if (command === '/cost') {
+    const FIELDS = { product: { key: 'productCost', label: 'سوما البضاعة' }, ads: { key: 'adsCost', label: 'تكلفة الإعلانات' }, returns: { key: 'returnLoss', label: 'خسارة الرجعة' } };
+
+    /* بلا فرعي: نعرضو التكاليف الثلاثة كاملة */
+    if (!arg) {
+      const costs = await getCosts();
+      return reply([
+        '💰 <b>تكاليف الربح</b>',
+        `سوما البضاعة (لكل طوق): <b>${dz(costs.productCost)}</b>`,
+        `تكلفة الإعلانات (لكل طلب): <b>${dz(costs.adsCost)}</b>`,
+        `خسارة الرجعة (لكل طلب رجع): <b>${dz(costs.returnLoss)}</b>`,
+        '',
+        'بدّل بـ: /cost product 1600 — /cost ads 250 — /cost returns 800',
+      ].join('\n'));
+    }
+
+    const field = FIELDS[arg];
+    const n = parseInt(parts[2], 10);
+    if (!field || !Number.isFinite(n) || n < 0) {
+      return reply('استعمل: /cost product 1600  ولا  /cost ads 250  ولا  /cost returns 800');
+    }
+    const costs = await setCost(field.key, n);
+    return reply(`✅ تسجّل. ${field.label}: <b>${dz(costs[field.key])}</b>`);
   }
 }
 

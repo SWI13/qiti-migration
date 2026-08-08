@@ -11,10 +11,15 @@ const REPLIES = 'reply-prompts';
 const STOCK = 'stock';
 const STOCK_KEY = 'current';
 const DEFAULT_STOCK_THRESHOLD = 10;
+/* تكاليف الربح — قابلة للتعديل من /cost في تيليغرام، ماشي ثوابت في الكود */
+const COSTS = 'costs';
+const COSTS_KEY = 'current';
+const DEFAULT_COSTS = { productCost: 1500, adsCost: 300, returnLoss: 700, updatedAt: null };
 
 const orders = () => getStore(ORDERS);
 const replies = () => getStore(REPLIES);
 const stockStore = () => getStore(STOCK);
+const costsStore = () => getStore(COSTS);
 
 /** id قصير: التاريخ + عشوائي. لازم يكون قصير على خاطر callback_data محدود بـ 64 بايت. */
 export function newOrderId(now = new Date()) {
@@ -137,6 +142,21 @@ export async function setStock(qty, threshold) {
 export async function markLowStockAlerted(value) {
   const current = await getStock();
   await stockStore().setJSON(STOCK_KEY, { ...current, lowStockAlerted: value });
+}
+
+/* ── تكاليف الربح (سوما البضاعة، الإعلانات، خسارة الرجعة) ──────────── */
+
+export async function getCosts() {
+  const record = await costsStore().get(COSTS_KEY, { type: 'json' });
+  return record ?? DEFAULT_COSTS;
+}
+
+/** field يكون 'productCost' ولا 'adsCost' ولا 'returnLoss' */
+export async function setCost(field, value) {
+  const current = await getCosts();
+  const updated = { ...current, [field]: value, updatedAt: new Date().toISOString() };
+  await costsStore().setJSON(COSTS_KEY, updated);
+  return updated;
 }
 
 /* ── ربط رسالة طلب السبب بالطلب ─────────────────────────────────── */
