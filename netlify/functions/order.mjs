@@ -16,10 +16,12 @@
  *   ⚠️ حساب Twilio Trial يبعث غير للأرقام المتحقّق منها — أرقام الزبائن
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
-import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone } from '../lib/store.mjs';
+import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
 import { ownerMessage, orderButtons, toE164Dz, totalFor } from '../lib/message.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
+import { checkTrust, clientIp } from '../lib/trust.mjs';
+import { wilayaId } from '../lib/wilayas.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -126,10 +128,28 @@ export default async function handler(request) {
    * زبون خلّص وستلم 3 مرّات قبل هذا هو أحسن طلب يقدر يجيك — وقبل هذا
    * التبديل كان يبان كيما أي واحد جديد، بلا أي إشارة.
    */
-  const pastOrders = await listOrdersByPhone(order.phone).catch((err) => {
-    console.error('Failed to fetch customer history:', err.message, '| phone:', order.phone);
-    return [];
-  });
+  /*
+   * الزوج مع بعض (parallel): تاريخك انت + فحص الثقة البرّاني. الزبون
+   * مستنّى، فما نخلّوهمش واحد ورا الآخر. `checkTrust` ما يرمي خطأ عمرو —
+   * يرجع null إذا ما خدمش، والطلب يكمّل عادي بلاه.
+   */
+  const [pastOrders, trust, blocked] = await Promise.all([
+    listOrdersByPhone(order.phone).catch((err) => {
+      console.error('Failed to fetch customer history:', err.message, '| phone:', order.phone);
+      return [];
+    }),
+    checkTrust({
+      phone: order.phone,
+      wilayaId: wilayaId(order.wilaya),
+      orderValue: totalFor(order),
+      ip: clientIp(request),
+    }),
+    getBlockEntry(order.phone).catch((err) => {
+      console.error('Blocklist check failed:', err.message, '| phone:', order.phone);
+      return null;
+    }),
+  ]);
+
   const customerHistory = {
     delivered: pastOrders.filter((o) => o.deliveryStatus === 'delivered').length,
     denied: pastOrders.filter((o) => o.status === 'denied').length,
@@ -165,6 +185,14 @@ export default async function handler(request) {
      * رجعت فعلاً أكثر من غيرها؟ بلا تخزين، ما كانش كيفاش نتأكّدو.
      */
     customerHistory,
+    /*
+     * نتيجة الفحص البرّاني — تتخزّن باش من بعد تشوف واش النقاط كانت
+     * تتنبّأ فعلاً بالرجعات (نفس منطق customerHistory). null = الفحص
+     * ماشي مفعّل ولا ما خدمش.
+     */
+    trust,
+    /* قائمة الحظر اليدوية تاعك — تغلب فحص الثقة في العرض */
+    blocked,
   };
 
   /*

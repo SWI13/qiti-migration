@@ -14,12 +14,15 @@ const DEFAULT_STOCK_THRESHOLD = 10;
 /* تكاليف الربح — قابلة للتعديل من /cost في تيليغرام، ماشي ثوابت في الكود */
 const COSTS = 'costs';
 const COSTS_KEY = 'current';
+/* قائمة الحظر اليدوية — تكملة لفحص الثقة البرّاني، ماشي بديل عليه */
+const BLOCKLIST = 'blocklist';
 const DEFAULT_COSTS = { productCost: 1500, adsCost: 300, returnLoss: 700, updatedAt: null };
 
 const orders = () => getStore(ORDERS);
 const replies = () => getStore(REPLIES);
 const stockStore = () => getStore(STOCK);
 const costsStore = () => getStore(COSTS);
+const blocklistStore = () => getStore(BLOCKLIST);
 
 /** id قصير: التاريخ + عشوائي. لازم يكون قصير على خاطر callback_data محدود بـ 64 بايت. */
 export function newOrderId(now = new Date()) {
@@ -177,6 +180,61 @@ export async function setCost(field, value) {
   const updated = { ...current, [field]: value, updatedAt: new Date().toISOString() };
   await costsStore().setJSON(COSTS_KEY, updated);
   return updated;
+}
+
+/* ── قائمة الحظر اليدوية ──────────────────────────────────────────
+ *
+ * علاش نحتاجوها حتى مع فحص الثقة البرّاني:
+ *  1. الفحص يغلط أحياناً — لازم طريقة تحكم بيها انت في الأخير.
+ *  2. زبون نصب عليك انت وما زال ماشي معروف عند الخدمة.
+ *  3. إذا الخدمة طاحت ولا حبستي الاشتراك، تبقى عندك قائمتك.
+ */
+
+/**
+ * توحيد الرقم: `+213661445566` / `213661445566` / `0661445566` كلهم
+ * يولّيو `0661445566`. بلا هذا، نفس الزبون يتخزّن بزوج مفاتيح مختلفة
+ * والحظر ما يخدمش. يرجع null إذا الرقم ماشي صحيح.
+ */
+export function normalizeDzPhone(input) {
+  let digits = String(input ?? '').replace(/\D/g, '');
+  if (digits.startsWith('213')) digits = digits.slice(3);
+  if (!digits.startsWith('0')) digits = `0${digits}`;
+  return /^0[5-7]\d{8}$/.test(digits) ? digits : null;
+}
+
+/** يرجع تفاصيل الحظر إذا الرقم محظور، ولا null */
+export async function getBlockEntry(phone) {
+  const key = normalizeDzPhone(phone);
+  if (!key) return null;
+  return blocklistStore().get(key, { type: 'json' });
+}
+
+export async function blockPhone(phone, { reason, addedBy } = {}) {
+  const key = normalizeDzPhone(phone);
+  if (!key) return null;
+  const entry = {
+    phone: key,
+    reason: reason ? String(reason).slice(0, 200) : null,
+    addedBy: addedBy ?? null,
+    addedAt: new Date().toISOString(),
+  };
+  await blocklistStore().setJSON(key, entry);
+  return entry;
+}
+
+export async function unblockPhone(phone) {
+  const key = normalizeDzPhone(phone);
+  if (!key) return false;
+  const existing = await blocklistStore().get(key, { type: 'json' });
+  if (!existing) return false;
+  await blocklistStore().delete(key);
+  return true;
+}
+
+export async function listBlocked() {
+  const { blobs } = await blocklistStore().list();
+  const entries = await Promise.all(blobs.map((blob) => blocklistStore().get(blob.key, { type: 'json' })));
+  return entries.filter(Boolean);
 }
 
 /* ── ربط رسالة طلب السبب بالطلب ─────────────────────────────────── */
