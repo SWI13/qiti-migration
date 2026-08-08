@@ -8,6 +8,55 @@
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* ── مصدر الطلب: منين جا الزبون ─────────────────────────────────
+     الإعلان يزيد params في الرابط — `utm_*` تكتبهم انت في رابط الإعلان،
+     و`fbclid`/`ttclid` تزيدهم المنصّة روحها. نخزّنوهم كي يحلّ الصفحة،
+     ونبعثوهم مع الطلب، باش تعرف أشمن إعلان جابلك زبون خلّص فعلاً.
+
+     ⚠️ هذي المعلومة **ما تتعوّضش لور**: إذا الطلب تسجّل بلاها، عمرك ما
+     تعرف منين جا. علاش لازم تكون خدّامة قبل أوّل دينار تصرفو في الإعلانات. */
+  var ATTRIBUTION_KEY = 'qiti-attribution';
+  var ATTRIBUTION_TTL_MS = 30 * 24 * 60 * 60 * 1000;   /* 30 يوم */
+  var ATTRIBUTION_PARAMS = [
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+    'fbclid', 'ttclid'
+  ];
+
+  function readStoredAttribution() {
+    try {
+      var raw = localStorage.getItem(ATTRIBUTION_KEY);
+      if (!raw) return null;
+      var saved = JSON.parse(raw);
+      if (!saved || !saved.landedAt) return null;
+      /* إعلان قديم بزاف ما يستاهلش ينسب ليه الطلب */
+      if (Date.now() - saved.landedAt > ATTRIBUTION_TTL_MS) return null;
+      return saved;
+    } catch (e) {
+      return null;   /* التصفّح الخاص يرمي خطأ على localStorage — ما يهمّش */
+    }
+  }
+
+  /* نقرة جديدة على إعلان تغلب القديمة (last click)، وإذا حلّ الصفحة
+     بلا params نخلّيو اللي مخزّن من الزيارة الأصلية. */
+  function captureAttribution() {
+    var params = new URLSearchParams(window.location.search);
+    var found = {};
+    var any = false;
+
+    ATTRIBUTION_PARAMS.forEach(function (key) {
+      var value = params.get(key);
+      if (value) { found[key] = value; any = true; }
+    });
+
+    if (!any) return readStoredAttribution();
+
+    found.landedAt = Date.now();
+    try { localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(found)); } catch (e) {}
+    return found;
+  }
+
+  var attribution = captureAttribution();
+
   /* ── بدّل الثيم (ليلي / نهاري) ─────────────────────────────── */
   var root = document.documentElement;
   var themeToggle = document.getElementById('themeToggle');
@@ -299,7 +348,8 @@
           commune: document.getElementById('fCommune').value.trim(),
           shipping: currentShipping(),
           qty: qtyInput.value,
-          website: document.getElementById('fWebsite').value
+          website: document.getElementById('fWebsite').value,
+          attribution: attribution
         })
       })
         .then(function (res) {

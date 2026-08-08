@@ -1,7 +1,17 @@
 /*
- * يستقبل نقرات الأزرار (قبول / رفض / توصّل / رجعت / استلمت الرجعة / تأكيد
- * ولا إلغاء /clear)، جواب سبب الرفض، وأوامر المخزون/التكاليف/حالة الطلبات
- * (/state, /stock, /restock, /setstock, /cost, /clear) من تيليغرام.
+ * يستقبل نقرات الأزرار (تأكيد بالتيليفون / قبول / رفض / توصّل / رجعت /
+ * استلمت الرجعة / تأكيد ولا إلغاء /clear)، جواب سبب الرفض، وأوامر
+ * المخزون/التكاليف/حالة الطلبات (/state, /stock, /restock, /setstock,
+ * /cost, /clear) من تيليغرام.
+ *
+ * ── تأكيد بالتيليفون (قبل القبول) ───────────────────────────────────
+ *   البحث كامل يقول نفس الحاجة: الطلبات اللي تتبعث بلا مكالمة تأكيد
+ *   ترجع أكثر بـ 15-25 نقطة. علاش زدنا زر "📞 تأكدت بالتيليفون" يبان
+ *   فوق أزرار القرار.
+ *
+ *   ما نمنعوش القبول بلا تأكيد قصداً — نسجّلو `confirmedBeforeAccept`
+ *   على كل طلب مقبول، باش من بعد تقارن نسبة الرجعات بين المؤكّد وماشي
+ *   المؤكّد، وتشوف بأرقامك انت واش المكالمة تستاهل الوقت ولا لا.
  *
  * ── قبول ─────────────────────────────────────────────────────────────
  *   نقرة → الرسالة تتبدّل وتزيد "✅ مقبول — شكون · الوقت"، أزرار القرار
@@ -43,6 +53,7 @@ import {
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
 } from '../lib/store.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
+import { sendMetaEvent } from '../lib/meta.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -146,7 +157,8 @@ async function handleCallback(query) {
   const isDecision = action === 'ok' || action === 'no';
   const isDeliveryOutcome = action === 'del' || action === 'ret';
   const isReturnReceipt = action === 'rcv';
-  if (!message || (!isDecision && !isDeliveryOutcome && !isReturnReceipt)) return answer();
+  const isConfirm = action === 'cnf';
+  if (!message || (!isDecision && !isDeliveryOutcome && !isReturnReceipt && !isConfirm)) return answer();
 
   const order = orderId ? await getOrder(orderId).catch(() => null) : null;
 
@@ -171,6 +183,25 @@ async function handleCallback(query) {
     if (order.returnReceivedAt) return answer(`استلمتها من قبل — ${order.returnReceivedActor ?? ''}`);
   }
 
+  /*
+   * تأكيد بالتيليفون — يتسجّل برك، ما يقرّرش الطلب. الطلب يبقى pending
+   * وأزرار القبول/الرفض تبقى، غير زر التأكيد يختفي.
+   */
+  if (action === 'cnf') {
+    if (order && order.confirmedAt) return answer(`تأكد من قبل — ${order.confirmedBy ?? ''}`);
+    try {
+      const updated = await updateOrder(orderId, {
+        confirmedAt: new Date().toISOString(), confirmedBy: who,
+      });
+      if (!updated) return answer('الطلب ماشي موجود.');
+      await repaintOrder(message.chat.id, updated);
+    } catch (error) {
+      console.error('Confirm failed:', error.message, '| order:', orderId);
+      return answer('صار خطأ، عاود حاول.');
+    }
+    return answer('تسجّل التأكيد 📞');
+  }
+
   if (action === 'ok') {
     /* ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو */
     if (order) {
@@ -184,6 +215,9 @@ async function handleCallback(query) {
     try {
       const updated = await updateOrder(orderId, {
         status: 'accepted', actor: who, decidedAt: new Date().toISOString(), reason: null,
+        /* لقطة: واش هذا الطلب تأكّد بالتيليفون قبل ما يتقبّل؟ هذا اللي
+           يخلّينا من بعد نقارنو نسبة الرجعات مؤكّد ضدّ ماشي مؤكّد. */
+        confirmedBeforeAccept: Boolean(order?.confirmedAt),
       });
       const record = updated ?? { ...order, messageId: message.message_id };
       await repaintOrder(message.chat.id, record);
@@ -213,6 +247,16 @@ async function handleCallback(query) {
        * تنقر "📥 استلمت الرجعة" (زر يبان بعد هذي النقرة).
        */
       await repaintOrder(message.chat.id, updated);
+
+      /*
+       * 💰 هنا برك نبعثو Purchase لميتا — كي الفلوس تدخل فعلاً، ماشي كي
+       * الطلب يتقبّل. هكذا الخوارزمية تتعلّم تجيب ناس **يخلّصو** ماشي
+       * ناس يعمّرو الفورم ويرفضو عند الباب.
+       */
+      if (deliveryStatus === 'delivered') {
+        const meta = await sendMetaEvent('Purchase', updated, { value: updated.total });
+        if (meta?.error) console.error('Meta CAPI Purchase failed:', meta.error, '| order:', orderId);
+      }
     } catch (error) {
       console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
       return answer('صار خطأ، عاود حاول.');

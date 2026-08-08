@@ -18,6 +18,8 @@
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone } from '../lib/store.mjs';
 import { ownerMessage, orderButtons, toE164Dz, totalFor } from '../lib/message.mjs';
+import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
+import { sendMetaEvent } from '../lib/meta.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -52,7 +54,7 @@ const customerMessage = ({ name }) =>
   `شكراً ${name.split(' ')[0]}! طلبك من Qiti تسجّل، نتصلو بيك قريباً باش نأكّدوه.`;
 
 /** يرجع message_id باش نخزّنوه ونقدرو نبدّلو الرسالة من بعد */
-async function notifyOwner(record, customerHistory) {
+async function notifyOwner(record) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) throw new Error('TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not configured');
@@ -62,7 +64,7 @@ async function notifyOwner(record, customerHistory) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: ownerMessage(record, { customerHistory }),
+      text: ownerMessage(record),
       parse_mode: 'HTML',
       disable_web_page_preview: true,
       reply_markup: orderButtons(record),
@@ -114,36 +116,55 @@ export default async function handler(request) {
   if (error) return json(400, { error });
 
   const now = new Date();
+  const attribution = sanitizeAttribution(payload.attribution);
+
+  /*
+   * تاريخ الزبون بهذا الرقم — لازم **قبل** ما نسجّلو الطلب الجديد، وإلا
+   * يدخل هو نفسو في العدّ (نفس الرقم) ويفسد النتيجة.
+   *
+   * وجهين، ماشي وجه واحد: `delivered` مهمّة قد `denied`/`returned`.
+   * زبون خلّص وستلم 3 مرّات قبل هذا هو أحسن طلب يقدر يجيك — وقبل هذا
+   * التبديل كان يبان كيما أي واحد جديد، بلا أي إشارة.
+   */
+  const pastOrders = await listOrdersByPhone(order.phone).catch((err) => {
+    console.error('Failed to fetch customer history:', err.message, '| phone:', order.phone);
+    return [];
+  });
+  const customerHistory = {
+    delivered: pastOrders.filter((o) => o.deliveryStatus === 'delivered').length,
+    denied: pastOrders.filter((o) => o.status === 'denied').length,
+    returned: pastOrders.filter((o) => o.deliveryStatus === 'returned').length,
+  };
+
   const record = {
     ...order,
     id: newOrderId(now),
     total: totalFor(order),
     day: algiersDate(now),
     createdAt: now.toISOString(),
+    /* منين جا الزبون — يبان في الرسالة ويتجمّع في التقارير حسب القناة */
+    attribution,
+    channel: channelKey(attribution),
     status: 'pending',
     actor: null,
     reason: null,
     decidedAt: null,
+    /* التأكيد بالتيليفون قبل القبول — الحاجة اللي تنقّص الرجعات أكثر من كلش */
+    confirmedAt: null,
+    confirmedBy: null,
+    confirmedBeforeAccept: null,
     messageId: null,
     deliveryStatus: null,
     deliveryActor: null,
     deliveryDecidedAt: null,
     returnReceivedAt: null,
     returnReceivedActor: null,
-  };
-
-  /*
-   * تاريخ الزبون بهذا الرقم — قبل ما نسجّلو الطلب الجديد، وإلا يدخل هو
-   * نفسو في العدّ (نفس الرقم) ويفسد النتيجة. هذا برك لقطة وقتية للإشعار
-   * الأول، ما تتخزّنش في الطلب.
-   */
-  const pastOrders = await listOrdersByPhone(record.phone).catch((err) => {
-    console.error('Failed to fetch customer history:', err.message, '| phone:', record.phone);
-    return [];
-  });
-  const customerHistory = {
-    denied: pastOrders.filter((o) => o.status === 'denied').length,
-    returned: pastOrders.filter((o) => o.deliveryStatus === 'returned').length,
+    /*
+     * نخزّنو لقطة التاريخ وقت الطلب (ماشي نحسبوها كل مرّة): هكذا نقدرو
+     * من بعد نشوفو واش التنبيه كان صحيح — الطلبات المعلّمة بالأحمر واش
+     * رجعت فعلاً أكثر من غيرها؟ بلا تخزين، ما كانش كيفاش نتأكّدو.
+     */
+    customerHistory,
   };
 
   /*
@@ -160,14 +181,23 @@ export default async function handler(request) {
    * إشعارك انت هو الحرج — إذا فشل، الطلب يضيع، فنرجعو خطأ للزبون باش يعاود.
    * رسالة الزبون ثانوية: إذا فشلت وحدها، الطلب وصلك وخلاص، ما نوقفوش العملية.
    */
-  const [ownerResult, customerResult] = await Promise.allSettled([
-    notifyOwner(record, customerHistory),
+  const [ownerResult, customerResult, metaResult] = await Promise.allSettled([
+    notifyOwner(record),
     notifyCustomer(record),
+    /*
+     * Lead ماشي Purchase: الطلب دروك ماشي فلوس، يقدر يرجع. حدث Purchase
+     * يتبعث غير كي الطلبية توصّل فعلاً (شوف telegram-webhook.mjs).
+     */
+    sendMetaEvent('Lead', record),
   ]);
 
   if (customerResult.status === 'rejected') {
     console.error('Customer SMS failed:', customerResult.reason.message, '| phone:', record.phone);
   }
+
+  /* التتبّع ما يوقّفش الطلب أبداً — نسجّلو الخطأ ونكمّلو */
+  const meta = metaResult.status === 'fulfilled' ? metaResult.value : { error: metaResult.reason?.message };
+  if (meta?.error) console.error('Meta CAPI Lead failed:', meta.error, '| order:', record.id);
 
   if (ownerResult.status === 'rejected') {
     /* الطلب يبقى في اللوغ وفي التخزين حتى إذا تيليغرام فشل — ما نخسروش زبون. */
@@ -183,6 +213,11 @@ export default async function handler(request) {
     );
   }
 
-  console.log('Order received:', record.id, JSON.stringify(order), '| customer SMS:', customerResult.status);
+  console.log(
+    'Order received:', record.id, JSON.stringify(order),
+    '| channel:', record.channel,
+    '| customer SMS:', customerResult.status,
+    '| meta Lead:', meta?.ok ? 'sent' : (meta?.skipped ? 'skipped' : 'failed'),
+  );
   return json(200, { ok: true });
 }
