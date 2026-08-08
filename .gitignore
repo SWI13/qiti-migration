@@ -6,3 +6,6 @@
 # Netlify
 .netlify/
 node_modules/
+
+# Claude Code agent worktrees
+.claude/
