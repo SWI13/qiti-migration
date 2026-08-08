@@ -3,6 +3,7 @@
  * الويبهوك يعاود يبني نفس الرسالة من الطلب المخزّن، فما يحتاجش يخمّن
  * التنسيق من النص اللي يعطيه تيليغرام.
  */
+import { channelLabel, campaignLabel } from './attribution.mjs';
 
 export const PRODUCT_PRICE = 3900;
 export const SHIPPING = { home: 600, desk: 400 };
@@ -74,17 +75,29 @@ export function elapsedLabel(iso) {
  * الرقم مكتوب نص عادي (ماشي <code>) قصداً: تيليغرام يتعرّف على أرقام الهاتف
  * ويديرها قابلة للنقر — تنقر عليها وتعيّط مباشرة. <code> يديرها نسخ برك.
  */
-export function ownerMessage(record, { customerHistory } = {}) {
+export function ownerMessage(record) {
   const lines = ['<b>🐱 طلب جديد — Qiti</b>'];
 
   /*
-   * فقط عند البعث الأول (order.mjs يعطي customerHistory) وفقط إذا عندو
-   * تاريخ فعلاً — بلا ضجّة على الزبائن العاديين. الويبهوك يعاود يرسم
-   * الرسالة بلا هذا الطرف الثاني، فالتنبيه يختفي وحدو بعد أول قرار.
+   * تاريخ الزبون بوجهين — مخزّن في الطلب روحو (لقطة وقت الطلب).
+   * الأخضر مهمّ قد الأحمر: زبون خلّص وستلم قبل هذا هو أحسن طلب يجيك،
+   * وقبل ما نزيدو `delivered` كان يبان كيما أي واحد جديد.
    */
-  if (customerHistory && customerHistory.denied + customerHistory.returned > 0) {
-    lines.push(`⚠️ زبون عندو تاريخ: ${customerHistory.denied} رفض، ${customerHistory.returned} رجعة`);
+  const history = record.customerHistory;
+  if (history) {
+    const delivered = history.delivered ?? 0;
+    const denied = history.denied ?? 0;
+    const returned = history.returned ?? 0;
+
+    if (denied + returned > 0) {
+      const balance = delivered ? ` (بصح ${delivered} توصّلت)` : '';
+      lines.push(`⚠️ زبون عندو تاريخ: ${denied} رفض، ${returned} رجعة${balance}`);
+    } else if (delivered > 0) {
+      lines.push(`✅ زبون موثوق: ${delivered} طلبية توصّلت من قبل`);
+    }
   }
+
+  const campaign = campaignLabel(record.attribution);
 
   lines.push(
     '',
@@ -92,9 +105,14 @@ export function ownerMessage(record, { customerHistory } = {}) {
     `📞 ${esc(toE164Dz(record.phone))}`,
     `📍 ${esc(record.wilaya)} / ${esc(record.commune)}`,
     `🚚 ${SHIPPING_LABEL[record.shipping]} — الكمية ×${record.qty}`,
+    `📣 ${esc(channelLabel(record.attribution))}${campaign ? ` · ${esc(campaign)}` : ''}`,
     '',
     `<b>المجموع: ${dz(record.total)}</b> — كاش عند الاستلام`,
   );
+
+  if (record.confirmedAt) {
+    lines.push('', `📞 <b>تأكد بالتيليفون</b> — ${esc(record.confirmedBy ?? '')} · ${dzTime(new Date(record.confirmedAt))}`);
+  }
 
   if (record.status === 'accepted') {
     lines.push('', `✅ <b>مقبول</b> — ${esc(record.actor ?? '')} · ${dzTime(new Date(record.decidedAt ?? Date.now()))}`);
@@ -124,17 +142,30 @@ export function ownerMessage(record, { customerHistory } = {}) {
  * ملاحظة: تيليغرام ما يقبلش روابط `tel:` في الأزرار ("Wrong port number") —
  * علاش زر الاتصال ما كاينش، وعوّضناه بالرقم القابل للنقر فوق + زر واتساب.
  */
-export const orderButtons = (record) => ({
-  inline_keyboard: [
-    [
-      { text: '✅ قبول الطلب', callback_data: `ok:${record.id}` },
-      { text: '❌ رفض الطلب', callback_data: `no:${record.id}` },
-    ],
-    [
-      { text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(record.phone).replace('+', '')}` },
-    ],
-  ],
-});
+export const orderButtons = (record) => {
+  const rows = [];
+
+  /*
+   * زر التأكيد يبان غير قبل ما تأكّد. ما نمنعوش القبول بلاه قصداً —
+   * نسجّلوه برك (`confirmedBeforeAccept`)، باش من بعد تقدر تقارن نسبة
+   * الرجعات بين الطلبات المؤكّدة واللي ماشي مؤكّدة وتشوف بعينيك واش
+   * التأكيد يخدم ولا لا. المنع يهرّس المرونة، القياس يعطيك الجواب.
+   */
+  if (!record.confirmedAt) {
+    rows.push([{ text: '📞 تأكدت بالتيليفون', callback_data: `cnf:${record.id}` }]);
+  }
+
+  rows.push([
+    { text: '✅ قبول الطلب', callback_data: `ok:${record.id}` },
+    { text: '❌ رفض الطلب', callback_data: `no:${record.id}` },
+  ]);
+
+  rows.push([
+    { text: '💬 راسل الزبون واتساب', url: `https://wa.me/${toE164Dz(record.phone).replace('+', '')}` },
+  ]);
+
+  return { inline_keyboard: rows };
+};
 
 /** بعد ما يتقرّر الطلب نهائياً (رفض، ولا توصيل تقرّر)، يبقى غير زر واتساب */
 export const whatsappOnlyButtons = (record) => ({
@@ -174,6 +205,13 @@ export const receiveReturnButtons = (record) => ({
 
 /** الأزرار الصحيحة حسب حالة الطلب — نفس المنطق يخدم عند البعث وعند الرسم مجدّداً */
 export function buttonsFor(record) {
+  /*
+   * الطلب لسّا بلا قرار: نرجّعو أزرار القرار. هذا ولّى ضروري كي زدنا زر
+   * التأكيد — قبلو، الطلب "pending" ما كان يتعاود يترسم عمرو، دروك يتعاود
+   * كي تنقر "تأكدت"، ولوكان طاح للسطر الأخير كانت أزرار القبول/الرفض
+   * تختفي وتبقى غير واتساب.
+   */
+  if (record.status === 'pending') return orderButtons(record);
   if (record.status === 'accepted' && !record.deliveryStatus) return deliveryButtons(record);
   if (record.status === 'accepted' && record.deliveryStatus === 'returned' && !record.returnReceivedAt) {
     return receiveReturnButtons(record);
