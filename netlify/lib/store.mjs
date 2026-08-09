@@ -69,11 +69,31 @@ export async function listOrdersForDay(day) {
   return records.filter(Boolean);
 }
 
+/** طلبات بين يومين (شاملين). نفس منطق مفتاح YYMMDD-xxxxx تاع listOrdersForDay،
+    بصح بمدى بدل يوم وحدو — أرخص من نداء listOrdersForDay لكل يوم في المدى. */
+export async function listOrdersInRange(startDay, endDay) {
+  const { blobs } = await orders().list();
+  const startPrefix = startDay.replace(/-/g, '').slice(2); // YYMMDD
+  const endPrefix = endDay.replace(/-/g, '').slice(2);
+  const inRange = blobs.filter((blob) => {
+    const keyPrefix = blob.key.slice(0, 6);
+    return keyPrefix >= startPrefix && keyPrefix <= endPrefix;
+  });
+  const records = await Promise.all(inRange.map((blob) => orders().get(blob.key, { type: 'json' })));
+  return records.filter(Boolean);
+}
+
 /** كل الطلبات عبر كل الأيام — أساس لكل استعلام "عبر الأرشيف كامل" (/state، تقرير آخر النهار). */
 async function listAllOrders() {
   const { blobs } = await orders().list();
   const records = await Promise.all(blobs.map((blob) => orders().get(blob.key, { type: 'json' })));
   return records.filter(Boolean);
+}
+
+/** نفس listAllOrders، مرتّبة الأحدث أوّلاً — أساس صفحة Orders في اللوحة. */
+export async function listOrders() {
+  const all = await listAllOrders();
+  return all.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 }
 
 /** طلبات لسّا بلا قرار قبول/رفض، مهما كان يوم وصولها. */

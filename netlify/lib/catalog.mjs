@@ -91,8 +91,31 @@ export function slugify(input) {
  */
 function money(value, label) {
   const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) throw new Error(`${label} لازم تكون رقم صحيح.`);
+  if (!Number.isFinite(n) || n < 0) throw new Error(`${label} must be a valid non-negative number.`);
   return Math.round(n);
+}
+
+/**
+ * فرق سومة يقدر يكون سالب (فاريانت أرخص من الأصل) — بعكس money() اللي
+ * يرفض السالب. `minValue` افتراضيًا -مليون، بصح mergeVariants يبعث
+ * -سومة_المنتج باش الفرق ما يقدرش يهبط بالسومة تحت الصفر.
+ *
+ * ⚠️ بلا هذا الحد: تاجر يكتب -39000 غلط بدل -3900، السومة النهائية
+ * تولّي 0 (variantPrice تحبس عند 0)، الزبون يشوف رقم سالب في الصفحة
+ * (main.js ما فيهش نفس الحبس)، والمُوصّل يجبى سومة الشحن غير — بيع
+ * بالمجان وصفحة تعرض رقم ماشي هو اللي يتحاسب بيه.
+ */
+function signedMoney(value, label, minValue = -1_000_000) {
+  if (value == null || value === '') return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error(`${label} must be a valid number.`);
+  return Math.max(minValue, Math.min(1_000_000, Math.round(n)));
+}
+
+/** يقصّر نص ويرجّع null إذا فارغ — يخدم لـ merchantSku/barcode */
+function shortText(value, maxLen) {
+  const trimmed = String(value ?? '').trim();
+  return trimmed ? trimmed.slice(0, maxLen) : null;
 }
 
 /** واش هذا الرابط محجوز للمتجر روحو؟ */
@@ -125,7 +148,7 @@ export async function resolveRoute(path) {
 export async function claimRoute(path, kind, id) {
   const slug = path.split('/').filter(Boolean).pop() ?? '';
   if (kind === 'campaign' && isReservedSlug(slug)) {
-    throw new Error(`الرابط "${slug}" محجوز للمتجر. اختر واحد آخر.`);
+    throw new Error(`The slug "${slug}" is reserved for the store. Choose another one.`);
   }
 
   /*
@@ -143,7 +166,7 @@ export async function claimRoute(path, kind, id) {
   /* المفتاح موجود — نشوفو واش تاعنا (إعادة حفظ) ولا تاع واحد آخر */
   const existing = await resolveRoute(path);
   if (existing && existing.id !== id) {
-    throw new Error(`الرابط "${path}" مستعمل من قبل.`);
+    throw new Error(`The slug "${path}" is already in use.`);
   }
   await routes().setJSON(key, { kind, id });
   return path;
@@ -195,6 +218,14 @@ export function buildVariants(options = []) {
         });
       });
     }
+    /*
+     * ⚠️ الحد هنا قبل ما نكمّلو الضرب، ماشي بعد: بلا هذا، لصق لائحة
+     * طويلة في خانة القيم يبني مئات الآلاف من التركيبات في الذاكرة،
+     * ومن بعد saveProduct يحاول يكتب بلوب مخزون لكل وحدة منها.
+     */
+    if (next.length > 300) {
+      throw new Error('Too many variant combinations (max 300) — reduce the number of option values.');
+    }
     combos = next;
   }
 
@@ -226,38 +257,113 @@ export const variantPrice = (product, variant) =>
 
 /* ── المنتجات ──────────────────────────────────────────────────────── */
 
+/**
+ * يثبّت شكل الصور: الـ id يبقى ثابت عبر إعادة الترتيب/الحذف (هو المرجع
+ * اللي variant.mediaId يشدّ بيه)، وما يتولّدش id جديد غير للعنصر
+ * الجديد بالكامل — وإلا كل حفظ يفصل الفاريانتات على صورهم.
+ */
+function normalizeMedia(value, previous = []) {
+  if (!Array.isArray(value)) return [];
+  const known = new Set(previous.map((m) => m?.id).filter(Boolean));
+  return value
+    .map((item) => {
+      const src = String(item?.src ?? '').trim();
+      if (!src) return null;
+      return {
+        id: known.has(item?.id) ? item.id : newId('pmd_'),
+        src: src.slice(0, 300),
+        alt: item?.alt ? String(item.alt).slice(0, 200) : null,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 24);
+}
+
+/** وسوم فريدة (بلا حساسية لحالة الحروف)، مقصوصة، بحد أقصى 30 */
+function normalizeTags(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set(); const out = [];
+  for (const raw of value) {
+    const tag = String(raw ?? '').trim().slice(0, 40);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(tag);
+  }
+  return out.slice(0, 30);
+}
+
+/**
+ * `shipping` بالمفتاح ماشي بالقيمة: لازم نفرّقو بين "التاجر ما بدّلش
+ * الحقل" و"التاجر مسحو قصدًا" (فرغ الخانة). ?? العادي يبلع الفرق —
+ * نفس الخطأ القديم تاع compareAtPrice اللي ما يقدرش يتصفّر أبدًا.
+ */
+function normalizeShipping(input, existing) {
+  const has = input && typeof input === 'object';
+  return {
+    weightGrams: has && 'weightGrams' in input
+      ? (input.weightGrams == null || input.weightGrams === '' ? null : Math.max(0, Math.round(Number(input.weightGrams) || 0)))
+      : (existing?.weightGrams ?? null),
+    note: has && 'note' in input
+      ? (input.note ? String(input.note).slice(0, 500) : null)
+      : (existing?.note ?? null),
+  };
+}
+
 export async function saveProduct(input) {
   const now = new Date().toISOString();
   const existing = input.id ? await getProduct(input.id) : null;
 
   const options = input.options ?? existing?.options ?? [];
   const slug = input.slug ? slugify(input.slug) : existing?.slug;
-  if (!slug) throw new Error('المنتج يلزمو رابط (slug).');
+  if (!slug) throw new Error('The product needs a slug.');
+
+  /*
+   * ⚠️ Number('3900 دج') = NaN، وJSON.stringify يكتبو `null`.
+   * السومة تولّي مفقودة والصفحة تعرض "NaN دج" — فنرفضو من هنا بدل
+   * ما نخزّنو رقم مكسور.
+   *
+   * لازم قبل mergeVariants: فرق سومة الفاريانت لازم يتحبس بسومة
+   * المنتج (شوف signedMoney) باش السومة النهائية ما تهبطش تحت الصفر.
+   */
+  const price = money(input.price ?? existing?.price ?? 0, 'Price');
+
+  const media = normalizeMedia(input.media ?? existing?.media ?? [], existing?.media ?? []);
+  /* نحافظو على priceDelta/mediaId/merchantSku/barcode تاع الفاريانتات
+     القدام كي الخيارات ما تبدّلوش — وإلا كل حفظ يمسح التعديلات اليدوية.
+     input.variants تجي قبل existing?.variants — الجدول اللي التاجر
+     عدّل فيه دروك هو المصدر الصحيح، ماشي النسخة المخزّنة قبل الحفظ. */
+  const variants = mergeVariants(buildVariants(options), input.variants ?? existing?.variants ?? [], new Set(media.map((m) => m.id)), price);
 
   const record = {
     id: existing?.id ?? newId('prd_'),
     slug,
     name: input.name ?? existing?.name ?? '',
+    shortDescription: String(input.shortDescription ?? existing?.shortDescription ?? '').slice(0, 300),
+    description: String(input.description ?? existing?.description ?? '').slice(0, 5000),
     type: input.type ?? existing?.type ?? 'life',
     categoryId: input.categoryId ?? existing?.categoryId ?? null,
-    /*
-     * ⚠️ Number('3900 دج') = NaN، وJSON.stringify يكتبو `null`.
-     * السومة تولّي مفقودة والصفحة تعرض "NaN دج" — فنرفضو من هنا بدل
-     * ما نخزّنو رقم مكسور.
-     */
-    price: money(input.price ?? existing?.price ?? 0, 'السومة'),
+    tags: normalizeTags(input.tags ?? existing?.tags ?? []),
+    featured: input.featured ?? existing?.featured ?? false,
+    price,
     compareAtPrice: input.compareAtPrice == null ? (existing?.compareAtPrice ?? null)
-      : money(input.compareAtPrice, 'السومة القديمة'),
+      : money(input.compareAtPrice, 'Compare-at price'),
     /* واش تخلّص انت في السلعة — كانت في costs/current العامّة، ودروك
        على كل منتج وحدو، على خاطر كل منتج عندو تكلفة مختلفة. */
-    unitCost: money(input.unitCost ?? existing?.unitCost ?? 0, 'تكلفة السلعة'),
+    unitCost: money(input.unitCost ?? existing?.unitCost ?? 0, 'Unit cost'),
     options,
-    /* نحافظو على priceDelta/mediaId تاع الفاريانتات القدام كي الخيارات
-       ما تبدّلوش — وإلا كل حفظ يمسح التعديلات اليدوية. */
-    variants: mergeVariants(buildVariants(options), existing?.variants ?? []),
-    media: input.media ?? existing?.media ?? [],
+    variants,
+    media,
+    /* يخدم غير كبذرة عند الحفظ (شوف seedVariantStock) — الحد الحي
+       يتبدّل من جدول المخزون، ماشي من هنا */
+    defaultStockThreshold: Math.max(0, Math.round(Number(input.defaultStockThreshold ?? existing?.defaultStockThreshold ?? DEFAULT_STOCK_THRESHOLD))),
+    shipping: normalizeShipping(input.shipping, existing?.shipping),
     status: input.status ?? existing?.status ?? 'active',
-    seo: input.seo ?? existing?.seo ?? { title: null, description: null, ogImage: null },
+    seo: {
+      title: input.seo?.title ?? existing?.seo?.title ?? null,
+      description: input.seo?.description ?? existing?.seo?.description ?? null,
+      ogImage: input.seo?.ogImage ?? existing?.seo?.ogImage ?? null,
+    },
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -268,15 +374,34 @@ export async function saveProduct(input) {
   else await claimRoute(newPath, 'product', record.id);
 
   await products().setJSON(record.id, record);
+
+  /*
+   * initialStock مؤقّت: يدخل هنا غير باش يبذر الكمية الأولى، ما يتخزّنش
+   * في `record` (شوف تعليق الشكل فوق). منتج بخيارات يبذر threshold برك
+   * — الكمية تتعمر يدويًا من جدول المخزون بعد أول حفظ.
+   */
+  const seedQty = record.options.length ? 0 : Math.max(0, Math.round(Number(input.initialStock) || 0));
+  await Promise.all(record.variants.map((v) =>
+    seedVariantStock(record.id, v.sku, { qty: seedQty, threshold: record.defaultStockThreshold })
+      .catch(() => null)));
+
   return record;
 }
 
-/** يخلّي التعديلات اليدوية (سومة زايدة، صورة) كي الخيارات ما تبدّلوش */
-function mergeVariants(fresh, previous) {
+/** يخلّي التعديلات اليدوية (سومة زايدة، صورة، SKU/باركود التاجر) كي الخيارات ما تبدّلوش */
+function mergeVariants(fresh, previous, mediaIds, price) {
   const byKey = new Map(previous.map((v) => [v.sku, v]));
   return fresh.map((variant) => {
     const old = byKey.get(variant.sku);
-    return old ? { ...variant, priceDelta: old.priceDelta ?? 0, mediaId: old.mediaId ?? null } : variant;
+    if (!old) return variant;
+    return {
+      ...variant,
+      /* -price هو الحد: فرق أنقص من هذا يخلّي السومة النهائية سالبة */
+      priceDelta: signedMoney(old.priceDelta, 'Variant price difference', -price),
+      mediaId: mediaIds.has(old.mediaId) ? old.mediaId : null,
+      merchantSku: shortText(old.merchantSku, 64),
+      barcode: shortText(old.barcode, 64),
+    };
   });
 }
 
@@ -336,6 +461,23 @@ export async function setVariantStock(productId, sku, qty, threshold) {
   return updated;
 }
 
+/**
+ * يبذر صف مخزون أوّلي وقت إنشاء المنتج — `onlyIfNew` يخلّيها ما
+ * تلمسش صف موجود، وإلا كل حفظ لاحق يرجّع الكمية للصفر أو يمحي threshold
+ * اللي التاجر بدّلو يدويًا من جدول المخزون.
+ */
+export async function seedVariantStock(productId, sku, { qty = 0, threshold = DEFAULT_STOCK_THRESHOLD } = {}) {
+  const record = {
+    productId, sku,
+    qty: Math.max(0, Math.round(Number(qty) || 0)),
+    threshold: Math.max(0, Math.round(Number(threshold) || 0)),
+    lowStockAlerted: false,
+    updatedAt: new Date().toISOString(),
+  };
+  const { modified } = await variantStock().setJSON(stockKey(productId, sku), record, { onlyIfNew: true });
+  return modified ? record : null;
+}
+
 export async function markVariantLowStockAlerted(productId, sku, value) {
   const current = await getVariantStock(productId, sku);
   await variantStock().setJSON(stockKey(productId, sku), { ...current, lowStockAlerted: value });
@@ -351,6 +493,14 @@ export async function listStockFor(product) {
   );
 }
 
+/** كل صفوف المخزون عبر كل المنتجات — أرخص من listStockFor لكل منتج
+    (يديها N منتج × V فاريانت رحلة، هذي list() وحدة + gets بالتوازي). */
+export async function listAllVariantStock() {
+  const { blobs } = await variantStock().list();
+  const records = await Promise.all(blobs.map((blob) => variantStock().get(blob.key, { type: 'json' })));
+  return records.filter(Boolean);
+}
+
 /* ── الحملات ───────────────────────────────────────────────────────── */
 
 export async function saveCampaign(input) {
@@ -358,8 +508,8 @@ export async function saveCampaign(input) {
   const existing = input.id ? await getCampaign(input.id) : null;
 
   const slug = input.slug ? slugify(input.slug) : existing?.slug;
-  if (!slug) throw new Error('الحملة تلزمها رابط (slug).');
-  if (isReservedSlug(slug)) throw new Error(`الرابط "${slug}" محجوز. اختر واحد آخر.`);
+  if (!slug) throw new Error('The campaign needs a slug.');
+  if (isReservedSlug(slug)) throw new Error(`The slug "${slug}" is reserved. Choose another one.`);
 
   const record = {
     id: existing?.id ?? newId('cmp_'),
@@ -409,7 +559,7 @@ export async function duplicateCampaign(id, { name, slug } = {}) {
 
   return saveCampaign({
     ...copy,
-    name: name ?? `${source.name} (نسخة)`,
+    name: name ?? `${source.name} (Copy)`,
     slug: slug ?? `${source.slug}-copy`,
     status: 'draft',
   });
@@ -430,7 +580,7 @@ export async function saveCategory(input) {
   const existing = input.id ? await getCategory(input.id) : null;
 
   const slug = input.slug ? slugify(input.slug) : existing?.slug;
-  if (!slug) throw new Error('الفئة تلزمها رابط (slug).');
+  if (!slug) throw new Error('The category needs a slug.');
 
   const record = {
     id: existing?.id ?? newId('cat_'),

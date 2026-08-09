@@ -1,0 +1,153 @@
+/* ==========================================================================
+   Qiti admin — base
+   tokens تاع الحالة (status) + الهيكل العام (شريط جانبي، محتوى، استجابة).
+   يبني فوق tokens تاع assets/css/styles.css — ما فيهش حتى لون مكتوب
+   مباشرة، كلشي var(--…) أو مشتق منها بـ color-mix().
+   ========================================================================== */
+
+/* ── tokens الحالة ─────────────────────────────────────────────────────
+   مشتقّة من --success/--danger/--accent الموجودين في styles.css. warn
+   يستعمل --orange-600 (خطوة أغمق من نفس تدرّج العلامة، موجودة هي ثانية
+   في styles.css) — بلا هذا ما عندناش غير 3 ألوان (أخضر/أحمر/برتقالي)
+   لـ 5 خانات، وorange-600 أنسب من تكرار --accent روحو لـ "تنبيه". */
+:root {
+  --st-neutral:      var(--text-muted);
+  --st-neutral-soft: var(--bg-gray);
+  --st-info:         var(--accent);
+  --st-info-soft:    var(--accent-soft);
+  --st-success:      var(--success);
+  --st-success-soft: color-mix(in srgb, var(--success) 16%, transparent);
+  --st-warn:         var(--orange-600);
+  --st-warn-soft:    color-mix(in srgb, var(--orange-600) 16%, transparent);
+  --st-danger:       var(--danger);
+  --st-danger-soft:  color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+html, body { height: 100%; }
+body { background: var(--bg-gray); overflow-x: hidden; }
+
+/* styles.css:.field{display:flex} (نص التسجيل تاع المتجر) يغلب native
+   [hidden] على أي عنصر .field هنا (نفس الاسم، الزوج author-origin) —
+   نرجّعو hidden لمعناه الحقيقي، وإلا #codeField يبان قبل وقتو في الدخول. */
+[hidden] { display: none !important; }
+
+.admin { min-height: 100vh; display: flex; position: relative; }
+
+/* ── الشريط الجانبي ───────────────────────────────────────────────────── */
+.admin__sidebar {
+  width: 232px;
+  flex: none;
+  background: var(--surface);
+  border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  gap: 6px;
+  transition: width .2s var(--ease);
+}
+.admin__brand {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 800; font-size: 1.05rem;
+  padding: 6px 8px 18px;
+  white-space: nowrap; overflow: hidden;
+}
+.admin__brand-suffix { color: var(--accent); }
+
+.admin__nav { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-group__label {
+  font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 6px 12px 4px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-weight: 600; font-size: .92rem;
+  cursor: pointer; white-space: nowrap;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.nav-link:hover { background: var(--bg-gray); color: var(--text); }
+.nav-link.is-active { background: var(--accent-soft); color: var(--accent); }
+.nav-link__icon { width: 18px; height: 18px; opacity: .6; }
+.nav-link:hover .nav-link__icon { opacity: .85; }
+.nav-link.is-active .nav-link__icon { opacity: 1; }
+.nav-link__badge {
+  margin-inline-start: auto;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--st-danger); color: #fff;
+  font-size: .68rem; font-weight: 800; line-height: 18px; text-align: center;
+}
+
+.admin__sidebar-foot {
+  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.admin__collapse-toggle {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: var(--r-md);
+  background: transparent; border: 0; color: var(--text-muted);
+  font-weight: 600; font-size: .84rem; cursor: pointer;
+}
+.admin__collapse-toggle:hover { background: var(--bg-gray); color: var(--text); }
+.admin__collapse-toggle .ico { width: 17px; height: 17px; }
+.admin.is-nav-collapsed .admin__collapse-toggle .ico { transform: scaleX(-1); }
+.admin.is-nav-collapsed .admin__collapse-toggle { justify-content: center; }
+
+/* ── تبديل الدرج (شاشة صغيرة) ─────────────────────────────────────────── */
+.admin__nav-toggle {
+  display: none;
+  position: fixed; top: 14px; inset-inline-start: 14px; z-index: 70;
+  width: 40px; height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer;
+}
+.admin__nav-toggle-bar { width: 18px; height: 2px; background: var(--text); border-radius: 2px; }
+.admin__scrim { display: none; }
+
+/* ── المحتوى ───────────────────────────────────────────────────────────── */
+.admin__main { flex: 1; min-width: 0; padding: 28px 32px 80px; }
+.admin__header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.admin__title { font-size: 1.5rem; font-weight: 800; }
+.admin__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── 860–1200px: تنهار لسكة أيقونات (64px) ────────────────────────────── */
+@media (max-width: 1200px) {
+  .admin__sidebar { width: 64px; padding-inline: 10px; }
+  .sidebar-label { display: none; }
+  .nav-link { justify-content: center; }
+}
+
+/* نفس المظهر، بصح كـ class تتزاد يدوياً بزر "اطوي" (admin__collapse-toggle) */
+.admin.is-nav-collapsed .admin__sidebar { width: 64px; padding-inline: 10px; }
+.admin.is-nav-collapsed .sidebar-label { display: none; }
+.admin.is-nav-collapsed .nav-link { justify-content: center; }
+
+/* ── <860px: درج يطلع فوق المحتوى ──────────────────────────────────────── */
+@media (max-width: 860px) {
+  .admin__nav-toggle { display: flex; }
+  .admin__sidebar {
+    position: fixed; inset-block: 0; inset-inline-start: 0;
+    width: 260px; z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .25s var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar-label { display: inline; }
+  .nav-link { justify-content: flex-start; }
+  .admin__collapse-toggle { display: none; }
+  .admin.is-nav-open .admin__sidebar { transform: translateX(0); }
+  .admin.is-nav-open .admin__scrim {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(20,17,15,.45);
+  }
+  .admin__main { padding: 70px 18px 60px; }
+}

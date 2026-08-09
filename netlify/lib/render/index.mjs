@@ -112,7 +112,7 @@ export function priceViewFor(product) {
  * يعرض أقسام الحملة بالترتيب.
  * يرجع نص HTML تاع المحتوى برك — الغلاف (head/nav/footer) في layout.mjs.
  */
-export function renderSections(campaign, product) {
+export function renderSections(campaign, product, { preview = false } = {}) {
   const theme = sanitizeTheme(campaign?.theme);
   const priceView = priceViewFor(product);
 
@@ -127,7 +127,7 @@ export function renderSections(campaign, product) {
         return '';
       }
       try {
-        return render({ data: section.data ?? {}, product, campaign, theme, priceView });
+        return render({ data: section.data ?? {}, product, campaign, theme, priceView, preview });
       } catch (error) {
         /* قسم واحد يطيح ما يوقّفش الصفحة كاملة — الباقي يتعرض عادي */
         console.error(`Section "${section.type}" failed in campaign ${campaign?.id}:`, error.message);

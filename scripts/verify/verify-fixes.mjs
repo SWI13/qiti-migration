@@ -50,7 +50,7 @@ console.log('\n══ money validation ══');
 for (const [input, shouldThrow] of [['3900 دج', true], ['abc', true], [NaN, true], [-5, true], [Infinity, true], [3900, false], ['4500', false]]) {
   let threw = false;
   try { await cat.saveProduct({ name: 'x', slug: 'x', price: input }); } catch (e) {
-    threw = /رقم صحيح/.test(e.message);
+    threw = /must be a valid/.test(e.message);
     if (!threw) threw = false;
   }
   /* saveProduct يلمس التخزين، فالمهم هو واش رمى خطأ التحقّق قبل ما يوصل */

@@ -76,7 +76,7 @@ function pricingData(product) {
   }</script>`;
 }
 
-export default function order({ data = {}, product, campaign, priceView }) {
+export default function order({ data = {}, product, campaign, priceView, preview = false }) {
   if (!product) return '';
 
   const {
@@ -100,7 +100,7 @@ export default function order({ data = {}, product, campaign, priceView }) {
     </header>
 
     <div class="order__card reveal">
-      <form class="order__form" id="orderForm" novalidate>
+      <form class="order__form" id="orderForm" novalidate${preview ? ' data-preview="1"' : ''}>
 
         <!-- فخّ البوتات: مخبّي على المستخدم، البوتات برك اللي تعمّرو -->
         <div class="hp" aria-hidden="true">
@@ -196,9 +196,16 @@ ${optionPickers(product)}
             ${icon('i-cash')}
             ${esc(codNote)}
           </p>
-          <button type="submit" class="btn btn--primary btn--xl" id="submitBtn">
+          ${/*
+             * ⚠️ في المعاينة الزرّ ميّت. بلا هذا، صاحب المحل يجرّب الفورم
+             * في اللوحة ويطيح طلبية حقيقية: تتسجّل، توصل إشعار، والزبون
+             * الوهمي يتّصل بيه — والرقم اللي كتبو يدخل في تاريخ الزبائن
+             * وفي حساب الثقة للأبد. main.js تاني يوقف على data-preview.
+             */''}
+          <button type="submit" class="btn btn--primary btn--xl" id="submitBtn"${preview ? ' disabled' : ''}>
             ${esc(submitLabel)} ${icon('i-arrow-rtl')}
           </button>
+          ${preview ? '<p class="summary__note">👁️ معاينة — الطلب ما يتبعثش من هنا.</p>' : ''}
           <p class="err err--submit" id="submitErr" role="alert"></p>
           <p class="summary__note">${esc(footnote)}</p>
         </div>
