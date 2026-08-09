@@ -60,3 +60,6 @@ export const mapJoin = (items, fn) => (Array.isArray(items) ? items.filter(Boole
 
 /** رقم بصيغة الدينار — نفس dz() في message.mjs */
 export const dz = (n) => `${Number(n ?? 0).toLocaleString('en-US')} دج`;
+
+/** يهرب النص باش يدخل في سكريبت كـ string literal — نفس منطق productJsonLd */
+export const jsLit = (v) => JSON.stringify(String(v)).replace(/</g, '\\u003c');

@@ -4,7 +4,7 @@
  *
  * الأقسام تعرف تبني روحها برك. هذا الملف هو اللي يعرف بلّي كاين صفحة.
  */
-import { esc, escAttr, safeUrl, mapJoin } from './html.mjs';
+import { esc, escAttr, safeUrl, mapJoin, jsLit } from './html.mjs';
 import { ICON_SPRITE, icon } from './sprite.mjs';
 import { sanitizeTheme, themeCss, fontLinkFor } from '../theme.mjs';
 
@@ -81,6 +81,7 @@ export function renderPage({
   priceView,
   siteOrigin = '',
   themed = true,
+  track = null,
 }) {
   const theme = sanitizeTheme(campaign?.theme);
   const links = navLinks(campaign?.sections);
@@ -200,7 +201,16 @@ ${content}
   اطلب الان ${icon('i-arrow-rtl')}
 </a>
 
-<script src="/assets/js/main.js" defer></script>
+${track ? `<script>
+(function(){try{
+var k=${jsLit(track.kind)},i=${jsLit(track.id)},u=0;
+try{var s='qv:'+k+':'+i;if(!sessionStorage.getItem(s)){sessionStorage.setItem(s,'1');u=1;}}catch(e){}
+var b=JSON.stringify({k:k,i:i,u:u});
+if(navigator.sendBeacon){navigator.sendBeacon('/.netlify/functions/track',new Blob([b],{type:'application/json'}));}
+else{fetch('/.netlify/functions/track',{method:'POST',headers:{'content-type':'application/json'},body:b,keepalive:true}).catch(function(){});}
+}catch(e){}})();
+</script>
+` : ''}<script src="/assets/js/main.js" defer></script>
 </body>
 </html>`;
 }

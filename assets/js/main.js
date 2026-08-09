@@ -308,7 +308,7 @@
       var shipKey = currentShipping();
       var shipCost = SHIPPING[shipKey];
       var variant = currentVariant();
-      var unitPrice = PRODUCT_PRICE + ((variant && variant.priceDelta) || 0);
+      var unitPrice = Math.max(0, PRODUCT_PRICE + ((variant && variant.priceDelta) || 0));
       var productCost = unitPrice * qty;
 
       sumQty.textContent = '×' + qty;
@@ -381,6 +381,14 @@
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+
+      /* معاينة اللوحة: الفورم يتعرض بالكامل باش تشوفو، بصح ما يبعث والو.
+         الزرّ راهو disabled تاني — هذا باش حتى Enter ما يفوّتش. */
+      if (form.hasAttribute('data-preview')) {
+        submitErr.textContent = 'هذي معاينة — الطلب ما يتبعثش من هنا.';
+        return;
+      }
+
       submitErr.textContent = '';
 
       var ok = Object.keys(validators).reduce(function (acc, id) {

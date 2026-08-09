@@ -9,6 +9,22 @@
 [functions]
   node_bundler = "esbuild"
 
+# محلياً نخدمو من الجذر مباشرة — التعديل في admin/admin.js يبان بـ refresh
+# برك، بلا ما تعاود npm run build في كل مرّة. تسريب المصدر ما عندو معنى
+# على localhost؛ اللي يهمّ هو [build] فوق، وهو اللي يتنشر.
+#
+# ⚠️ بلا [dev].command، netlify dev يستعمل سيرفرو الستاتيك المبني فيه
+# ("simple static server" — يبان في اللوق "No app server detected").
+# جرّبناه: مكسور — يخدم index.html في الجذر برك، وأي ملف في مجلّد
+# فرعي (admin/admin.js، assets/js/main.js…) يرجع 403 بلا حتى تسجيل.
+# الحل: سيرفر بسيط كتبناه بروحنا (scripts/dev-server.mjs، بلا
+# dependency)، ونخلّيو netlify dev يبروكسي فوقو للملفات، وهو يدير
+# الـ redirects والفنكشنات كيما في الإنتاج.
+[dev]
+  command    = "node scripts/dev-server.mjs"
+  targetPort = 8896
+  publish    = "."
+
 # روابط الميديا: /media/:id يوصل لفنكشن الخدمة. زوج قواعد — وحدة على
 # القياس الشائع (رابط بجزء واحد) وأخرى splat احتياطية — بلا ما نلمسو
 # جذر الموقع (catch-all راهو يتزاد في تغيير آخر).

@@ -18,6 +18,7 @@ import {
   setVariantStock, listStockFor,
 } from '../lib/catalog.mjs';
 import { listMedia, deleteMedia } from '../lib/media.mjs';
+import { listOrders, listPendingOrders } from '../lib/store.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 
@@ -40,7 +41,7 @@ const ACTIONS = {
 
   'campaigns.get': async (body) => {
     const campaign = await getCampaign(body.id);
-    if (!campaign) return bad('ما لقيناش هذي الحملة.');
+    if (!campaign) return bad('Campaign not found.');
     return ok({ campaign });
   },
 
@@ -48,7 +49,7 @@ const ACTIONS = {
 
   'campaigns.duplicate': async (body) => {
     const copy = await duplicateCampaign(body.id, { name: body.name, slug: body.slug });
-    if (!copy) return bad('ما لقيناش الحملة اللي حبيت تنسخ.');
+    if (!copy) return bad('Could not find the campaign to duplicate.');
     return ok({ campaign: copy });
   },
 
@@ -58,7 +59,7 @@ const ACTIONS = {
      عكس الحالة الحالية، وهذا يخلّي زر "نشر/إلغاء النشر" وحدو يخدم للزوج */
   'campaigns.publish': async (body) => {
     const campaign = await getCampaign(body.id);
-    if (!campaign) return bad('ما لقيناش هذي الحملة.');
+    if (!campaign) return bad('Campaign not found.');
     const status = body.status ?? (campaign.status === 'published' ? 'draft' : 'published');
     return ok({ campaign: await saveCampaign({ ...campaign, status }) });
   },
@@ -68,7 +69,7 @@ const ACTIONS = {
   /* المخزون تاع كل فاريانت معاه — اللوحة تعرض الجدول بلا طلب ثاني */
   'products.get': async (body) => {
     const product = await getProduct(body.id);
-    if (!product) return bad('ما لقيناش هذا المنتج.');
+    if (!product) return bad('Product not found.');
     return ok({ product, stock: await listStockFor(product) });
   },
 
@@ -79,6 +80,13 @@ const ACTIONS = {
 
   'media.list': async () => ok({ media: await listMedia() }),
   'media.delete': async (body) => ok({ deleted: await deleteMedia(body.id) }),
+
+  /* بلا فلاتر — القائمة نفسها اللي يستعملها /state في تيليغرام، اللوحة
+     تفلتر/ترتّب من جهتها. قراءة برك: القبول/الرفض/التوصيل يبقاو من تيليغرام
+     باش ما نكرّروش منطق المخزون/الإشعارات في زوج بلاصات. */
+  'orders.list': async () => ok({ orders: await listOrders() }),
+  /* بادج الشريط الجانبي — خفيفة، بلا ما تجيب الأرشيف كامل */
+  'orders.pendingCount': async () => ok({ count: (await listPendingOrders()).length }),
 
   'stock.set': async (body) => ok({
     stock: await setVariantStock(
@@ -101,7 +109,9 @@ const ACTIONS = {
     const campaign = body.campaign ?? {};
     const product = body.productId ? await getProduct(body.productId) : null;
     const priceView = priceViewFor(product);
-    const content = renderSections(campaign, product);
+    /* preview:true يقتل زرّ الطلب — وإلا تجريب الفورم في اللوحة يطيّح
+       طلبية حقيقية بإشعار واتصال لرقم وهمي */
+    const content = renderSections(campaign, product, { preview: true });
     const origin = new URL(request.url).origin;
     const html = renderPage({ content, campaign, product, priceView, siteOrigin: origin });
     return ok({ html });
@@ -116,11 +126,11 @@ export default async function handler(request) {
   try {
     body = await request.json();
   } catch {
-    return bad('الطلب ماشي صحيح — خاصو يكون JSON.');
+    return bad('Invalid request — expected JSON.');
   }
 
   const run = ACTIONS[body?.action];
-  if (!run) return bad(`أكشن غير معروف: ${body?.action}`);
+  if (!run) return bad(`Unknown action: ${body?.action}`);
 
   try {
     return await run(body, request);

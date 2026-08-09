@@ -1,0 +1,152 @@
+/* ==========================================================================
+   Qiti admin — pages
+   كل حاجة خاصة بصفحة وحدة برك (ماشي معاد استعمالها عبر الصفحات — هذاك
+   في components.css). login, محرّر الحملة (split + معاينة + أقسام),
+   جدول مخزون المنتج, صفحة الميديا, صفحة الطلبات.
+   ========================================================================== */
+
+/* ── دخول ─────────────────────────────────────────────────────────────── */
+.login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  width: min(380px, 100%);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-md);
+  padding: 32px 28px;
+}
+.login-card h1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+.login-card h1 em { color: var(--accent); font-style: normal; }
+.login-card .sub { color: var(--text-muted); font-size: .88rem; line-height: 1.5; margin-bottom: 20px; }
+.login-card .err-msg { color: var(--st-danger); font-size: .84rem; margin-bottom: 4px; }
+.login-card .err-msg:empty { display: none; }
+.login-card form { display: flex; flex-direction: column; gap: 14px; }
+.login-card .btn { width: 100%; margin-top: 4px; }
+
+/* ── محرّر الحملة: عمودين (فورم + معاينة) ────────────────────────────── */
+.editor-split { display: grid; grid-template-columns: minmax(340px, 480px) 1fr; gap: 20px; align-items: start; }
+.editor-form { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.editor-form .admin-card { padding: 18px; }
+.editor-form h3 { font-size: 1rem; margin-bottom: 14px; }
+
+.section-block {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--bg-gray); margin-bottom: 10px; overflow: hidden;
+}
+.section-block:last-child { margin-bottom: 0; }
+.section-block summary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; cursor: pointer; list-style: none;
+  font-weight: 700; font-size: .92rem;
+}
+.section-block summary::-webkit-details-marker { display: none; }
+.section-block summary::before {
+  content: ''; width: 7px; height: 7px; flex: none;
+  border-inline-end: 2px solid var(--text-faint); border-block-end: 2px solid var(--text-faint);
+  transform: rotate(-45deg); transition: transform .15s var(--ease);
+}
+.section-block[open] summary::before { transform: rotate(45deg); }
+.section-block__title { flex: 1; }
+.section-block__body {
+  padding: 14px; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.add-section-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.add-section-row select { flex: 1; min-width: 160px; }
+
+.preview-panel { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.preview-toolbar { display: flex; gap: 6px; }
+.viewport-btn {
+  padding: 7px 14px; border-radius: var(--r-md);
+  border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text-muted); font-size: .8rem; font-weight: 700; cursor: pointer;
+}
+.viewport-btn.is-active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.preview-frame-wrap {
+  background: var(--bg-gray); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 20px; display: flex; justify-content: center; overflow: auto;
+}
+.preview-frame {
+  width: 100%; height: 640px; background: var(--bg);
+  border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-sm);
+  transition: max-width .2s var(--ease);
+}
+.preview-frame iframe { width: 100%; height: 100%; border: 0; }
+.preview-frame-wrap[data-viewport="mobile"] .preview-frame { max-width: 390px; }
+.preview-frame-wrap[data-viewport="tablet"] .preview-frame { max-width: 768px; }
+.preview-frame-wrap[data-viewport="desktop"] .preview-frame { max-width: 100%; }
+.save-indicator { font-size: .78rem; color: var(--text-faint); text-align: center; }
+.save-indicator:empty { display: none; }
+
+@media (max-width: 1100px) {
+  .editor-split { grid-template-columns: 1fr; }
+  .preview-panel { position: static; }
+}
+
+/* ── محرّر المنتج: جدول مخزون الفاريانتات ─────────────────────────────── */
+.stock-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.stock-table th {
+  text-align: start; font-size: .72rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint);
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+}
+.stock-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.stock-table tr:last-child td { border-bottom: 0; }
+.stock-table input[type="number"] { height: 36px; padding: 0 10px; }
+.stock-table td.stock-low input { border-color: var(--st-danger); }
+.stock-table td.stock-low::after { content: '⚠'; margin-inline-start: 6px; color: var(--st-danger); }
+
+/* ── ميديا ────────────────────────────────────────────────────────────── */
+.media-upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.media-upload-row .hint { margin: 0; }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.media-item {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  overflow: hidden; background: var(--surface);
+}
+.media-item[data-pick] { cursor: pointer; }
+.media-item[data-pick]:hover { border-color: var(--accent); }
+.media-item img { width: 100%; height: 110px; object-fit: cover; display: block; background: var(--bg-gray); }
+.media-item__foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; }
+.media-item__name {
+  font-size: .72rem; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.media-item__del {
+  border: 0; background: transparent; color: var(--text-faint);
+  cursor: pointer; font-size: .85rem; line-height: 1; padding: 2px;
+}
+.media-item__del:hover { color: var(--st-danger); }
+
+/* ── طلبات ────────────────────────────────────────────────────────────── */
+.order-hint { margin-bottom: 12px; }
+.order-search { width: 200px; height: 38px; }
+.row-item--order { cursor: pointer; }
+.row-item--order:hover { background: var(--bg-gray); }
+.row-item__amount { text-align: end; font-weight: 700; font-size: .92rem; white-space: nowrap; }
+.row-item__amount .row-item__meta { margin-top: 2px; font-weight: 400; }
+
+/* --st-info أصلو نفس --accent (البراند البرتقالي) — نخلّيوه لـ "accepted"
+   برك، وpending تبقى محايدة. غيرها، pending/accepted كانو يبانو بلون
+   برتقالي قدّ بعضهم بالضبط (info و warn الزوج مشتقّين من نفس العائلة). */
+.badge--order-pending   { background: var(--st-neutral-soft); color: var(--st-neutral); }
+.badge--order-accepted  { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--order-delivered { background: var(--st-success);      color: #fff; }
+.badge--order-returned  { background: var(--st-danger-soft);  color: var(--st-danger); }
+.badge--order-denied    { background: var(--st-neutral-soft); color: var(--st-neutral); text-decoration: line-through; }
+
+.order-detail dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; font-size: .86rem; align-items: center; }
+.order-detail dt { color: var(--text-muted); font-weight: 600; }
+.order-detail dd { color: var(--text); }
+.order-detail h4 {
+  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-faint); margin: 18px 0 8px;
+}
+.order-detail h4:first-child { margin-top: 0; }
+
+@media (max-width: 640px) {
+  .order-search { width: 100%; }
+  .admin__actions { width: 100%; }
+}

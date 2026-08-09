@@ -113,7 +113,9 @@ async function renderCampaign(id, origin) {
   const content = renderSections(campaign, product);
 
   return html(
-    renderPage({ content, campaign, product, priceView, siteOrigin: origin }),
+    renderPage({
+      content, campaign, product, priceView, siteOrigin: origin, track: { kind: 'campaign', id: campaign.id },
+    }),
     200,
     CACHE_PUBLIC,
   );
@@ -149,6 +151,7 @@ async function renderProduct(id, origin) {
       product,
       priceView,
       siteOrigin: origin,
+      track: { kind: 'product', id: product.id },
     }),
     200,
     CACHE_PUBLIC,
