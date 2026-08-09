@@ -1,17 +1,10 @@
 /*
  * يستقبل صورة (multipart/form-data) ويخزّنها عبر lib/media.mjs.
  *
- * ⚠️ TODO — قبل الـ deploy: هذا الـ endpoint دروك بلا أي حماية حقيقية.
- * requireAdmin() تحت غير stub يرجع true دايماً — أي واحد يعرف الرابط
- * يقدر يرفع صور. نظام الدخول للوحة التحكم راهو قرار معماري يتاخذ في
- * مكان آخر؛ لازم هذا الفنكشن يتربط بيه قبل ما يطلع للإنتاج.
+ * محمي بكوكي الجلسة تاع لوحة التحكم — شوف lib/auth.mjs و functions/admin-login.mjs.
  */
 import { saveMedia } from '../lib/media.mjs';
-
-/** stub — يتبدّل كي يتحطّ نظام الدخول للوحة التحكم */
-export function requireAdmin(request) {
-  return true;
-}
+import { requireAdmin, unauthorized } from '../lib/auth.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -69,7 +62,7 @@ export function validateUpload({ bytes, declaredContentType }) {
 
 export default async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
-  if (!requireAdmin(request)) return json(401, { error: 'ما عندكش صلاحية.' });
+  if (!requireAdmin(request)) return unauthorized();
 
   let form;
   try {

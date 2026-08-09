@@ -1,7 +1,10 @@
+# ⚠️ publish كان "." — كان ينشر جذر المستودع كامل، بما فيه
+# /netlify/lib/*.mjs و/package.json. دروك سكريبت البناء ينسخ غير
+# الملفات العامّة لـ dist/. شوف scripts/build.mjs.
 [build]
-  publish    = "."
+  publish    = "dist"
   functions  = "netlify/functions"
-  command    = ""
+  command    = "npm run build"
 
 [functions]
   node_bundler = "esbuild"
@@ -28,6 +31,13 @@
 # الحملات تسكن في الجذر (qiti.com/toji-outfit) على خاطر هذا هو الرابط
 # اللي يتكتب في الإعلان. الفنكشن يرجع 404 حقيقية للروابط اللي ما
 # كايناش — ماشي 200 بصفحة "ما لقيناش"، وإلا غوغل يفهرس الأخطاء المطبعية.
+
+# اللوحة الإدارية — صفحة واحدة ستاتيك، الراوتينغ بالـ hash في المتصفّح
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
 [[redirects]]
   from = "/c/*"
   to = "/.netlify/functions/render"

@@ -6,6 +6,7 @@
 # Netlify
 .netlify/
 node_modules/
+dist/
 
 # Claude Code — نحبسو worktrees تاع الوكلاء، بصح تعريفاتهم تتبع في git
 # باش تبقى نفس القواعد لكل واحد يخدم على المشروع
