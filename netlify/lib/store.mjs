@@ -3,6 +3,9 @@
  * هذا الملف مشترك بين الفنكشنز (برّا فولدر functions باش ما يتحسبش فنكشن).
  */
 import { getStore } from '@netlify/blobs';
+import {
+  getVariantStock, adjustVariantStock, markVariantLowStockAlerted, SIMPLE_SKU,
+} from './catalog.mjs';
 
 const ORDERS = 'orders';
 /* ربط رسالة "علاش رفضتو؟" بالطلب اللي تخصّها، باش نعرفو الجواب لمن يرجع */
@@ -150,6 +153,36 @@ export async function markLowStockAlerted(value) {
 /** يمسح الكمية كاملة — يرجع لصفر (وحد التنبيه الافتراضي) في next getStock() */
 export async function resetStock() {
   await stockStore().delete(STOCK_KEY);
+}
+
+/* ── المخزون حسب الطلب ────────────────────────────────────────────
+ *
+ * عدّاد واحد للمحل كامل كان يخدم كي كان منتج واحد. بزوج منتجات يولّي
+ * غالط بالسكات: تقبل طلبية هودي وتنقص من عدّاد الطوق، وتزوّد الطوق
+ * فيبان الهودي متوفّر.
+ *
+ * دروك كل فاريانت عندو عدّادو. الطلبات القديمة (والصفحة الحالية) ما
+ * فيهمش productId، فيبقاو على العدّاد القديم — بلا هجرة وبلا خطر على
+ * اللي راهو خدّام.
+ */
+
+/** يرجع مرجع المخزون تاع الطلب، ولا null إذا الطلب قديم (بلا منتج) */
+export const orderStockRef = (order) =>
+  (order?.productId ? { productId: order.productId, sku: order.variant?.sku ?? SIMPLE_SKU } : null);
+
+export async function getStockForOrder(order) {
+  const ref = orderStockRef(order);
+  return ref ? getVariantStock(ref.productId, ref.sku) : getStock();
+}
+
+export async function adjustStockForOrder(order, delta) {
+  const ref = orderStockRef(order);
+  return ref ? adjustVariantStock(ref.productId, ref.sku, delta) : adjustStock(delta);
+}
+
+export async function markLowStockAlertedForOrder(order, value) {
+  const ref = orderStockRef(order);
+  return ref ? markVariantLowStockAlerted(ref.productId, ref.sku, value) : markLowStockAlerted(value);
 }
 
 /* ── /clear — يمسح كل شيء (خطر، بلا تراجع) ──────────────────────── */

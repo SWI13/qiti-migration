@@ -49,12 +49,14 @@
 import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
+  getStockForOrder, adjustStockForOrder, markLowStockAlertedForOrder,
   listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
 } from '../lib/store.mjs';
-import { ownerMessage, buttonsFor, esc, dz, elapsedLabel } from '../lib/message.mjs';
+import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
+import { getProduct, listProducts, listStockFor } from '../lib/catalog.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -97,14 +99,19 @@ async function repaintOrder(chatId, record) {
 }
 
 /** كي المخزون يهبط للحد أو تحتو، يتبعث تنبيه وحدة برك (ماشي في كل طلب) */
-async function checkLowStock(chatId, stock) {
+async function checkLowStock(chatId, stock, order = null) {
   if (!stock || stock.qty > stock.threshold || stock.lowStockAlerted) return;
+  /* نسمّيو الفاريانت باش تعرف أشمن مقاس خلص، ماشي "المخزون" برك */
+  const what = order?.variant?.options && Object.keys(order.variant.options).length
+    ? Object.values(order.variant.options).join(' / ')
+    : 'المنتج';
   await telegram('sendMessage', {
     chat_id: chatId,
-    text: `⚠️ <b>تنبيه مخزون</b>\nباقي <b>${stock.qty}</b> طوق فقط — وقت التزويد!`,
+    text: `⚠️ <b>تنبيه مخزون</b>\n${esc(what)}: باقي <b>${stock.qty}</b> فقط — وقت التزويد!`,
     parse_mode: 'HTML',
   }).catch((error) => console.error('Low stock alert failed:', error.message));
-  await markLowStockAlerted(true).catch((error) => console.error('markLowStockAlerted failed:', error.message));
+  await markLowStockAlertedForOrder(order, true)
+    .catch((error) => console.error('markLowStockAlerted failed:', error.message));
 }
 
 /** تأكيد/إلغاء /clear — فعل عام ماشي مربوط بطلب وحدو، علاش معزول برّا منطق الطلبات */
@@ -207,7 +214,7 @@ async function handleCallback(query) {
     /* ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو */
     if (order) {
       const needed = order.qty ?? 1;
-      const stockBefore = await getStock().catch(() => null);
+      const stockBefore = await getStockForOrder(order).catch(() => null);
       if (stockBefore && stockBefore.qty < needed) {
         return answer(`🚫 المخزون ما يكفيش — باقي ${stockBefore.qty}، الطلب يحتاج ${needed}. زوّدو بـ /restock.`);
       }
@@ -223,11 +230,11 @@ async function handleCallback(query) {
       const record = updated ?? { ...order, messageId: message.message_id };
       await repaintOrder(message.chat.id, record);
 
-      const stock = await adjustStock(-(record.qty ?? 0)).catch((error) => {
+      const stock = await adjustStockForOrder(record, -(record.qty ?? 0)).catch((error) => {
         console.error('Stock decrement failed:', error.message, '| order:', orderId);
         return null;
       });
-      await checkLowStock(message.chat.id, stock);
+      await checkLowStock(message.chat.id, stock, record);
     } catch (error) {
       console.error('Accept failed:', error.message, '| order:', orderId);
     }
@@ -237,8 +244,19 @@ async function handleCallback(query) {
   if (action === 'del' || action === 'ret') {
     const deliveryStatus = action === 'del' ? 'delivered' : 'returned';
     try {
+      /*
+       * لقطة التكاليف — هنا بالضبط، وقت ما الفلوس تتقرّر.
+       *
+       * بلاها، الربح يتحسب ديما بتكاليف اليوم: تبدّل سومة السلعة بـ
+       * /cost وتقارير الشهور اللي فاتو تتبدّل معاها. باللقطة، اللي
+       * تسجّل يبقى كيما هو.
+       */
+      const costs = await getCosts().catch(() => null);
+      const product = order?.productId ? await getProduct(order.productId).catch(() => null) : null;
+
       const updated = await updateOrder(orderId, {
         deliveryStatus, deliveryActor: who, deliveryDecidedAt: new Date().toISOString(),
+        ...(costs ? { costSnapshot: costSnapshotOf(costs, product) } : {}),
       });
       if (!updated) return answer('الطلب ماشي موجود.');
 
@@ -275,7 +293,7 @@ async function handleCallback(query) {
       await repaintOrder(message.chat.id, updated);
 
       /* دروك فعلاً بين يديك — تزيد للمخزون */
-      await adjustStock(updated.qty ?? 0).catch((error) =>
+      await adjustStockForOrder(updated, updated.qty ?? 0).catch((error) =>
         console.error('Restock after receiving return failed:', error.message, '| order:', orderId));
     } catch (error) {
       console.error('Return-receipt update failed:', error.message, '| order:', orderId);
@@ -435,18 +453,39 @@ async function handleCommand(message) {
   }
 
   if (command === '/stock') {
-    const [stock, awaitingReturn] = await Promise.all([getStock(), listAwaitingReturnReceipt()]);
+    const [legacy, awaitingReturn, products] = await Promise.all([
+      getStock(), listAwaitingReturnReceipt(), listProducts().catch(() => []),
+    ]);
     const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-    const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
-    const lines = [`📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`, `حد التنبيه: ${stock.threshold}`];
-    if (returnQty) {
-      lines.push(
-        '',
-        `🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق`,
-        `يولّي <b>${stock.qty + returnQty}</b> كي توصل كل الرجعات للمحل — /state يوريك أشمن طلبات`,
-      );
+    const lines = [];
+
+    /*
+     * العدّاد القديم يبان غير إذا فيه شي حاجة — الطلبات القديمة (والصفحة
+     * الحالية) مازال يخدمو عليه، فما نخبّيوهش، بصح ما نعرضوهش فارغ
+     * كي يولّي كلش على المنتجات.
+     */
+    if (legacy.qty > 0 || !products.length) {
+      const warn = legacy.qty <= legacy.threshold ? ' ⚠️' : '';
+      lines.push(`📦 <b>${legacy.qty}</b>${warn}  (المخزون العام · حد التنبيه ${legacy.threshold})`);
     }
-    return reply(lines.join('\n'));
+
+    for (const product of products) {
+      const rows = await listStockFor(product).catch(() => []);
+      if (!rows.length) continue;
+      lines.push('', `<b>${esc(product.name)}</b>`);
+      for (const { variant, stock } of rows) {
+        const label = Object.keys(variant.options).length
+          ? Object.values(variant.options).join(' / ')
+          : 'وحيد';
+        const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
+        lines.push(`  ${esc(label)} — <b>${stock.qty}</b>${warn}`);
+      }
+    }
+
+    if (returnQty) {
+      lines.push('', `🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> — /state يوريك أشمن طلبات`);
+    }
+    return reply(lines.join('\n') || 'ما كاين حتى مخزون مسجّل.');
   }
 
   if (command === '/restock') {
