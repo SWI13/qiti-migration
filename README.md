@@ -12,12 +12,14 @@
 ## كيفاش تشغّلها
 
 ```bash
-# الصفحة وحدها (بلا إشعار تيليغرام)
-npx serve .
-python -m http.server 8000
-
-# الصفحة + الفنكشن (نفس حالة الإنتاج)
+# الصفحة + الفنكشنات + اللوحة (نفس حالة الإنتاج)
 npx netlify dev
+
+# فحوصات (118 فحص — أقسام، مصادقة، ميديا، حقول اللوحة)
+npm run verify
+
+# يبني dist/ — الملفات العامّة برك
+npm run build
 ```
 
 ## النشر (Deploy)
@@ -39,6 +41,9 @@ npx netlify deploy --prod
 qiti/
 ├── index.html                    # الصفحة القديمة تاع الطوق (مازال هي اللي تخدم)
 ├── admin/                        # لوحة الإدارة — حملات، منتجات، ميديا، معاينة
+│   ├── index.html                # قشرة فارغة — admin.js يبني كلش
+│   ├── admin.css                 # ستايل اللوحة (كلش var(--…) من styles.css)
+│   └── admin.js                  # الفورم يتولّد من SECTION_FIELDS، ماشي مكتوب بيد
 ├── assets/
 │   ├── css/styles.css            # نظام التصميم كامل — كلش يمرّ على tokens
 │   └── js/main.js                # ثيم، نافبار، أنيميشن، فورم الطلب، الإسناد
@@ -70,10 +75,38 @@ qiti/
 │       ├── meta.mjs              # Meta CAPI — Lead عند الطلب، Purchase عند التوصيل
 │       ├── trust.mjs             # فحص الثقة البرّاني (tkawen)
 │       └── wilayas.mjs           # الـ58 ولاية بترتيبها الرسمي (اسم → رقم)
+├── scripts/
+│   ├── build.mjs                 # ينسخ الملفات العامّة لـ dist/ (شوف تحت)
+│   ├── check-admin-fields.mjs    # يتأكّد اللوحة تغطّي كل حقل قسم يقراه
+│   └── verify/                   # فحوصات — npm run verify
 ├── netlify.toml                  # إعدادات Netlify + ترتيب الروابط (مهم!)
-├── package.json                  # غير باش الفنكشنز تلقى @netlify/blobs
+├── package.json                  # scripts + @netlify/blobs
 └── README.md
 ```
+
+### ⚠️ علاش كاين `dist/` وسكريبت بناء
+
+كان `publish = "."` — يعني Netlify كان ينشر جذر المستودع كامل، و
+`/netlify/lib/catalog.mjs` و`/netlify/lib/auth.mjs` كانو يتقراو من برّا.
+دروك `npm run build` ينسخ غير `index.html` و`assets/` و`admin/` لـ`dist/`،
+وهو اللي يتنشر. الفنكشنات تتبني وحدها من `netlify/functions/`.
+
+القائمة بيضا في [`scripts/build.mjs`](scripts/build.mjs) — **ملف جديد للزائر
+لازم تزيدو ثمّة بيدك**، وإلا ما يتنشرش.
+
+### اللوحة الإدارية — `/admin`
+
+كلمة سر + كود يوصل في تيليغرام (نفس البوت تاع الطلبات)، ومن بعد كوكي ممضية
+7 أيام. لازم تحطّ في Netlify: `ADMIN_PASSWORD_HASH` و`ADMIN_SESSION_SECRET`.
+
+اللوحة تدير: حملات (إنشاء، نسخ، نشر، حذف)، منتجات (سومة، تكلفة، خيارات،
+مخزون لكل فاريانت)، فئات، وصور. المعاينة المباشرة تنادي **نفس** `renderSections`
+/`renderPage` اللي يستعملهم `render.mjs` — معاينة بكود آخر تكذب عليك يوم من
+الأيام.
+
+الفورم ما هوش مكتوب حقل بحقل: كل قسم عندو وصفة في `SECTION_FIELDS`
+(في `admin/admin.js`)، واللوحة تبني منها. زيد حقل في قسم؟ زيدو في الوصفة —
+و`npm run verify` يطيح إذا نسيت.
 
 ### كيفاش تتبنى صفحة حملة
 
