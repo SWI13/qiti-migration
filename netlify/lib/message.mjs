@@ -62,14 +62,39 @@ export const totalFor = ({ shipping, qty }) => totalWith(PRODUCT_PRICE, { shippi
  * - أي حالة أخرى (pending، denied، في الطريق): 0 — ما فيه لا ربح لا خسارة بعد.
  */
 export const profitFor = (order, costs) => {
+  /*
+   * ⚠️ اللقطة تغلب التكاليف الحالية.
+   *
+   * قبل، الربح كان يتحسب ديما بتكاليف اليوم. تبدّل سومة السلعة بـ /cost
+   * اليوم، وتقرير الشهر اللي فات يتبدّل معاها — تاريخ يتعاود يتكتب في
+   * كل مرّة، وما تقدرش تقارن شهر بشهر.
+   *
+   * دروك التكاليف تتخزّن على الطلب وقت قرار التوصيل. الطلبات القديمة
+   * (بلا لقطة) ترجع للتكاليف الحالية كيما قبل.
+   */
+  const c = order.costSnapshot ?? {
+    unitCost: costs.productCost,
+    adsCost: costs.adsCost,
+    courierCost: COURIER_COST,
+    returnLoss: costs.returnLoss,
+  };
+
   if (order.deliveryStatus === 'delivered') {
-    return (order.total ?? 0) - costs.productCost * (order.qty ?? 0) - COURIER_COST - costs.adsCost;
+    return (order.total ?? 0) - c.unitCost * (order.qty ?? 0) - c.courierCost - c.adsCost;
   }
   if (order.deliveryStatus === 'returned') {
-    return -costs.returnLoss;
+    return -c.returnLoss;
   }
   return 0;
 };
+
+/** لقطة التكاليف وقت قرار التوصيل — تتخزّن على الطلب وما تتبدّلش من بعد */
+export const costSnapshotOf = (costs, product = null) => ({
+  unitCost: product?.unitCost ?? costs.productCost,
+  adsCost: costs.adsCost,
+  courierCost: COURIER_COST,
+  returnLoss: costs.returnLoss,
+});
 
 export const dzTime = (date = new Date()) =>
   date.toLocaleString('fr-DZ', {
