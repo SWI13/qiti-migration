@@ -19,7 +19,7 @@ import {
   schedulePreview, deleteCampaign,
 } from './pages/campaigns.js';
 import { renderProductEditor, addProductOption, saveProduct, saveStock } from './pages/products.js';
-import { categoryModal } from './pages/categories.js';
+import { categoryModal, presetPicker } from './pages/categories.js';
 import { pickMedia, deleteMedia } from './pages/media.js';
 
 var root = document.getElementById('adminRoot');
@@ -127,6 +127,17 @@ async function onClick(event) {
     if (labelText) labelText.textContent = label;
     return;
   }
+  /* الثيم يتخزّن بنفس مفتاح المتجر (qiti-theme) — اختيار واحد للزوج.
+     ما نعاودوش نبنيو الشاسي: كل ألوان اللوحة tokens تقرا من
+     [data-theme] على <html>، فتبديل السمة يكفي. */
+  if (act === 'toggle-theme') {
+    var htmlEl = document.documentElement;
+    var nextTheme = htmlEl.dataset.theme === 'dark' ? 'light' : 'dark';
+    htmlEl.dataset.theme = nextTheme;
+    try { localStorage.setItem('qiti-theme', nextTheme); } catch (error) {}
+    return;
+  }
+
   if (act === 'retry-route') { await route(); return; }
   if (act === 'retry-boot') { await boot(); return; }
 
@@ -293,6 +304,11 @@ async function onClick(event) {
     return;
   }
 
+  if (act === 'category-presets') {
+    await presetPicker();
+    return;
+  }
+
   if (act === 'del-media') {
     await deleteMedia(node.getAttribute('data-id'));
   }
@@ -359,6 +375,15 @@ async function onHashChange() {
 }
 
 /* ── الإقلاع ────────────────────────────────────────────────────── */
+
+/* بلا اختيار مخزّن، اللوحة تتبع نظام التشغيل حتى وهي محلولة — التاجر
+   اللي يبدّل ويندوز لليلي في الليل يلقى اللوحة تبدّلت معاه. كي يختار
+   بيدو من الزر، الاختيار يتخزّن وهذا المستمع ما يغلبوش. */
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (event) {
+  var stored = null;
+  try { stored = localStorage.getItem('qiti-theme'); } catch (error) {}
+  if (!stored) document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+});
 
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);

@@ -663,6 +663,18 @@ em {
   text-wrap: pretty;
 }
 
+/* علامة الفئة — الإيموجي واللون اللي اختارهم التاجر في اللوحة.
+   --cat-color يجي inline من api/render.mjs (مفلتر كـ hex في
+   catalog.mjs)، والافتراضي هنا يخلّي الفئة بلا لون تبقى تبان. */
+.cat-mark {
+  --cat-color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; margin-bottom: 18px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--cat-color) 14%, transparent);
+  font-size: 2rem; line-height: 1;
+}
+
 .cards {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
 }

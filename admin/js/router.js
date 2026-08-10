@@ -118,6 +118,9 @@ export async function route() {
     }
 
     if (state.view === 'categories') {
+      /* عدد المنتجات في كل بطاقة يحتاج القائمة — بلاه، الفئة تبان
+         فارغة وما تعرفش واش تستاهل تبقى ولا لا */
+      if (!state.products.length) state.products = (await api('products.list')).products;
       state.categories = (await api('categories.list')).categories;
       renderCategories();
       return;

@@ -219,7 +219,9 @@ async function renderCategory(id, origin) {
   return html(
     renderPage({
       content: `<section class="section"><div class="container">
-        <header class="section__head"><h2 class="section__title">${esc(category.name)}</h2>
+        <header class="section__head">
+        ${category.emoji ? `<span class="cat-mark"${category.color ? ` style="--cat-color:${escAttr(category.color)}"` : ''} aria-hidden="true">${esc(category.emoji)}</span>` : ''}
+        <h2 class="section__title">${esc(category.name)}</h2>
         ${category.tagline ? `<p class="section__sub">${esc(category.tagline)}</p>` : ''}</header>
         ${grid}
       </div></section>`,

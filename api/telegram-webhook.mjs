@@ -58,7 +58,9 @@ import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from 
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
+  saveProduct, saveCategory, listCategories, availableSlug,
 } from '../lib/catalog.mjs';
+import { guessPreset, findPreset } from '../lib/category-presets.mjs';
 import { siteUrl } from '../lib/site.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -149,6 +151,48 @@ async function handleClearConfirmation(query, confirmed) {
   }
 }
 
+/*
+ * "🚀 انشر" تحت منتج تصنع بـ /newproduct — يقلب status لـ active.
+ *
+ * ⚠️ محصور في شات المالك: نقرات الطلبات ما تحتاجش هاذ الفحص (الرسالة
+ * روحها ما تتبعث غير للمالك)، بصح النشر يبدّل حاجة يشوفها الزبون، فما
+ * نعتمدوش على "شكون يوصلو الزر" وحدها.
+ */
+async function handlePublishProduct(query, productId, answer) {
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
+    return answer('ما عندكش الصلاحية.');
+  }
+
+  try {
+    const product = await getProduct(productId);
+    if (!product) return answer('المنتج ماشي موجود.');
+    if (product.status === 'active') return answer('راهو منشور من قبل.');
+
+    const published = await saveProduct({ ...product, status: 'active' });
+    const site = siteUrl();
+
+    /* الزر يتحيّد بعد النشر — زر يعاود يدير حاجة مدارة يخلّي التاجر
+       يشكّ واش خدمت ولا لا */
+    await telegram('editMessageText', {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      /* query.message.text راهو النص **بعد** ما تيليغرام حلّ الـ HTML —
+         نص خام. نعاودو نهربوه قبل ما نبعثوه بـ parse_mode HTML، وإلا
+         اسم منتج فيه & ولا < يرجّع الطلب بخطأ من تيليغرام. */
+      text: `${esc(query.message.text ?? '')}\n\n🚀 <b>تنشر</b> — ${esc(displayName(query.from))}`
+        + (site ? `\n${site}/p/${esc(published.slug)}` : ''),
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+    }).catch((error) => console.error('Publish repaint failed:', error.message));
+
+    return answer('تنشر في المتجر 🚀');
+  } catch (error) {
+    console.error('Publish failed:', error.message, '| product:', productId);
+    return answer('صار خطأ، عاود حاول.');
+  }
+}
+
 /* ── نقرة زر ─────────────────────────────────────────────────────── */
 async function handleCallback(query) {
   const message = query.message;
@@ -165,6 +209,12 @@ async function handleCallback(query) {
   const answer = (text) =>
     telegram('answerCallbackQuery', { callback_query_id: query.id, ...(text ? { text } : {}) })
       .catch((error) => console.error('answerCallbackQuery failed:', error.message));
+
+  /* نشر منتج تصنع بـ /newproduct — ماشي طلب، فيخرج قبل منطق الطلبات */
+  if (action === 'pub') {
+    if (!message) return;
+    return handlePublishProduct(query, orderId, answer);
+  }
 
   const isDecision = action === 'ok' || action === 'no';
   const isDeliveryOutcome = action === 'del' || action === 'ret';
@@ -404,8 +454,14 @@ async function buildStateMessage() {
 }
 
 /* ── أوامر المخزون، التكاليف، وحالة الطلبات ───────────────────────
+ * /help, /start     — لائحة الأوامر كاملة
  * /state, /status   — كل الطلبات المعلّقة دروك (بلا قرار / بلا نتيجة
  *                      توصيل / رجعت بصح ما وصلاتش للمحل) + المخزون
+ * /newproduct الاسم | السومة | الكمية | الفئة | سومة الشراء
+ *                   — يصنع منتج (مسودّة) + فئتو إذا ما كانتش + مخزونو،
+ *                      ويعطي زر "🚀 انشر"
+ * /newcategory الاسم | الوصف | الإيموجي — فئة جديدة (الجاهزين يعمّرو روحهم)
+ * /categories       — كل الفئات وعدد منتجات كل وحدة
  * /stock            — يعرض الكمية الحالية وحد التنبيه
  * /restock <عدد>    — يزيد كمية للمخزون (بعد تزويد)
  * /setstock <عدد>   — يحطّ الكمية بالضبط (تصحيح، ولا الإعداد الأول)
@@ -455,15 +511,274 @@ async function stockTargets() {
   return targets;
 }
 
+/* ── إنشاء منتج/فئة من تيليغرام ────────────────────────────────────
+ *
+ * السيناريو اللي هذا مبني عليه: توصلك سلعة جديدة وانت في المحل ولا في
+ * الطريق. تفتح تيليغرام (راهو محلول أصلاً، الطلبات تجي فيه) وتكتب سطر
+ * واحد — المنتج، الفئة، والمخزون يتسجّلو مرّة وحدة. بلا هذا، لازم تحلّ
+ * اللابتوب، تدخل للوحة، تعمّر فورم، وترجع تزيد المخزون. أغلب الوقت
+ * ما يتعملش، والسلعة تبقى برّا النظام.
+ *
+ * الحقول مفصولة بـ | على خاطر أسماء المنتجات فيها فراغات ("Qiti
+ * Tracking Collar") — فراغ كفاصل يخلّي التحليل يخمّن، والتخمين الغالط
+ * هنا يخزّن منتج بسومة غالطة.
+ */
+const splitPipes = (text) => String(text ?? '').split('|').map((part) => part.trim());
+
+/* رقم من نص التاجر: "3900", "3900 دج", "3 900" كلهم يعطيو 3900.
+   نص بلا أرقام يرجّع null (ماشي 0) — الفرق مهم: "ما كتبش سومة" ماشي
+   "السومة صفر". */
+function parseAmount(text) {
+  if (text == null || text === '') return null;
+  const digits = String(text).replace(/[^\d]/g, '');
+  if (!digits) return null;
+  const n = parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * يلقى الفئة ولا يصنعها. يرجّع { category, created } ولا
+ * { category: null } كي ما كانش لا نص ولا تخمين.
+ *
+ * الترتيب: اللي كتبو التاجر يغلب التخمين ديما، والموجود يغلب الجديد
+ * (ما نصنعوش "سيارة" ثانية كي وحدة كاينة).
+ */
+async function resolveCategory(wanted, productName) {
+  const existing = await listCategories().catch(() => []);
+  const matches = (category, needle) =>
+    String(category.slug).toLowerCase() === needle
+    || String(category.name ?? '').trim().toLowerCase() === needle;
+
+  if (wanted) {
+    const needle = wanted.trim().toLowerCase();
+    const found = existing.find((category) => matches(category, needle));
+    if (found) return { category: found, created: false };
+  }
+
+  /* ما لقيناش وحدة موجودة — نشوفو الجاهزة (بالاسم اللي كتبو، وإلا
+     نخمّنو من اسم المنتج) */
+  const preset = wanted ? findPreset(wanted) : guessPreset(productName);
+
+  /* الجاهزة تقدر تكون موجودة بسلاق مختلف على اللي كتبو التاجر */
+  if (preset) {
+    const already = existing.find((category) => matches(category, preset.slug.toLowerCase()));
+    if (already) return { category: already, created: false };
+  }
+
+  if (!preset && !wanted) return { category: null, created: false };
+
+  const name = preset?.name ?? wanted;
+  const slug = await availableSlug('category', preset?.slug ?? wanted);
+  const maxSort = existing.reduce((max, category) => Math.max(max, Number(category.sort) || 0), 0);
+
+  const category = await saveCategory({
+    name,
+    slug,
+    tagline: preset?.tagline ?? null,
+    emoji: preset?.emoji ?? null,
+    color: preset?.color ?? null,
+    sort: maxSort + 10,
+  });
+  return { category, created: true, preset };
+}
+
+/*
+ * المنتج يتصنع **مسودّة** ديماً، وزر "🚀 انشر" يبان تحت الجواب.
+ *
+ * علاش ماشي منشور طول: المنتج اللي يتصنع من سطر تيليغرام ما عندو لا
+ * صورة لا وصف. لو طلع للمتجر مباشرة، الزبون يشوف بطاقة خاوية بسومة —
+ * وهذا يضرّ أكثر ما ينفع. المخزون يتسجّل من دروك (هو سبب الأمر أصلاً)،
+ * والنشر يبقى نقرة وحدة كي تكون الصور جاهزة.
+ */
+async function handleNewProduct(message, argText, reply) {
+  const [rawName, rawPrice, rawQty, rawCategory, rawCost] = splitPipes(argText);
+
+  if (!rawName) {
+    return reply([
+      '🆕 <b>منتج جديد</b>',
+      '',
+      '<code>/newproduct الاسم | السومة | الكمية | الفئة | سومة الشراء</code>',
+      '',
+      'مثال:',
+      '<code>/newproduct Qiti Tracking Collar | 3900 | 9 | tracking | 1800</code>',
+      '',
+      'الاسم برك إجباري. الباقي تقدر تخلّيه فارغ ولا تحيّدو:',
+      '<code>/newproduct طوق تتبّع | 3900 | 9</code>',
+      '',
+      'الفئة: اكتب اسمها ولا سلاقها. ما كتبتهاش؟ نخمّنوها من اسم المنتج،',
+      'وإذا ما كانتش موجودة نصنعوها. شوف الجاهزين بـ /categories.',
+    ].join('\n'));
+  }
+
+  const price = parseAmount(rawPrice) ?? 0;
+  const qty = parseAmount(rawQty) ?? 0;
+  const unitCost = parseAmount(rawCost) ?? 0;
+
+  let category = null;
+  let categoryCreated = false;
+  try {
+    const resolved = await resolveCategory(rawCategory, rawName);
+    category = resolved.category;
+    categoryCreated = resolved.created;
+  } catch (error) {
+    /* فشل الفئة ما يوقّفش المنتج — المخزون هو الغرض، والفئة تتزاد
+       من اللوحة في ثانية. نقولوها في الجواب بلا ما نضيّعو الباقي. */
+    console.error('Category resolve failed:', error.message);
+  }
+
+  let product;
+  try {
+    const slug = await availableSlug('product', rawName);
+    product = await saveProduct({
+      name: rawName,
+      slug,
+      price,
+      unitCost,
+      type: category ? (findPreset(category.slug)?.type ?? 'life') : 'life',
+      categoryId: category?.id ?? null,
+      status: 'draft',
+      initialStock: qty,
+    });
+  } catch (error) {
+    console.error('/newproduct failed:', error.message);
+    return reply(`⚠️ ما تصنعش المنتج: ${esc(error.message)}`);
+  }
+
+  const site = siteUrl();
+  const lines = [
+    '✅ <b>تصنع المنتج</b> (مسودّة)',
+    '',
+    `📦 <b>${esc(product.name)}</b>`,
+    `السومة: <b>${price ? dz(price) : '— ما تكتبتش'}</b>`,
+    `المخزون: <b>${qty}</b>`,
+  ];
+  if (unitCost) lines.push(`سومة الشراء: <b>${dz(unitCost)}</b> (الربح للوحدة: ${dz(price - unitCost)})`);
+  lines.push(category
+    ? `الفئة: <b>${esc(category.name)}</b>${categoryCreated ? ' — تصنعت دروك 🆕' : ''}`
+    : 'الفئة: — بلا فئة');
+
+  lines.push('', 'ما زال مسودّة: ما يبانش في المتجر حتى تنشرو.');
+  if (!price) lines.push('⚠️ بلا سومة — زيدها قبل النشر.');
+  if (site) lines.push('', `✏️ كمّلو (صور، وصف): ${site}/admin#/products/${product.id}`);
+
+  return telegram('sendMessage', {
+    chat_id: message.chat.id,
+    text: lines.join('\n'),
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: [[{ text: '🚀 انشر في المتجر', callback_data: `pub:${product.id}` }]] },
+  }).catch((error) => console.error('/newproduct reply failed:', error.message));
+}
+
+async function handleNewCategory(argText, reply) {
+  const [rawName, rawTagline, rawEmoji] = splitPipes(argText);
+
+  if (!rawName) {
+    return reply([
+      '🗂️ <b>فئة جديدة</b>',
+      '',
+      '<code>/newcategory الاسم | الوصف القصير | 🐾</code>',
+      '',
+      'اسم من الجاهزين يعمّر الوصف والإيموجي واللون وحدو:',
+      '<code>/newcategory tracking</code>',
+      '',
+      'شوف الكل بـ /categories.',
+    ].join('\n'));
+  }
+
+  try {
+    const { category, created } = await resolveCategory(rawName, '');
+    if (!created) return reply(`الفئة <b>${esc(category.name)}</b> راهي موجودة من قبل (/${esc(category.slug)}).`);
+
+    /* الوصف/الإيموجي اللي كتبهم التاجر يغلبو اللي جاو من الجاهزة */
+    const patched = (rawTagline || rawEmoji)
+      ? await saveCategory({
+        ...category,
+        tagline: rawTagline || category.tagline,
+        emoji: rawEmoji || category.emoji,
+      })
+      : category;
+
+    return reply(`✅ تصنعت الفئة <b>${esc(patched.name)}</b> — /c/${esc(patched.slug)}`);
+  } catch (error) {
+    console.error('/newcategory failed:', error.message);
+    return reply(`⚠️ ما تصنعتش الفئة: ${esc(error.message)}`);
+  }
+}
+
+async function handleListCategories(reply) {
+  const categories = await listCategories().catch(() => []);
+  if (!categories.length) {
+    return reply('ما كان حتى فئة.\nصنع وحدة: <code>/newcategory tracking</code>');
+  }
+
+  const products = await listProducts().catch(() => []);
+  const countFor = (id) => products.filter((product) => product.categoryId === id).length;
+
+  const lines = [`🗂️ <b>الفئات (${categories.length})</b>`, ''];
+  for (const category of categories) {
+    const badge = category.emoji ? `${category.emoji} ` : '';
+    lines.push(`${badge}<b>${esc(category.name)}</b> — /c/${esc(category.slug)} · ${countFor(category.id)} منتج`);
+  }
+  lines.push('', 'زيد وحدة: <code>/newcategory الاسم</code>');
+  return reply(lines.join('\n'));
+}
+
 async function handleCommand(message) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
 
-  const parts = String(message.text ?? '').trim().split(/\s+/);
-  const [command, arg] = parts;
-  const reply = (text) =>
-    telegram('sendMessage', { chat_id: message.chat.id, text, parse_mode: 'HTML' })
-      .catch((error) => console.error('Command reply failed:', error.message));
+  const text = String(message.text ?? '').trim();
+  const parts = text.split(/\s+/);
+  /* في گروب، تيليغرام يكتب الأمر كامل: /stock@QitiBot — بلا هذا
+     التنظيف، ولا أمر ما يتعرف كي البوت يكون مع بوتات أخرى */
+  const command = parts[0].split('@')[0];
+  const arg = parts[1];
+  const reply = (line) =>
+    telegram('sendMessage', {
+      chat_id: message.chat.id, text: line, parse_mode: 'HTML', disable_web_page_preview: true,
+    }).catch((error) => console.error('Command reply failed:', error.message));
+
+  if (command === '/help' || command === '/start') {
+    return reply([
+      '🤖 <b>أوامر البوت</b>',
+      '',
+      '<b>الطلبات</b>',
+      '/state — كل الطلبات اللي مازال ما كملوش',
+      '',
+      '<b>الكاتالوغ</b>',
+      '/newproduct — منتج جديد (+ فئتو + مخزونو)',
+      '/newcategory — فئة جديدة',
+      '/categories — كل الفئات',
+      '',
+      '<b>المخزون</b>',
+      '/stock — الكميات الحالية',
+      '/restock — زيد كمية بعد تزويد',
+      '/setstock — صحّح الكمية بالضبط',
+      '',
+      '<b>الفلوس</b>',
+      '/cost — سومة الشراء، الإعلانات، الرجعة، التوصيل',
+      '',
+      '<b>الزبائن</b>',
+      '/block · /unblock · /blocked',
+      '',
+      '/clear — ⚠️ يمسح كل الطلبات',
+      '',
+      'اكتب الأمر بلا حاجة أخرى وهو يوريك كيفاش يتكتب.',
+    ].join('\n'));
+  }
+
+  /* argText = كل ما جا بعد الأمر خام (بالفراغات والـ |) — parts ما
+     تنفعش هنا، هي مقسّمة على الفراغ والاسم فيه فراغات */
+  const argText = text.slice(parts[0].length).trim();
+
+  if (command === '/newproduct' || command === '/newprod') {
+    return handleNewProduct(message, argText, reply);
+  }
+  if (command === '/newcategory' || command === '/newcat') {
+    return handleNewCategory(argText, reply);
+  }
+  if (command === '/categories') return handleListCategories(reply);
 
   if (command === '/state' || command === '/status') {
     try {

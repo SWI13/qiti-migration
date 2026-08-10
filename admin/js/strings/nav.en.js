@@ -17,4 +17,7 @@ export var NAV_EN = {
   'nav.logout': 'Log out',
   'nav.collapse': 'Collapse sidebar',
   'nav.expand': 'Expand sidebar',
+  'nav.themeToggle': 'Toggle dark mode',
+  'nav.themeDark': 'Dark mode',
+  'nav.themeLight': 'Light mode',
 };

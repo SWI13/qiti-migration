@@ -8,6 +8,12 @@
 html, body { height: 100%; }
 body { background: var(--bg-gray); overflow-x: hidden; }
 
+/* في النهاري الترتيب هو: صفحة رمادية خفيفة، بطاقة بيضاء فوقها. في
+   الليلي --bg-gray و--surface قريبين بزاف (#131110 مقابل #161412)،
+   فالبطاقة تذوب في الصفحة ويبقى غير الحدّ الرفيع يفرّق. نرجّعو نفس
+   المعنى: الصفحة أغمق حاجة، والبطاقة تطلع فوقها. */
+[data-theme="dark"] body { background: var(--bg); }
+
 /* styles.css:.field{display:flex} (نص التسجيل تاع المتجر) يغلب native
    [hidden] على أي عنصر .field هنا (نفس الاسم، الزوج author-origin) —
    نرجّعو hidden لمعناه الحقيقي، وإلا #codeField يبان قبل وقتو في الدخول. */
@@ -76,8 +82,20 @@ body { background: var(--bg-gray); overflow-x: hidden; }
 }
 .admin__collapse-toggle:hover { background: var(--bg-gray); color: var(--text); }
 .admin__collapse-toggle .ico { width: 17px; height: 17px; }
-.admin.is-nav-collapsed .admin__collapse-toggle .ico { transform: scaleX(-1); }
+/* :not(.admin__theme-toggle) — القلب معناه "السهم يشير للجهة الأخرى"،
+   وهذا يخصّ زر الطيّ برك. شمس مقلوبة ما تعني والو. */
+.admin.is-nav-collapsed .admin__collapse-toggle:not(.admin__theme-toggle) .ico { transform: scaleX(-1); }
 .admin.is-nav-collapsed .admin__collapse-toggle { justify-content: center; }
+
+/* ── بدّال الثيم ────────────────────────────────────────────────────────
+   الزوج أيقونات مرسومين في نفس اللحظة، وهنا نخبّيو اللي ما يخصّش الوضع
+   الحالي. علاش ماشي أيقونة وحدة نبدّلوها بـ JS: الشاسي يتعاود بناؤه في
+   كل تنقّل، وأي حالة نكتبوها في الـ DOM تضيع — السمة على <html> تبقى. */
+.theme-ico, .theme-swap--to-dark, .theme-swap--to-light { display: none; }
+[data-theme="light"] .theme-ico--to-dark,
+[data-theme="dark"]  .theme-ico--to-light { display: block; }
+[data-theme="light"] .theme-swap--to-dark,
+[data-theme="dark"]  .theme-swap--to-light { display: inline; }
 
 /* ── تبديل الدرج (شاشة صغيرة) ─────────────────────────────────────────── */
 .admin__nav-toggle {
@@ -153,7 +171,9 @@ body { background: var(--bg-gray); overflow-x: hidden; }
   }
   .sidebar-label { display: inline; }
   .nav-link { justify-content: flex-start; }
-  .admin__collapse-toggle { display: none; }
+  /* زر الطيّ ما عندو معنى في الدرج (الدرج يتحلّ ويتقفل، ما يتطواش) —
+     بصح بدّال الثيم يبقى، هو الوحيد اللي يوصل ليه المستخدم على الموبايل */
+  .admin__collapse-toggle:not(.admin__theme-toggle) { display: none; }
   .admin.is-nav-open .admin__sidebar { transform: translateX(0); }
   .admin.is-nav-open .admin__scrim {
     display: block; position: fixed; inset: 0; z-index: 55;

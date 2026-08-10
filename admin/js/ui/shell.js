@@ -67,6 +67,21 @@ export function shell(title, actions, body) {
       '</div>' +
       '<nav class="admin__nav">' + navHtml() + '</nav>' +
       '<div class="admin__sidebar-foot">' +
+        /* aria-label مكتوب بصيغة الفعل ("Toggle dark mode") ماشي بصيغة
+           الحالة — الشاسي ما يتعاودش بناؤه عند التبديل، فأي نص يوصف
+           الحالة يولّي كاذب بعد أول ضغطة. الأيقونة والنص الظاهر يتبدّلو
+           بـ CSS من [data-theme] (شوف .theme-ico في base.css). */
+        '<button type="button" class="admin__collapse-toggle admin__theme-toggle" data-act="toggle-theme" aria-label="' + esc(t('nav.themeToggle')) + '">' +
+          icon('moon', 'theme-ico theme-ico--to-dark') +
+          icon('sun', 'theme-ico theme-ico--to-light') +
+          /* النصّين مغلّفين في .sidebar-label وحيد قصداً: في وضع سكة
+             الأيقونات (64px) الغلاف يختفي كامل بقاعدة .sidebar-label
+             الموجودة، وتبديل النص جوّاه يبقى مستقلّ عليها. */
+          '<span class="sidebar-label">' +
+            '<span class="theme-swap--to-dark">' + esc(t('nav.themeDark')) + '</span>' +
+            '<span class="theme-swap--to-light">' + esc(t('nav.themeLight')) + '</span>' +
+          '</span>' +
+        '</button>' +
         '<button type="button" class="admin__collapse-toggle" data-act="toggle-nav-collapsed" aria-label="' + esc(collapseLabel) + '">' +
           icon('sidebar') +
           '<span class="sidebar-label">' + esc(collapseLabel) + '</span>' +

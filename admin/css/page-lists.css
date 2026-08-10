@@ -38,6 +38,136 @@
   .pagination { justify-content: center; text-align: center; }
 }
 
+/* ══ الفئات ═════════════════════════════════════════════════════════════
+   بطاقات ماشي صفوف. الفئة عندها لون وإيموجي — هاذو معلومة بصرية، وصفّ
+   جدول يقتلها. البطاقة تخلّي التاجر يعرف فئتو من بعيد بلا ما يقرا.
+
+   --cat-color يتحطّ inline على كل بطاقة (من category.color، مفلتر في
+   catalog.mjs باش يبقى hex برك). القيمة الافتراضية هنا باش البطاقة
+   القديمة (بلا لون) تبقى تتقرا. */
+.cat-grid {
+  display: grid; gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.cat-card {
+  --cat-color: var(--text-muted);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'badge body' 'actions actions';
+  /* 1fr على السطر الأوّل: البطاقات في نفس السكة تتمدّدو لطول أطولهم،
+     والفراغ الزايد يروح للمحتوى — فزر "Edit" يبقى ملزوق في القاع في
+     الكل ويقفو على خط واحد بدل ما يفقّز مع طول الوصف */
+  grid-template-rows: 1fr auto;
+  gap: var(--sp-3) var(--sp-4);
+  align-items: start;
+  min-width: 0;
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* الشريط الملوّن على الحافّة البادئة: يعطي الفئة هويّة بلا ما يلوّن
+     البطاقة كاملة — خلفية ملوّنة تقرا كتنبيه، ماشي كتصنيف */
+  border-inline-start: 3px solid var(--cat-color);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.cat-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+
+.cat-card__badge {
+  grid-area: badge;
+  width: 44px; height: 44px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-md);
+  /* اللون في 14% برك: الإيموجي هو اللي يبان، الخلفية غير تسنّدو.
+     في الوضع الليلي نفس النسبة تخدم — color-mix مع transparent ما
+     يتعلّقش بلون الخلفية. */
+  background: color-mix(in srgb, var(--cat-color) 14%, transparent);
+  color: var(--cat-color);
+  font-size: 1.35rem; line-height: 1; font-weight: var(--fw-black);
+}
+
+.cat-card__body { grid-area: body; min-width: 0; }
+.cat-card__name { font-weight: var(--fw-bold); font-size: var(--fs-body); }
+.cat-card__tagline {
+  color: var(--text-muted); font-size: var(--fs-meta); line-height: var(--lh-body);
+  margin-top: var(--sp-hair);
+}
+.cat-card__meta {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  margin-top: var(--sp-3);
+}
+.cat-card__slug {
+  font-size: var(--fs-micro); color: var(--text-faint);
+  /* السلاق يتكتب بالإنجليزية ديما — في واجهة فيها عربية، bidi يقلبو
+     مع الشرطة المائلة إذا خلّيناه يرث الاتجاه */
+  direction: ltr; unicode-bidi: isolate;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cat-card__actions { grid-area: actions; display: flex; gap: var(--sp-2); }
+
+/* ── مربّعات الألوان (نافذة التعديل) ───────────────────────────────── */
+.swatches { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.swatch {
+  width: 30px; height: 30px; padding: 0;
+  border-radius: var(--r-full);
+  background: var(--sw);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+.swatch:hover { transform: scale(1.08); }
+/* المختار: حلقة بلون النص، وبينها وبين اللون فجوة بلون البطاقة —
+   الفجوة هي اللي تخلّي العلامة تبان حتى على لون قريب من لون النص */
+.swatch.is-on { border-color: var(--text); box-shadow: inset 0 0 0 2px var(--surface); }
+.swatch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.swatch.is-on:focus-visible { box-shadow: inset 0 0 0 2px var(--surface), var(--focus-ring); }
+
+/* ── لائحة الفئات الجاهزة ──────────────────────────────────────────── */
+.preset-list {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  max-height: 48vh; overflow-y: auto;
+  /* الحشو على اليمين باش حلقة الفوكس تاع آخر سطر ما تتقصّش على حافّة
+     الزحليق */
+  padding-inline-end: var(--sp-1);
+}
+.preset {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.preset:hover { border-color: var(--border-strong); background: var(--bg-gray); }
+.preset:focus-within { border-color: var(--accent); box-shadow: var(--focus-ring); }
+/* الموجودة من قبل: تبان بصح ما تتاخذش — نخبّيوها ونخلّي التاجر يشوف
+   شنو عندو من قبل. تخبيتها كامل تخلّيه يحسبها ما كانتش أصلاً. */
+.preset.is-taken { opacity: .55; cursor: default; }
+.preset.is-taken:hover { border-color: var(--border); background: transparent; }
+
+.preset__badge {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--cat-color) 14%, transparent);
+  font-size: 1.1rem; line-height: 1;
+}
+.preset__text { min-width: 0; }
+.preset__name { display: block; font-weight: var(--fw-bold); font-size: var(--fs-body); }
+.preset__tagline {
+  display: block; color: var(--text-muted);
+  font-size: var(--fs-meta); line-height: var(--lh-body);
+}
+
+@media (max-width: 480px) {
+  /* الوصف يطيح أوّل: الإيموجي والاسم يكفيو باش تعرف الفئة، والوصف
+     يقرا في النافذة تاع التعديل من بعد */
+  .preset { grid-template-columns: auto auto 1fr; }
+  .preset__tagline { display: none; }
+}
+
 /* ── الربح الصافي ────────────────────────────────────────────────────
    الربح يقدر يكون سالب (رجعات أكثر من توصيلات) — اللون يخلّي الإشارة
    تبان قبل ما تقرا الرقم. نلوّنو النص جوّا .kpi__value بدل ما نلوّنو

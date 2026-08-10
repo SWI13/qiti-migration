@@ -14,9 +14,10 @@ import { requireAdmin, unauthorized } from '../lib/auth.mjs';
 import {
   listCampaigns, getCampaign, saveCampaign, duplicateCampaign, deleteCampaign,
   listProducts, getProduct, saveProduct,
-  listCategories, saveCategory,
+  listCategories, saveCategory, availableSlug,
   setVariantStock, listStockFor,
 } from '../lib/catalog.mjs';
+import { CATEGORY_PRESETS } from '../lib/category-presets.mjs';
 import { listMedia, deleteMedia } from '../lib/media.mjs';
 import { listOrders, listPendingOrders } from '../lib/store.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
@@ -79,6 +80,49 @@ const ACTIONS = {
 
   'categories.list': async () => ok({ categories: await listCategories() }),
   'categories.save': async (body) => ok({ category: await saveCategory(body.category ?? body) }),
+
+  /* التصنيفة الجاهزة تسكن في lib/ — واللوحة ما تقدرش تقراها مباشرة
+     (lib/ ما يتنشرش، شوف scripts/build.mjs)، فتمرّ من هنا */
+  'categories.presets': async () => ok({ presets: CATEGORY_PRESETS }),
+
+  /*
+   * يزيد الفئات الجاهزة المختارة دفعة وحدة.
+   *
+   * علاش أكشن وحدة وماشي categories.save في حلقة من اللوحة: عشر فئات
+   * = عشر رحلات على شبكة الجزائر، وأي وحدة تطيح في النص تخلّي نصف
+   * الشغل مدار. هنا رحلة وحدة، والجواب يقول بالضبط شنو تزاد وشنو لا.
+   *
+   * السلاق المشغول ما يوقّفش الباقي — availableSlug يلقى واحد فاضي،
+   * والفئة الموجودة بنفس السلاق تتقفز (skipped) بلا ما تتبدّل.
+   */
+  'categories.seedPresets': async (body) => {
+    const wanted = Array.isArray(body.slugs) ? body.slugs : [];
+    if (!wanted.length) return bad('Pick at least one category.');
+
+    const existing = await listCategories();
+    const taken = new Set(existing.map((category) => String(category.slug).toLowerCase()));
+    let sort = existing.reduce((max, category) => Math.max(max, Number(category.sort) || 0), 0);
+
+    const created = [];
+    const skipped = [];
+    for (const slug of wanted) {
+      const preset = CATEGORY_PRESETS.find((entry) => entry.slug === slug);
+      if (!preset) continue;
+      if (taken.has(preset.slug)) { skipped.push(preset.slug); continue; }
+
+      sort += 10;
+      created.push(await saveCategory({
+        name: preset.name,
+        slug: await availableSlug('category', preset.slug),
+        tagline: preset.tagline,
+        emoji: preset.emoji,
+        color: preset.color,
+        sort,
+      }));
+    }
+
+    return ok({ created, skipped, categories: await listCategories() });
+  },
 
   'media.list': async () => ok({ media: await listMedia() }),
   'media.delete': async (body) => ok({ deleted: await deleteMedia(body.id) }),

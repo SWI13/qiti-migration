@@ -1,10 +1,26 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr" data-theme="light">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
 <title>Qiti Admin</title>
+
+<!-- الثيم يتحطّ قبل ما يتحمّل CSS باش ما يبانش وميض أبيض في الوضع
+     الليلي. نفس المفتاح (qiti-theme) تاع المتجر — التاجر يبدّل مرّة
+     وحدة والزوج يتبعو. بلا اختيار مخزّن نتبعو نظام التشغيل. -->
+<script>
+(function () {
+  try {
+    var stored = localStorage.getItem('qiti-theme');
+    document.documentElement.dataset.theme =
+      stored || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  } catch (e) {
+    document.documentElement.dataset.theme = 'light';
+  }
+})();
+</script>
 
 <!-- الترتيب مقصود: styles.css (tokens تاع المتجر) → tokens.css (tokens
      اللوحة، تبني فوقهم) → base (الهيكل) → components (العناصر) →
