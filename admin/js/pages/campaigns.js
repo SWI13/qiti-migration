@@ -338,7 +338,7 @@ function detailsPanel(draft) {
      والمتصفّح ما يرندريش وسوم HTML جوّا <option> */
   var productOptions = [{ value: '', label: t('campaigns.selectProduct') }].concat(
     state.products.map(function (p) {
-      return { value: p.id, label: '⁦' + p.name + '⁩' + ' — ' + fmtMoney(p.price) };
+      return { value: p.id, label: p.name + ' — ' + fmtMoney(p.price) };
     }),
   );
 
@@ -532,7 +532,7 @@ export function renderCampaignEditor() {
     '<button class="btn btn--primary" data-act="save-publish">' +
       (isPublished ? esc(t('campaigns.saveKeepPublished')) : esc(t('campaigns.savePublish'))) + '</button>';
 
-  root.innerHTML = shell('⁦' + (draft.name || t('campaigns.untitled')) + '⁩', actions, body);
+  root.innerHTML = shell(draft.name || t('campaigns.untitled'), actions, body);;
   bindTabs(root, onStepChange);
   bindThemeContrast();
   bindStepValidation(root.querySelector('.editor-form'));
