@@ -108,6 +108,14 @@ async function onClick(event) {
   }
   if (act === 'retry-route') { await route(); return; }
 
+  /* زر "حمّل صورة" في حالة الصفحة الفارغة تاع الميديا — يفتح نافذة
+     اختيار الملف الحقيقية بدل ما يكرّر منطق الرفع هنا */
+  if (act === 'focus-media-upload') {
+    var fileInput = document.getElementById('mediaFile');
+    if (fileInput) fileInput.click();
+    return;
+  }
+
   /* ── تنقّل وجلسة ── */
   if (act === 'logout') {
     await loginStep({ step: 'logout' }).catch(function () {});

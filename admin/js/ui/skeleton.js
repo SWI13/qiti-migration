@@ -33,9 +33,9 @@ export function skeletonEditor() {
   };
   return '<div class="editor-split">' +
     '<div class="editor-form">' +
-      '<div class="admin-card" style="padding:18px;margin-bottom:16px">' + lines(3) + '</div>' +
-      '<div class="admin-card" style="padding:18px;margin-bottom:16px">' + lines(5) + '</div>' +
-      '<div class="admin-card" style="padding:18px">' + lines(4) + '</div>' +
+      '<div class="admin-card admin-card--form">' + lines(3) + '</div>' +
+      '<div class="admin-card admin-card--form">' + lines(5) + '</div>' +
+      '<div class="admin-card admin-card--form">' + lines(4) + '</div>' +
     '</div>' +
     '<div class="preview-panel"><div class="sk sk--card"></div></div>' +
   '</div>';

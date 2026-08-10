@@ -193,6 +193,7 @@ export var STRINGS_EN = {
   /* ── ميديا ── */
   'media.title': 'Media',
   'media.uploadHint': 'jpeg / png / webp / avif — 5 MB max',
+  'media.uploadAction': 'Upload an image',
   'media.emptyTitle': 'No media yet',
   'media.emptyBody': 'Upload an image to use it in campaigns and products.',
   'media.uploading': 'Uploading…',

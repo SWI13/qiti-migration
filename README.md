@@ -40,10 +40,10 @@ npx netlify deploy --prod
 ```
 qiti/
 ├── index.html                    # الصفحة القديمة تاع الطوق (مازال هي اللي تخدم)
-├── admin/                        # لوحة الإدارة — حملات، منتجات، ميديا، معاينة
-│   ├── index.html                # قشرة فارغة — admin.js يبني كلش
-│   ├── admin.css                 # ستايل اللوحة (كلش var(--…) من styles.css)
-│   └── admin.js                  # الفورم يتولّد من SECTION_FIELDS، ماشي مكتوب بيد
+├── admin/                        # لوحة الإدارة — حملات، منتجات، لوحة القيادة، ميديا، معاينة
+│   ├── index.html                # قشرة فارغة — admin/js/app.js يبني كلش
+│   ├── css/                      # ستايل اللوحة (كلش var(--…) من styles.css)
+│   └── js/                       # راوتينغ بالـ hash، صفحة لكل view، الفورم يتولّد من section-fields.js
 ├── assets/
 │   ├── css/styles.css            # نظام التصميم كامل — كلش يمرّ على tokens
 │   └── js/main.js                # ثيم، نافبار، أنيميشن، فورم الطلب، الإسناد

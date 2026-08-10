@@ -44,24 +44,24 @@ function itemKeys(source) {
 
 /* ── واش يكتب الفورم؟ ─────────────────────────────────────────────── */
 
-const admin = readFileSync('admin/admin.js', 'utf8');
-const registry = admin.slice(
-  admin.indexOf('var SECTION_FIELDS'),
-  admin.indexOf('/* ── أدوات'),
-);
+/* admin/admin.js (وحقلو t()) صار ملف ميّت — الفورم الحيّ راهو
+   admin/js/section-fields.js، وفيه field() بدل t() (شوف الملاحظة
+   فوق في ذاك الملف: t() تصادمت مع i18n.js). الملف كامل هو الوصفة،
+   بلا حاجة نقصّو — ما فيهش والو بعد SECTION_FIELDS. */
+const registry = readFileSync('admin/js/section-fields.js', 'utf8');
 
-const FIELD_CALL = /\b(?:t|area|num|img|ico|bool|lines|list)\('([\w.]+)'/g;
+const FIELD_CALL = /\b(?:field|area|num|img|ico|bool|lines|list)\('([\w.]+)'/g;
 
 /** حقول قسم واحد: العليا وحدها، والعليا + اللي جوّا القوائم */
 function formFields(type) {
-  const head = registry.indexOf(`\n    ${type}: [`);
+  const head = registry.indexOf(`\n  ${type}: [`);
   if (head === -1) return null;
 
   /* نبداو من بعد "[" تاع القسم روحو — وإلا الـ replace تحت يبلع
      من هذا القوس حتى لأوّل "]" ويمسح نص الحقول */
   const start = registry.indexOf('[', head) + 1;
-  /* نهاية البلوك: أول "    ]," في أوّل العمود تاعو */
-  const end = registry.indexOf('\n    ],', head);
+  /* نهاية البلوك: أول "  ]," في أوّل العمود تاعو */
+  const end = registry.indexOf('\n  ],', head);
   const body = registry.slice(start, end);
 
   const all = [...body.matchAll(FIELD_CALL)].map((m) => m[1]).filter((k) => !k.includes('.'));

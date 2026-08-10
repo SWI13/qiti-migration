@@ -58,7 +58,7 @@ function matchesFilter(order) {
 
 function orderRows() {
   return state.orders.filter(matchesFilter).map(function (order) {
-    return '<div class="row-item row-item--order" data-act="view-order" data-id="' + esc(order.id) + '">' +
+    return '<div class="row-item row-item--order" data-act="view-order" data-id="' + esc(order.id) + '" role="button" tabindex="0">' +
         '<div>' +
           '<div class="row-item__name">' + esc(order.name) + '</div>' +
           '<div class="row-item__meta">' + esc(order.phone) + ' · ' + esc(order.wilaya) +
@@ -115,6 +115,15 @@ export function renderOrderList() {
   root.querySelector('.row-list').addEventListener('click', function (event) {
     var item = event.target.closest('[data-act="view-order"]');
     if (!item) return;
+    var order = state.orders.filter(function (o) { return o.id === item.getAttribute('data-id'); })[0];
+    if (order) orderDetail(order);
+  });
+  /* role="button" ما يعطيش سلوك الكيبورد بروحو — Enter/Space لازم نديروهم يدويًا */
+  root.querySelector('.row-list').addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    var item = event.target.closest('[data-act="view-order"]');
+    if (!item) return;
+    event.preventDefault();
     var order = state.orders.filter(function (o) { return o.id === item.getAttribute('data-id'); })[0];
     if (order) orderDetail(order);
   });
