@@ -53,7 +53,9 @@ import {
   listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
+  saveProductDraft, getProductDraft, forgetProductDraft,
 } from '../lib/store.mjs';
+import { parseProductIntent } from '../lib/product-intent.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
@@ -210,10 +212,14 @@ async function handleCallback(query) {
     telegram('answerCallbackQuery', { callback_query_id: query.id, ...(text ? { text } : {}) })
       .catch((error) => console.error('answerCallbackQuery failed:', error.message));
 
-  /* نشر منتج تصنع بـ /newproduct — ماشي طلب، فيخرج قبل منطق الطلبات */
+  /* أفعال الكاتالوغ — ماشي طلبات، فيخرجو قبل منطق الطلبات */
   if (action === 'pub') {
     if (!message) return;
     return handlePublishProduct(query, orderId, answer);
+  }
+  if (action === 'mk' || action === 'mkx') {
+    if (!message) return;
+    return handleDraftDecision(query, orderId, action === 'mk', answer);
   }
 
   const isDecision = action === 'ok' || action === 'no';
@@ -454,6 +460,10 @@ async function buildStateMessage() {
 }
 
 /* ── أوامر المخزون، التكاليف، وحالة الطلبات ───────────────────────
+ * ⚠️ ماشي لازم أمر: أي رسالة عادية فيها نيّة صريحة ("عندي 9 طوق تتبّع،
+ *    زيد المنتج والفئة") تتقرا وحدها، والبوت يوري واش فهم ويستنّى نقرة
+ *    تأكيد قبل ما يكتب. شوف handleFreeText و lib/product-intent.mjs.
+ *
  * /help, /start     — لائحة الأوامر كاملة
  * /state, /status   — كل الطلبات المعلّقة دروك (بلا قرار / بلا نتيجة
  *                      توصيل / رجعت بصح ما وصلاتش للمحل) + المخزون
@@ -610,14 +620,30 @@ async function handleNewProduct(message, argText, reply) {
     ].join('\n'));
   }
 
-  const price = parseAmount(rawPrice) ?? 0;
-  const qty = parseAmount(rawQty) ?? 0;
-  const unitCost = parseAmount(rawCost) ?? 0;
+  return createAndAnnounce(message.chat.id, {
+    name: rawName,
+    price: parseAmount(rawPrice) ?? 0,
+    qty: parseAmount(rawQty) ?? 0,
+    cost: parseAmount(rawCost) ?? 0,
+    category: rawCategory || null,
+  }, reply);
+}
+
+/*
+ * الإنشاء الفعلي + جواب الحصيلة. مشترك بين الطريقين (الأمر /newproduct
+ * وقراءة الرسالة العادية) — بلا هذا، أي تبديل في شكل المنتج المصنوع
+ * لازم يتكتب زوج مرّات، والنسختين يفرقو مع الوقت.
+ */
+async function createAndAnnounce(chatId, fields, reply) {
+  const { name } = fields;
+  const price = fields.price ?? 0;
+  const qty = fields.qty ?? 0;
+  const unitCost = fields.cost ?? 0;
 
   let category = null;
   let categoryCreated = false;
   try {
-    const resolved = await resolveCategory(rawCategory, rawName);
+    const resolved = await resolveCategory(fields.category, name);
     category = resolved.category;
     categoryCreated = resolved.created;
   } catch (error) {
@@ -628,9 +654,9 @@ async function handleNewProduct(message, argText, reply) {
 
   let product;
   try {
-    const slug = await availableSlug('product', rawName);
+    const slug = await availableSlug('product', name);
     product = await saveProduct({
-      name: rawName,
+      name,
       slug,
       price,
       unitCost,
@@ -640,7 +666,7 @@ async function handleNewProduct(message, argText, reply) {
       initialStock: qty,
     });
   } catch (error) {
-    console.error('/newproduct failed:', error.message);
+    console.error('Product creation failed:', error.message);
     return reply(`⚠️ ما تصنعش المنتج: ${esc(error.message)}`);
   }
 
@@ -662,12 +688,97 @@ async function handleNewProduct(message, argText, reply) {
   if (site) lines.push('', `✏️ كمّلو (صور، وصف): ${site}/admin#/products/${product.id}`);
 
   return telegram('sendMessage', {
-    chat_id: message.chat.id,
+    chat_id: chatId,
     text: lines.join('\n'),
     parse_mode: 'HTML',
     disable_web_page_preview: true,
     reply_markup: { inline_keyboard: [[{ text: '🚀 انشر في المتجر', callback_data: `pub:${product.id}` }]] },
-  }).catch((error) => console.error('/newproduct reply failed:', error.message));
+  }).catch((error) => console.error('Product reply failed:', error.message));
+}
+
+/* ── قراءة رسالة عادية (بلا أمر) ───────────────────────────────────
+ *
+ * "عندي 9 طوق تتبّع، زيد المنتج والفئة" لازم تخدم كيما /newproduct.
+ * التاجر ما يحفظش صيغ — يكتب كيما يهدر.
+ *
+ * ⚠️ ما نكتبوش المنتج على طول. البوت يوري واش فهم ويستنّى نقرة:
+ * التحليل تخمين (شوف lib/product-intent.mjs)، وكتابة صامتة على تخمين
+ * تعمّر الكاتالوغ بمنتجات ما طلبهم حتى واحد — والتاجر ما يعرفش منين
+ * جاو. نقرة وحدة تخلّي الغلطة تتشاف قبل ما تصرا.
+ */
+async function handleFreeText(message) {
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
+
+  const parsed = parseProductIntent(message.text);
+  if (!parsed) return;   /* هدرة عادية — البوت يسكت، ما يجاوبش على كلشي */
+
+  let draftId;
+  try {
+    draftId = await saveProductDraft(parsed);
+  } catch (error) {
+    console.error('Draft save failed:', error.message);
+    return;
+  }
+
+  const lines = [
+    '🤔 <b>فهمت هكذا:</b>',
+    '',
+    `📦 الاسم: <b>${esc(parsed.name)}</b>`,
+    `💵 السومة: <b>${parsed.price ? dz(parsed.price) : '— ما فهمتهاش'}</b>${parsed.guessedPrice ? ' <i>(خمّنتها)</i>' : ''}`,
+    `📥 الكمية: <b>${parsed.qty ?? 0}</b>`,
+  ];
+  if (parsed.cost) lines.push(`🧾 سومة الشراء: <b>${dz(parsed.cost)}</b>`);
+  lines.push(`🗂️ الفئة: <b>${parsed.category ? esc(parsed.category) : 'نخمّنوها من الاسم'}</b>`);
+  lines.push('', 'صحّ؟ نقر وندير المنتج + الفئة + المخزون.');
+  lines.push('غالط؟ نقر "لا" وعاود اكتبها، ولا استعمل <code>/newproduct</code>.');
+
+  return telegram('sendMessage', {
+    chat_id: message.chat.id,
+    reply_to_message_id: message.message_id,
+    text: lines.join('\n'),
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '✅ ايه، زيدو', callback_data: `mk:${draftId}` },
+        { text: '❌ لا', callback_data: `mkx:${draftId}` },
+      ]],
+    },
+  }).catch((error) => console.error('Intent prompt failed:', error.message));
+}
+
+/** نقرة "ايه، زيدو" / "لا" تحت رسالة الفهم */
+async function handleDraftDecision(query, draftId, confirmed, answer) {
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
+    return answer('ما عندكش الصلاحية.');
+  }
+
+  const draft = await getProductDraft(draftId).catch(() => null);
+  if (!draft) return answer('المسودّة ما بقاتش — عاود اكتبها.');
+
+  /* المسودّة تتمسح في الزوج حالات: نقرة ثانية على نفس الرسالة ما
+     تصنعش منتج ثاني */
+  await forgetProductDraft(draftId).catch(() => {});
+
+  /* الأزرار يتحيّدو مهما كان القرار — زر يبقى بعد ما يتنقر يخلّي
+     التاجر يشكّ واش خدم */
+  await telegram('editMessageReplyMarkup', {
+    chat_id: query.message.chat.id,
+    message_id: query.message.message_id,
+    reply_markup: { inline_keyboard: [] },
+  }).catch(() => {});
+
+  if (!confirmed) return answer('تراجعت ✅');
+
+  const reply = (text) =>
+    telegram('sendMessage', {
+      chat_id: query.message.chat.id, text, parse_mode: 'HTML', disable_web_page_preview: true,
+    }).catch((error) => console.error('Draft reply failed:', error.message));
+
+  await createAndAnnounce(query.message.chat.id, draft, reply);
+  return answer('تصنع المنتج ✅');
 }
 
 async function handleNewCategory(argText, reply) {
@@ -747,7 +858,9 @@ async function handleCommand(message) {
       '/state — كل الطلبات اللي مازال ما كملوش',
       '',
       '<b>الكاتالوغ</b>',
-      '/newproduct — منتج جديد (+ فئتو + مخزونو)',
+      'اكتب عادي: <i>«عندي 9 طوق تتبّع، زيد المنتج والفئة»</i>',
+      'ونوريك واش فهمت قبل ما نزيد والو.',
+      '/newproduct — نفس الحاجة بصيغة مضبوطة',
       '/newcategory — فئة جديدة',
       '/categories — كل الفئات',
       '',
@@ -1028,6 +1141,9 @@ async function handler(request) {
     if (update.callback_query) await handleCallback(update.callback_query);
     else if (update.message?.reply_to_message) await handleReply(update.message);
     else if (update.message?.text?.startsWith('/')) await handleCommand(update.message);
+    /* آخر واحد: رسالة عادية. handleFreeText تسكت على كل شي ما فيهش
+       نيّة صريحة، فالهدرة العادية في الگروب ما تتلمسش. */
+    else if (update.message?.text) await handleFreeText(update.message);
   } catch (error) {
     console.error('Webhook handler error:', error.message);
   }
