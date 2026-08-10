@@ -150,3 +150,24 @@
   .order-search { width: 100%; }
   .admin__actions { width: 100%; }
 }
+
+/* ── لوحة القيادة (KPIs + شارطات) ─────────────────────────────────────────
+   .kpi/.chart-card ما يعيدوش تعريف الخلفية/الحدود/الظل — هذوك من
+   .admin-card (components.css)، والصفحة تزيد الصنفين مع بعض فالـ HTML
+   (class="admin-card kpi"). هنا برك الفرق: الحشو الداخلي والـ layout. */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.kpi { padding: 18px; display: flex; flex-direction: column; gap: 4px; }
+.kpi__label { font-size: .78rem; color: var(--text-muted); font-weight: 600; }
+.kpi__value { font-size: 1.6rem; font-weight: 800; color: var(--text); }
+.kpi__sub { font-size: .78rem; color: var(--text-faint); }
+.kpi__delta { font-size: .82rem; font-weight: 700; }
+.kpi__delta--up { color: var(--st-success); }
+.kpi__delta--down { color: var(--st-danger); }
+
+.chart-card { padding: 18px; }
+.chart-card__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.chart-card__head h3 { font-size: .96rem; }
+.chart-wrap { direction: ltr; } /* احتياط: chart.js يحطها inline هي ثانية، بصح هنا لو حد بغى يستهدفها بـ CSS خارجي */
+
+.dash-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 1100px) { .dash-grid { grid-template-columns: 1fr 1fr; } }
