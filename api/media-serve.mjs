@@ -4,6 +4,7 @@
  * سواء الـ redirect جا بـ :id ولا بـ :splat.
  */
 import { getMedia, getMediaBytes } from '../lib/media.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 /* الـ id مبني على وقت الإنشاء (newId في catalog.mjs) وما يتبدّلش أبداً
    بعد ما يتخلق — فالكاش يقدر يبقى سنة كاملة بلا خوف من صورة قديمة عالقة */
@@ -14,7 +15,7 @@ const notFound = () => new Response('Not found', {
   headers: { 'x-content-type-options': 'nosniff' },
 });
 
-export default async function handler(request) {
+async function handler(request) {
   const url = new URL(request.url);
   /* الـ rewrite في vercel.json يمرّر المعرّف في ?id= — pathname بعد
      الـ rewrite يولّي /api/media-serve وما فيهش المعرّف. آخر جزء من
@@ -38,3 +39,6 @@ export default async function handler(request) {
     },
   });
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

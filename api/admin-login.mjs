@@ -19,6 +19,7 @@
  *                                                 هو اللي يبعثلك الكود
  */
 import { getStore } from '../lib/blobs.mjs';
+import { toVercel } from '../lib/http.mjs';
 import {
   verifyPassword, generateCode, newChallengeId, timingSafeStringEqual,
   sessionCookie, clearCookie,
@@ -131,7 +132,7 @@ function handleLogout() {
   return json(200, { ok: true }, { 'set-cookie': clearCookie() });
 }
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   let payload;
@@ -147,3 +148,6 @@ export default async function handler(request) {
 
   return json(400, { error: 'خطوة ماشي معروفة.' });
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

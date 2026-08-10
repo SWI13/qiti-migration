@@ -23,6 +23,7 @@ import { resolveRoute, getCampaign, getProduct, getCategory, listProducts } from
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { esc, escAttr, dz } from '../lib/render/html.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const html = (body, status = 200, extraHeaders = {}) =>
   new Response(body, {
@@ -81,7 +82,7 @@ function pathOf(request) {
   return pathname;
 }
 
-export default async function handler(request) {
+async function handler(request) {
   const path = pathOf(request);
   const origin = new URL(request.url).origin;
 
@@ -219,3 +220,6 @@ async function renderCategory(id, origin) {
     CACHE_PUBLIC,
   );
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

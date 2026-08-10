@@ -10,12 +10,13 @@
  */
 import { requireAdmin } from '../lib/auth.mjs';
 import { recordVisit, VISIT_KINDS } from '../lib/visits.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const ID_RE = /^[A-Za-z0-9_:-]{1,64}$/;
 
 const noContent = () => new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method !== 'POST') return new Response(null, { status: 405 });
 
   /* جلسة الإدمين متسجّلة عبر كوكي — نستثنيوها باش تصفّح المشغّل روحو
@@ -35,3 +36,6 @@ export default async function handler(request) {
 
   return noContent();
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

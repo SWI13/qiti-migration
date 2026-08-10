@@ -58,6 +58,7 @@ import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from 
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { getProduct, listProducts, listStockFor } from '../lib/catalog.mjs';
 import { siteUrl } from '../lib/site.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -594,7 +595,7 @@ async function setupWebhook() {
   return { ok: true, url: info.url, pending: info.pending_update_count };
 }
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method === 'GET' && new URL(request.url).searchParams.has('setup')) {
     try {
       const result = await setupWebhook();
@@ -640,3 +641,6 @@ export default async function handler(request) {
   /* ديما 200: إذا رجعنا خطأ، تيليغرام يعاود يبعث نفس التحديث بلا فايدة */
   return new Response('ok');
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

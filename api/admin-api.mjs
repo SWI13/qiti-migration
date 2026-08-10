@@ -22,6 +22,7 @@ import { listOrders, listPendingOrders } from '../lib/store.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { dashboardSummary } from '../lib/analytics.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -125,7 +126,7 @@ const ACTIONS = {
   },
 };
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
   if (!await requireAdmin(request)) return unauthorized();
 
@@ -149,3 +150,6 @@ export default async function handler(request) {
     return bad(error.message);
   }
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

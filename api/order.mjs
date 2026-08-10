@@ -23,6 +23,7 @@ import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -102,7 +103,7 @@ async function notifyCustomer(record) {
   if (!response.ok) throw new Error(`Twilio ${response.status}: ${await response.text()}`);
 }
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   let payload;
@@ -290,3 +291,6 @@ export default async function handler(request) {
   );
   return json(200, { ok: true });
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

@@ -18,6 +18,7 @@
 import { listOrdersForDay, algiersDate } from '../lib/store.mjs';
 import { dz, esc } from '../lib/message.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 /* الجدولة ولّات في vercel.json ("crons") — Vercel ما يقراش config هنا */
 
@@ -99,7 +100,7 @@ export function buildWeeklyReport(weekStart, weekEnd, orders) {
   return lines.join('\n');
 }
 
-export default async function handler(request) {
+async function handler(request) {
   if (!authorized(request)) return new Response('Forbidden', { status: 403 });
 
   /* ساعة لور = نفس حيلة daily-report.mjs، باش نبقاو في الأسبوع اللي كمل حتى لو تشغّل على 00:00 بالضبط */
@@ -125,3 +126,6 @@ export default async function handler(request) {
     });
   }
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);

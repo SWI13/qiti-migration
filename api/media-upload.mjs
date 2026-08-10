@@ -5,6 +5,7 @@
  */
 import { saveMedia } from '../lib/media.mjs';
 import { requireAdmin, unauthorized } from '../lib/auth.mjs';
+import { toVercel } from '../lib/http.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -60,7 +61,7 @@ export function validateUpload({ bytes, declaredContentType }) {
   return { ok: true, contentType: sniffed };
 }
 
-export default async function handler(request) {
+async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
   if (!requireAdmin(request)) return unauthorized();
 
@@ -97,3 +98,6 @@ export default async function handler(request) {
     return json(502, { error: 'ما قدرناش نحفظو الصورة دروك. عاود حاول.' });
   }
 }
+
+/* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */
+export default toVercel(handler);
