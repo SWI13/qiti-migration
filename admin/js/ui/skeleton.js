@@ -13,6 +13,17 @@ export function skeletonList(rows) {
   return '<div class="admin-card"><div class="row-list">' + out + '</div></div>';
 }
 
+/** لوحة القيادة — صف بطاقات أرقام + بزوج رسوم */
+export function skeletonDashboard() {
+  var kpis = '';
+  for (var i = 0; i < 4; i++) kpis += '<div class="sk sk--card"></div>';
+  return '<div class="kpi-grid" style="margin-bottom:14px">' + kpis + '</div>' +
+    '<div class="dash-grid">' +
+      '<div class="sk sk--card" style="height:220px"></div>' +
+      '<div class="sk sk--card" style="height:220px"></div>' +
+    '</div>';
+}
+
 /** صفحة محرّر (حملة/منتج) — عمود فورم (كروت بخطوط) + عمود معاينة (كارت كبير) */
 export function skeletonEditor() {
   var lines = function (n) {

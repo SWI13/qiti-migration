@@ -77,6 +77,8 @@ async function computeDashboardSummary(days, now) {
   const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
   const revenuePrev = prevOrders.filter(isDelivered).reduce((sum, o) => sum + (o.total ?? 0), 0);
   const aov = delivered.length ? Math.round(revenue / delivered.length) : 0;
+  /* "منتجات مباعة" — وحدات الطلبات الموصّلة برك، نفس تعريف المداخيل */
+  const unitsSold = delivered.reduce((sum, o) => sum + (o.qty ?? 0), 0);
 
   /* زبون بلا رقم صالح ما يتوقّعش من العدّ — نستعمل رقمو الخام كمفتاح بدل ما نرميه */
   const customerKeys = new Set(orders.map((o) => normalizeDzPhone(o.phone) ?? o.phone));
@@ -94,6 +96,7 @@ async function computeDashboardSummary(days, now) {
     returned: returned.length,
     inTransit: inTransit.length,
     aov,
+    unitsSold,
     customers: customerKeys.size,
     visits,
     views,

@@ -14,6 +14,8 @@ export var state = {
   media: [],
   orders: [],
   pendingOrders: 0,   /* عدّاد بلا قرار — بادج "Orders" في الشريط الجانبي */
+  dashboard: null,      /* آخر ملخّص جا من dashboard.summary */
+  dashboardDays: 30,    /* نافذة الأيام المختارة */
   draft: null,      /* الحملة اللي راهي تتعدّل */
   product: null,    /* المنتج اللي راهو يتعدّل */
   stock: [],

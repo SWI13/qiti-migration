@@ -11,6 +11,7 @@ import { esc } from '../dom.js';
 import { t } from '../i18n.js';
 
 export var NAV = [
+  { view: 'dashboard', group: null, label: 'nav.dashboard', icon: 'dashboard' },
   { view: 'orders', group: null, label: 'nav.orders', icon: 'orders', badge: 'pendingOrders' },
   { view: 'campaigns', group: 'content', label: 'nav.campaigns', icon: 'campaigns' },
   { view: 'media', group: 'content', label: 'nav.media', icon: 'media' },
@@ -27,6 +28,7 @@ var GROUPS = [
 /* أيقونات خط (نفس روح .ico في styles.css) — كل صفحة عندها شكل مميّز
    بدل المربّع الموحّد القديم، تفرّق بالعين بلا ما تقرا النص. */
 var ICON_PATHS = {
+  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   orders: '<path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>',
   campaigns: '<path d="M3 10v4a1 1 0 0 0 1 1h2l7 4V5L6 9H4a1 1 0 0 0-1 1Z"/><path d="M17.5 8.5a4 4 0 0 1 0 7"/>',
   media: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5.5-5.5L11 15l-2.5-2.5L3 18"/>',
