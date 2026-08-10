@@ -55,10 +55,13 @@ export function fieldHtml(def, value, path) {
   }
 
   if (def.type === 'select') {
+    /* dir="auto" على كل <option>: التسمية تقدر تكون اسم منتج بالعربية
+       متبوع بسومة لاتينية، وبلا اتجاه صريح الترتيب يتقلب ويبان مخلوط.
+       <bdi> ما ينفعش — ما كاينش رندر للوسوم جوّا <option>. */
     return '<div class="field">' + label +
       '<select id="' + id + '" data-path="' + esc(path) + '">' +
         def.options.map(function (option) {
-          return '<option value="' + esc(option.value) + '"' +
+          return '<option dir="auto" value="' + esc(option.value) + '"' +
             (String(value) === String(option.value) ? ' selected' : '') + '>' + esc(option.label) + '</option>';
         }).join('') +
       '</select>' + hint + '</div>';

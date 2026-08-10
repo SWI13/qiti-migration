@@ -106,9 +106,15 @@ body { background: var(--bg-gray); overflow-x: hidden; }
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--sp-4); margin-bottom: var(--sp-6); flex-wrap: wrap;
 }
+/* عنوان الصفحة فيه اسم يكتبو التاجر (منتج/حملة) وسط لوحة LTR. الاسم
+   بالعربية يقلب ترتيب اللي حواليه بلا عزل — وهذا كان محلول بـ U+2066/
+   U+2069 مكتوبين في الـ JS، وهوما محارف خفيّة GitHub يحذّر منهم (نفس
+   عائلة Trojan Source). unicode-bidi يدير نفس العزل من CSS: بلا محرف
+   خفي في الكود، ونفس النتيجة. */
 .admin__title {
   font-size: var(--fs-page); font-weight: var(--fw-black); line-height: var(--lh-tight);
   min-width: 0; overflow-wrap: anywhere;
+  unicode-bidi: isolate;
 }
 .admin__actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
 /* حقل بحث ولا select في شريط الأزرار لازم يوقف على نفس خط الأزرار —

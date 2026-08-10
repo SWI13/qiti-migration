@@ -381,7 +381,7 @@ export function renderProductEditor() {
   }
 
   root.innerHTML = shell(
-    '⁦' + (product.name || t('campaigns.untitled')) + '⁩',
+    product.name || t('campaigns.untitled'),
     '<a class="btn btn--outline" href="#/products">' + esc(t('common.back')) + '</a>' +
     '<button class="btn btn--primary" data-act="save-product">' + esc(t('common.save')) + '</button>',
     tabsHtml({ id: 'prodTabs', tabs: tabs, active: activeTab }),

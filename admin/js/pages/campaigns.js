@@ -334,8 +334,12 @@ function ensureEditorSession(draft) {
 /* ── خطوة 1: التفاصيل ───────────────────────────────────────────── */
 
 function detailsPanel(draft) {
-  /* U+2066/U+2069 (FSI/PDI) بدل <bdi> — بلاصة الاستعمال هنا نص <option>،
-     والمتصفّح ما يرندريش وسوم HTML جوّا <option> */
+  /* اسم المنتج (يقدر يكون بالعربية) + السومة (لاتينية) في نفس السطر:
+     بلا عزل، الترتيب يتقلب ويبان "3,900 DZD — الاسم" مخلوط.
+     <bdi> ما يخدمش هنا — المتصفّح ما يرندريش وسوم HTML جوّا <option>.
+     وU+2066/U+2069 (محارف عزل خفيّة) خدمو من قبل بصح GitHub يحذّر منهم
+     (عائلة Trojan Source) وتحيّدو. الحلّ: dir="auto" على <option> —
+     المتصفّح يقرا أوّل حرف قوي ويضبط اتجاه السطر كامل منّو. */
   var productOptions = [{ value: '', label: t('campaigns.selectProduct') }].concat(
     state.products.map(function (p) {
       return { value: p.id, label: p.name + ' — ' + fmtMoney(p.price) };
