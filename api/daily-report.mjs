@@ -11,7 +11,7 @@
  *   curl "https://<موقعك>.netlify.app/api/daily-report?key=<SECRET>"
  */
 import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock, getCosts } from '../lib/store.mjs';
-import { dz, esc, profitFor } from '../lib/message.mjs';
+import { dz, esc, profitFor, goodsTotal } from '../lib/message.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -56,7 +56,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     const returnedNotReceived = returnedOrders.filter((o) => !o.returnReceivedAt);
     const stillShipping = accepted.filter((o) => !o.deliveryStatus);
 
-    const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const revenue = delivered.reduce((sum, o) => sum + goodsTotal(o), 0);
     const units = delivered.reduce((sum, o) => sum + (o.qty ?? 0), 0);
     /*
      * الربح الصافي التقديري: ربح الطلبات اللي توصّلت، ناقص خسارة الرجعة

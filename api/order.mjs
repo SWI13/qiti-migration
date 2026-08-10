@@ -17,7 +17,7 @@
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
-import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith } from '../lib/message.mjs';
+import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith, SHIPPING } from '../lib/message.mjs';
 import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
@@ -204,6 +204,11 @@ async function handler(request) {
     campaignId: typeof payload.campaignId === 'string' ? payload.campaignId.slice(0, 64) : null,
     variant: variant ? { sku: variant.sku, options: variant.options } : null,
     unitPrice,
+    /* سومة التوصيل مخزّنة صراحةً: total فيه سومة السلعة + التوصيل،
+       والمداخيل/الربح لازمهم السلعة وحدها. تخزينها هنا يخلّي الحساب
+       صحيح حتى لو بدّلنا تسعيرة التوصيل من بعد — الطلبات القديمة تبقى
+       بسومتها هي، ما تتعاودش تتحسب بتسعيرة اليوم. */
+    shippingFee: SHIPPING[order.shipping] ?? 0,
     /* منين جا الزبون — يبان في الرسالة ويتجمّع في التقارير حسب القناة */
     attribution,
     channel: channelKey(attribution),

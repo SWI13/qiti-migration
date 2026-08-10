@@ -16,7 +16,7 @@
  *   curl "https://<موقعك>.netlify.app/api/weekly-report?key=<SECRET>"
  */
 import { listOrdersForDay, algiersDate } from '../lib/store.mjs';
-import { dz, esc } from '../lib/message.mjs';
+import { dz, esc, goodsTotal } from '../lib/message.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -60,7 +60,7 @@ export function buildWeeklyReport(weekStart, weekEnd, orders) {
   const delivered = accepted.filter((o) => o.deliveryStatus === 'delivered');
   const returnedOrders = accepted.filter((o) => o.deliveryStatus === 'returned');
 
-  const revenue = delivered.reduce((sum, o) => sum + (o.total ?? 0), 0);
+  const revenue = delivered.reduce((sum, o) => sum + goodsTotal(o), 0);
   const units = delivered.reduce((sum, o) => sum + (o.qty ?? 0), 0);
 
   lines.push(
