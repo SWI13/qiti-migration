@@ -21,6 +21,7 @@ import { listMedia, deleteMedia } from '../lib/media.mjs';
 import { listOrders, listPendingOrders } from '../lib/store.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
+import { dashboardSummary } from '../lib/analytics.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -87,6 +88,12 @@ const ACTIONS = {
   'orders.list': async () => ok({ orders: await listOrders() }),
   /* بادج الشريط الجانبي — خفيفة، بلا ما تجيب الأرشيف كامل */
   'orders.pendingCount': async () => ok({ count: (await listPendingOrders()).length }),
+
+  /* لوحة القيادة — كل أرقام الصفحة في طلب واحد. ستّة أكشنات صغار
+     معناها ستّة رحلات على شبكة ضعيفة باش نعرضو شاشة وحدة. */
+  'dashboard.summary': async (body) => ok({
+    summary: await dashboardSummary({ days: Number(body.days) || 30 }),
+  }),
 
   'stock.set': async (body) => ok({
     stock: await setVariantStock(
