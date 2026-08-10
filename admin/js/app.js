@@ -9,6 +9,9 @@
 import { state } from './state.js';
 import { api, loginStep } from './api.js';
 import { getPath, setPath, delPath, toast } from './dom.js';
+import { t } from './i18n.js';
+import { stateBlock } from './ui/state-block.js';
+import { isDirty, confirmDiscard, clearDirty } from './ui/form.js';
 import { route } from './router.js';
 import { renderLogin } from './pages/login.js';
 import {
@@ -34,8 +37,21 @@ export async function boot() {
     state.campaigns = (await api('campaigns.list')).campaigns;
     state.authed = true;
   } catch (error) {
-    if (!state.authed) return;
-    toast(error.message, true);
+    /* 401 = شاشة الدخول رَاهي بانت من api.js، ما نزيدوش فوقها. أي خطأ
+       آخر (شبكة، بلوب طايح) لازم يبان — قبل، كان يخلّي صفحة بيضاء
+       فارغة بلا رسالة ولا زر إعادة محاولة. */
+    if (error.unauthorized) return;
+    /* بلا shell: الجلسة ما تثبّتتش، فروابط الشريط الجانبي كامل ميتة
+       (route() يخرج فوراً على !authed) — شاشة وحدة بزر إعادة محاولة
+       أصدق من لوحة كاملة ما تخدم فيها حتى حاجة */
+    root.innerHTML = '<div class="login-screen"><div class="login-card">' + stateBlock({
+      variant: 'error',
+      title: t('state.errorTitle'),
+      body: error.message,
+      actionLabel: t('state.retry'),
+      actionAct: 'retry-boot',
+    }) + '</div></div>';
+    return;
   }
 
   if (state.authed) {
@@ -104,9 +120,15 @@ async function onClick(event) {
   if (act === 'toggle-nav-collapsed') {
     var collapsed = root.classList.toggle('is-nav-collapsed');
     localStorage.setItem('qiti-admin-collapsed', collapsed ? '1' : '0');
+    /* الاسم يقلب مع الحالة بلا ما نعاودو نبنيو الشاسي — شوف ui/shell.js */
+    var label = t(collapsed ? 'nav.expand' : 'nav.collapse');
+    node.setAttribute('aria-label', label);
+    var labelText = node.querySelector('.sidebar-label');
+    if (labelText) labelText.textContent = label;
     return;
   }
   if (act === 'retry-route') { await route(); return; }
+  if (act === 'retry-boot') { await boot(); return; }
 
   /* زر "حمّل صورة" في حالة الصفحة الفارغة تاع الميديا — يفتح نافذة
      اختيار الملف الحقيقية بدل ما يكرّر منطق الرفع هنا */
@@ -156,29 +178,35 @@ async function onClick(event) {
 
   if (act === 'pick') {
     var pickPath = node.getAttribute('data-path');
-    var url = await pickMedia();
-    if (url) {
-      setPath(target, pickPath, url);
-      rerenderEditor();
-    }
+    try {
+      var url = await pickMedia();
+      if (url) {
+        setPath(target, pickPath, url);
+        rerenderEditor();
+      }
+    } catch (error) { toast(error.message, true); }
     return;
   }
 
   /* ── أقسام الحملة ── */
   if (act === 'add-section') {
-    var type = document.getElementById('addSectionType').value;
+    var typeSelect = document.getElementById('addSectionType');
+    var type = typeSelect ? typeSelect.value : '';
     if (!type) return;
     state.draft.sections = state.draft.sections || [];
     state.draft.sections.push({ type: type, enabled: true, order: state.draft.sections.length + 1, data: {} });
     reorderSections();
-    renderCampaignEditor();
+    rerenderEditor();
     return;
   }
 
   if (act === 'del-section') {
-    state.draft.sections.splice(Number(node.getAttribute('data-index')), 1);
+    var delIndex = Number(node.getAttribute('data-index'));
+    var delOpen = openSectionStates();
+    state.draft.sections.splice(delIndex, 1);
+    delOpen.splice(delIndex, 1);
     reorderSections();
-    renderCampaignEditor();
+    rerenderEditor(delOpen);
     return;
   }
 
@@ -188,19 +216,25 @@ async function onClick(event) {
     var sections = state.draft.sections;
     var sn = si + sdir;
     if (sn >= 0 && sn < sections.length) {
-      var s = sections.splice(si, 1)[0];
-      sections.splice(sn, 0, s);
+      var moveOpen = openSectionStates();
+      sections.splice(sn, 0, sections.splice(si, 1)[0]);
+      moveOpen.splice(sn, 0, moveOpen.splice(si, 1)[0]);
       reorderSections();
-      renderCampaignEditor();
+      rerenderEditor(moveOpen);
     }
     return;
   }
 
   if (act === 'blank-sections') {
-    var product = state.products.filter(function (p) { return p.id === state.draft.productId; })[0];
-    var res = await api('sections.blank', { type: product ? product.type : 'life' });
-    state.draft.sections = res.sections;
-    renderCampaignEditor();
+    try {
+      var product = state.products.filter(function (p) { return p.id === state.draft.productId; })[0];
+      var res = await api('sections.blank', { type: product ? product.type : 'life' });
+      state.draft.sections = res.sections;
+      /* أقسام جديدة كامل — حالة الفتح القديمة ما عندها معنى، نعطيو
+         مصفوفة خاوية (كلشي مطوي). نعدّيو على rerenderEditor برك باش
+         التمرير يرجع لبلاصتو كيما في كل الأفعال الأخرى. */
+      rerenderEditor([]);
+    } catch (error) { toast(error.message, true); }
     return;
   }
 
@@ -268,23 +302,60 @@ async function onClick(event) {
  * زيد/حيّد عنصر يفرض إعادة بناء الفورم. بلا هذا، كل ضغطة على "زيد"
  * تطوي كل الأقسام وترجّع التمرير لفوق — والمستخدم يضيع بلاصتو.
  */
-function rerenderEditor() {
-  var form = document.querySelector('.editor-form');
-  var scrollTop = form ? form.scrollTop : 0;
-  var open = Array.prototype.map.call(
+function openSectionStates() {
+  return Array.prototype.map.call(
     document.querySelectorAll('.section-block'),
     function (block) { return block.open; },
   );
+}
+
+/* openOverride: تحريك/حذف قسم يبدّل الترتيب، فحالة الفتح المقروءة من
+   الـ DOM تولّي تشير للبلاصة الغالطة — الطالب يعطينا المصفوفة بعد ما
+   يطبّق عليها نفس التحريك. */
+function rerenderEditor(openOverride) {
+  var pageScroll = window.scrollY;
+  var open = openOverride || openSectionStates();
 
   if (state.draft) renderCampaignEditor();
-  else if (state.product) { renderProductEditor(); return; }
+  else if (state.product) renderProductEditor();
   else return;
 
   Array.prototype.forEach.call(document.querySelectorAll('.section-block'), function (block, index) {
     if (open[index]) block.open = true;
   });
-  var next = document.querySelector('.editor-form');
-  if (next) next.scrollTop = scrollTop;
+  /* جوج المحرّرين يزحلقو مع الصفحة كاملة (.editor-form ما عندهاش
+     overflow) — فترجيع التمرير تاع النافذة يكفي للزوج */
+  window.scrollTo(0, pageScroll);
+}
+
+/* ── حارس التنقّل (تبديلات ما تحفظوش) ───────────────────────────────
+   beforeunload في ui/form.js يمسك غير الخروج الحقيقي من الصفحة. التنقّل
+   جوّا اللوحة هو تبديل hash برك — ما يمرّش عليه. هنا نمسكوه: كي يكون
+   المحرّر متبدّل، نسألو قبل، وإذا رفض نرجّعو الـ hash لبلاصتو. */
+var lastHash = location.hash || '#/dashboard';
+var revertingHash = false;
+
+async function onHashChange() {
+  /* الرجوع البرمجي للـ hash القديم يطلق hashchange مرّة ثانية — بلا هاذ
+     العلم ندورو في حلقة سؤال/رجوع بلا نهاية */
+  if (revertingHash) { revertingHash = false; return; }
+
+  if (isDirty()) {
+    var proceed = await confirmDiscard();
+    if (!proceed) {
+      if (location.hash !== lastHash) {
+        revertingHash = true;
+        location.hash = lastHash;
+      }
+      return;
+    }
+  }
+
+  /* خرجنا من المحرّر — نسّي الحالة القديمة، وإلا الحارس يبقى يقارن
+     كائن ما بقاش معروض ويسأل في صفحة ما فيها والو */
+  clearDirty();
+  lastHash = location.hash;
+  await route();
 }
 
 /* ── الإقلاع ────────────────────────────────────────────────────── */
@@ -292,6 +363,6 @@ function rerenderEditor() {
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);
 document.addEventListener('click', onClick);
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', onHashChange);
 
 boot();

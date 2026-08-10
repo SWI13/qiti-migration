@@ -1,36 +1,58 @@
 /* ==========================================================================
-   Qiti admin — بلوك حالة (فارغ/خطأ)
-   بديل emptyState(message) القديم — أيقونة + عنوان + شرح + زر اختياري،
-   بدل سطر نص جامد. نفس البلوك يخدم للفارغ وللخطأ (variant يبدّل اللون).
+   Qiti admin — بلوك حالة (فارغ / خطأ / تحميل)
+   بديل emptyState(message) القديم — أيقونة + عنوان + شرح + زر ولا زوج،
+   بدل سطر نص جامد. نفس البلوك يخدم للثلاث حالات (variant يبدّل الأيقونة
+   واللون) باش حتى صفحة ما تبقى بيضا خاوية بلا ما تقول للمستخدم واش صار
+   ولا واش يدير من بعد.
    ========================================================================== */
 import { esc } from '../dom.js';
+import { t } from '../i18n.js';
+import { icon } from './icon.js';
 
-var ICON_PATHS = {
-  empty: '<path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
-  error: '<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5"/><path d="M12 17h.01"/>',
-};
+/* الأيقونة حسب النغمة. 'loading' ما عندهاش أيقونة ثابتة — عندها دويرة
+   تدور (.state__spinner)، لأنّ صورة جامدة ما تقولش "استنّى". */
+var VARIANT_ICON = { empty: 'empty', error: 'error' };
+
+/** يبني زر واحد (رابط ولا زر بـ data-act) — نفس الشكل للأساسي والثانوي */
+function actionHtml(label, href, act, id, className) {
+  if (!label) return '';
+  var classes = 'btn btn--xs state__action ' + className;
+  if (href) {
+    return '<a class="' + classes + '" href="' + esc(href) + '">' + esc(label) + '</a>';
+  }
+  if (act) {
+    return '<button type="button" class="' + classes + '" data-act="' + esc(act) + '"' +
+      (id != null ? ' data-id="' + esc(id) + '"' : '') + '>' + esc(label) + '</button>';
+  }
+  return '';
+}
 
 /**
- * stateBlock({ variant, title, body, actionLabel, actionHref, actionAct, actionId })
- * variant: 'empty' | 'error' — يحدّد الأيقونة واللون.
+ * stateBlock({
+ *   variant,                                       'empty' | 'error' | 'loading'
+ *   title, body,
+ *   actionLabel, actionHref, actionAct, actionId,          الزر الرئيسي
+ *   secondaryLabel, secondaryHref, secondaryAct, secondaryId   زر ثانوي
+ * })
+ * كل الحقول اختيارية. في 'loading' العنوان يولّي t('state.loading') إذا
+ * ما عطيتوش.
  */
 export function stateBlock(opts) {
   opts = opts || {};
   var variant = opts.variant || 'empty';
-  var path = ICON_PATHS[variant] || ICON_PATHS.empty;
+  var loading = variant === 'loading';
+  var title = opts.title || (loading ? t('state.loading') : '');
 
-  var action = '';
-  if (opts.actionHref) {
-    action = '<a class="btn btn--primary btn--xs state__action" href="' + esc(opts.actionHref) + '">' + esc(opts.actionLabel) + '</a>';
-  } else if (opts.actionAct) {
-    action = '<button type="button" class="btn btn--primary btn--xs state__action" data-act="' + esc(opts.actionAct) + '"' +
-      (opts.actionId != null ? ' data-id="' + esc(opts.actionId) + '"' : '') + '>' + esc(opts.actionLabel) + '</button>';
-  }
+  var primary = actionHtml(opts.actionLabel, opts.actionHref, opts.actionAct, opts.actionId, 'btn--primary');
+  var secondary = actionHtml(opts.secondaryLabel, opts.secondaryHref, opts.secondaryAct, opts.secondaryId, 'btn--outline');
+  var actions = (primary || secondary) ? '<div class="state__actions">' + primary + secondary + '</div>' : '';
 
-  return '<div class="state state--' + esc(variant) + '">' +
-    '<svg class="ico state__icon" viewBox="0 0 24 24">' + path + '</svg>' +
-    '<div class="state__title">' + esc(opts.title || '') + '</div>' +
+  /* role="status" على التحميل برك: قارئ الشاشة يعلن "راهي تحمّل" كي
+     يتبدّل المحتوى. على الفارغ/الخطأ ما نحتاجوهش — المحتوى وصل. */
+  return '<div class="state state--' + esc(variant) + '"' + (loading ? ' role="status"' : '') + '>' +
+    (loading ? '<div class="state__spinner"></div>' : icon(VARIANT_ICON[variant] || 'empty', 'state__icon')) +
+    '<div class="state__title">' + esc(title) + '</div>' +
     (opts.body ? '<div class="state__body">' + esc(opts.body) + '</div>' : '') +
-    action +
+    actions +
   '</div>';
 }

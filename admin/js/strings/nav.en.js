@@ -1,0 +1,20 @@
+/* ==========================================================================
+   Qiti admin — نصوص الشريط الجانبي والعلامة
+   ========================================================================== */
+
+export var NAV_EN = {
+  'nav.brand': 'Qiti',
+  'nav.brandSuffix': 'Admin',
+  'nav.toggle': 'Menu',
+  'nav.group.content': 'Content',
+  'nav.group.store': 'Store',
+  'nav.dashboard': 'Dashboard',
+  'nav.orders': 'Orders',
+  'nav.campaigns': 'Campaigns',
+  'nav.products': 'Products',
+  'nav.categories': 'Categories',
+  'nav.media': 'Media',
+  'nav.logout': 'Log out',
+  'nav.collapse': 'Collapse sidebar',
+  'nav.expand': 'Expand sidebar',
+};

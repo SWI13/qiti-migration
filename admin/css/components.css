@@ -1,23 +1,67 @@
 /* ==========================================================================
    Qiti admin — components
-   عناصر واجهة قابلة لإعادة الاستعمال عبر أكثر من صفحة: أزرار، بطاقات،
-   قوائم صفوف، نظام الحقول، نافذة تأكيد، توست، سكيلتون، بلوك حالة، مودال.
+   عناصر واجهة قابلة لإعادة الاستعمال عبر أكثر من صفحة. الترتيب:
+     1. أزرار            5. جداول (.data-table)
+     2. بطاقات وقوائم    6. نوافذ (modal/dialog) + قوائم منسدلة
+     3. شارات            7. توست + تلميح
+     4. فورمات وحقول     8. سكيلتون + بلوك حالة
+   كل الأرقام من css/tokens.css. أي عنصر جديد يلزمو يدخل في وحدة من
+   هاذ الثمانية — ماشي يفتح عائلة جديدة حداهم.
    ========================================================================== */
 
-/* ── أزرار مساعدة (base .btn/.btn--primary/.btn--ghost في styles.css) ── */
+/* ══ 1. أزرار ═══════════════════════════════════════════════════════════
+   القاعدة (.btn, .btn--primary, .btn--ghost, .btn--sm) جاية من
+   styles.css. هنا غير الزيادات الخاصة باللوحة + الحالات.
+
+   العائلة:
+     .btn--primary      الفعل الرئيسي (برتقالي مصمت)
+     .btn--outline      فعل ثانوي
+     .btn--danger       تخريبي — حدود حمرا، تتعمّر في hover
+     .btn--danger-solid تخريبي مؤكَّد (زر التأكيد في نافذة الحذف)
+   المقاسات: .btn--xs / .btn--sm / (بلا صنف = md)                          */
+
 .btn--outline {
   background: transparent; border: 1.5px solid var(--border-strong); color: var(--text);
 }
 .btn--outline:hover { border-color: var(--accent); color: var(--accent); }
+
+/* التخريبي لازم يقرا تخريبي حتى قبل ما تقرا النص: أحمر في الحالتين،
+   ويتعمّر كامل في hover باش "الضغط هنا يمسح" تبان بلا شك */
 .btn--danger { background: transparent; border: 1.5px solid var(--st-danger); color: var(--st-danger); }
-.btn--danger:hover { background: var(--st-danger); color: #fff; }
+.btn--danger:hover { background: var(--st-danger); color: var(--st-on-solid); border-color: var(--st-danger); }
+.btn--danger-solid {
+  background: var(--st-danger); color: var(--st-on-solid);
+  border: 1.5px solid var(--st-danger); box-shadow: var(--shadow-sm);
+}
+.btn--danger-solid:hover { background: color-mix(in srgb, var(--st-danger) 84%, var(--ink)); }
+
 .btn--xs { padding: 7px 14px; font-size: .8rem; }
 
-/* "نسخ" بنفس وزن "إنشاء" بصح لون أهدى — هو الطريق الأسرع بعد أوّل حملة */
-.btn--twin { background: var(--surface); border: 1.5px solid var(--accent); color: var(--accent); }
-.btn--twin:hover { background: var(--accent-soft); }
+/* ── حالات الزر ────────────────────────────────────────────────────────
+   pointer-events:none على المعطّل يمنع حتى الضغطة اللي تفوت للمستمع
+   المفوَّض في app.js — بلا هذا زر "احفظ" معطّل يقدر يحفظ مرّتين. */
+.btn:disabled,
+.btn[disabled],
+.btn[aria-disabled="true"] {
+  opacity: .5; cursor: not-allowed; pointer-events: none;
+  transform: none; box-shadow: none;
+}
 
-/* ── بطاقات وقوائم ─────────────────────────────────────────────────────── */
+/* is-busy: الزر يبقى يقرا نصّو (المستخدم يعرف واش راهو يستنّى) وتزيد
+   دويرة قدّامو. .btn هي inline-flex بـ gap، فالدويرة تدخل في الصف
+   وحدها بلا ما نحسبو بلاصتها. */
+.btn.is-busy { pointer-events: none; opacity: .8; }
+.btn.is-busy::before {
+  content: '';
+  width: 14px; height: 14px; flex: none;
+  border-radius: var(--r-full);
+  border: 2px solid currentColor; border-top-color: transparent;
+  animation: qti-spin .7s linear infinite;
+}
+
+@keyframes qti-spin { to { transform: rotate(360deg); } }
+
+/* ══ 2. بطاقات وقوائم ═══════════════════════════════════════════════════ */
 .admin-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -26,81 +70,170 @@
 }
 /* بطاقة فورم — نفس الحشو والمسافة اللي كانت مكرّرة inline في عدّة
    بلايص (products.js، skeleton.js). صنف وحدو باش الحشو ما يتفرّقش. */
-.admin-card--form { padding: 18px; margin-bottom: 16px; }
+.admin-card--form { padding: var(--sp-5); margin-bottom: var(--sp-4); }
 .admin-card--form:last-child { margin-bottom: 0; }
+.admin-card h3 { font-size: var(--fs-card); font-weight: var(--fw-black); line-height: var(--lh-tight); }
+
 .row-list { display: flex; flex-direction: column; }
 .row-item {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid var(--border);
 }
 .row-item:last-child { border-bottom: 0; }
-.row-item__name { font-weight: 700; font-size: .98rem; }
-.row-item__meta { color: var(--text-muted); font-size: .82rem; margin-top: 2px; }
-.row-item__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.row-item__name { font-weight: var(--fw-bold); font-size: var(--fs-body); }
+.row-item__meta { color: var(--text-muted); font-size: var(--fs-meta); margin-top: var(--sp-hair); }
+.row-item__actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
 
-/* شارة الحالة */
+/* ≤640: الصف يولّي عمود. الأزرار الخمسة تاع الحملة ما يدخلوش في 360px
+   جنب الاسم — يطيحو تحتو ويتقسّمو السطر. */
+@media (max-width: 640px) {
+  .row-item {
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-2) var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .row-item__actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .row-item__actions > * { flex: 1 1 auto; }
+}
+
+/* ══ 3. شارات ═══════════════════════════════════════════════════════════
+   نظام واحد بخمس نغمات (neutral/info/success/warn/danger). القاعدة:
+   خلفية هادية + نص بلون الحالة. الاستثناء الوحيد هو .badge--*-solid —
+   خلفية مصمتة، محجوزة للحالة النهائية الإيجابية (منشور، موصّل) باش
+   تبان من بعيد في قائمة طويلة. */
 .badge {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 11px; border-radius: var(--r-full, 999px);
-  font-size: .74rem; font-weight: 700;
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
+  font-size: var(--fs-micro); font-weight: var(--fw-bold);
   background: var(--st-neutral-soft); color: var(--st-neutral);
   white-space: nowrap;
 }
-.badge--published { background: var(--st-success); color: #fff; }
-.badge--draft { background: var(--st-info-soft); color: var(--st-info); }
+.badge .ico { width: 13px; height: 13px; }
 
-/* ── فورمات ────────────────────────────────────────────────────────────── */
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.badge--neutral { background: var(--st-neutral-soft); color: var(--st-neutral); }
+.badge--info    { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--success { background: var(--st-success-soft); color: var(--st-success); }
+.badge--warn    { background: var(--st-warn-soft);    color: var(--st-warn); }
+.badge--danger  { background: var(--st-danger-soft);  color: var(--st-danger); }
+
+.badge--published { background: var(--st-success); color: var(--st-on-solid); }
+
+/* الأسماء القديمة تتربط على النغمات فوق — ماشي عائلة ثانية.
+   --st-info أصلو نفس --accent (البراند البرتقالي)، فخلّيناه لـ
+   "accepted" برك وpending تبقى محايدة. غيرها، pending/accepted كانو
+   يبانو بلون برتقالي قدّ بعضهم بالضبط. */
+.badge--draft           { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--order-pending   { background: var(--st-neutral-soft); color: var(--st-neutral); }
+.badge--order-accepted  { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--order-delivered { background: var(--st-success);      color: var(--st-on-solid); }
+.badge--order-returned  { background: var(--st-danger-soft);  color: var(--st-danger); }
+.badge--order-denied    { background: var(--st-neutral-soft); color: var(--st-neutral); text-decoration: line-through; }
+
+/* ══ 4. فورمات وحقول ════════════════════════════════════════════════════ */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 .form-grid .field--full { grid-column: 1 / -1; }
-.field { margin-bottom: 14px; }
+
+/* display:block صريح: styles.css يعرّف .field{display:flex;gap:7px} لفورم
+   الطلب تاع المتجر، ونفس الاسم يتصادم هنا. بلا هذا السطر، الفراغ بين
+   التسمية والحقل يجي من جوج مصادر (gap + margin) ويتبدّل مع الثيم. */
+.field { display: block; margin-bottom: var(--sp-4); }
 .field > label, .field > .label {
-  display: block; font-size: .84rem; font-weight: 700; margin-bottom: 6px; color: var(--text);
+  display: block; font-size: var(--fs-label); font-weight: var(--fw-bold);
+  margin-bottom: var(--sp-2); color: var(--text);
 }
-.hint { font-size: .76rem; color: var(--text-faint); margin-top: 4px; }
 
-/* كلمة السر ما كانتش في styles.css — ثمّة غير text/tel/select */
-input[type="password"] {
-  width: 100%; height: 48px;
-  border-radius: var(--r-md);
-  border: 1.5px solid var(--border-strong);
-  background: var(--bg); color: var(--text);
-  font: inherit; padding: 0 14px;
+.hint, .field__hint {
+  font-size: var(--fs-micro); color: var(--text-faint);
+  margin-top: var(--sp-1); line-height: var(--lh-body);
 }
-input[type="password"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 
-textarea, input[type="text"], input[type="number"], input[type="color"], input[type="file"], select {
+/* ── تحقّق ─────────────────────────────────────────────────────────────
+   الرسالة تحت الحقل ماشي فوقو، وبأيقونة: قارئ الشاشة يوصلها عبر
+   aria-describedby (شوف js/ui/form.js) والعين توصلها بالحمرا + العلامة.
+   اللون وحدو ما يكفيش — ثمّة ناس ما يفرّقوش. */
+.field__error {
+  display: flex; align-items: flex-start; gap: var(--sp-1);
+  margin-top: var(--sp-1);
+  font-size: var(--fs-micro); font-weight: var(--fw-medium);
+  color: var(--st-danger); line-height: var(--lh-body);
+}
+.field__error .ico { width: 14px; height: 14px; margin-top: 1px; }
+
+.field--invalid > label,
+.field--invalid > .label { color: var(--st-danger); }
+.field--invalid input,
+.field--invalid select,
+.field--invalid textarea,
+[aria-invalid="true"] { border-color: var(--st-danger); }
+.field--invalid input:focus,
+.field--invalid select:focus,
+.field--invalid textarea:focus,
+[aria-invalid="true"]:focus {
+  border-color: var(--st-danger);
+  box-shadow: 0 0 0 4px var(--st-danger-soft);
+}
+
+/* ── عناصر الإدخال: مظهر واحد لكلّهم ──────────────────────────────────
+   كانت password مكتوبة وحدها (styles.css يغطّي غير text/tel/select).
+   دروك القائمة كاملة في قاعدة وحدة — نوع جديد يتزاد هنا برك. */
+textarea,
+select,
+input[type="text"], input[type="number"], input[type="password"], input[type="email"],
+input[type="search"], input[type="tel"], input[type="url"], input[type="date"],
+input[type="color"], input[type="file"] {
   width: 100%;
   border-radius: var(--r-md);
   border: 1.5px solid var(--border-strong);
   background: var(--bg);
   color: var(--text);
-  font: inherit; font-size: .9rem;
-  padding: 10px 14px;
-  transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+  font: inherit; font-size: var(--fs-body);
+  padding: 10px var(--sp-4);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-textarea { min-height: 78px; resize: vertical; line-height: 1.5; }
-input[type="text"], input[type="number"], select { height: 44px; }
-input[type="color"] { height: 44px; padding: 4px; cursor: pointer; }
-textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+textarea { min-height: 78px; resize: vertical; line-height: var(--lh-body); }
+select,
+input[type="text"], input[type="number"], input[type="password"], input[type="email"],
+input[type="search"], input[type="tel"], input[type="url"], input[type="date"] {
+  height: var(--ctl-h);
+}
+input[type="color"] { height: var(--ctl-h); padding: var(--sp-1); cursor: pointer; }
+
+/* السهم تاع select جاي من styles.css محطوط على اليسار (المتجر عربي RTL).
+   شاسي اللوحة إنجليزي LTR — بلا هاذ السطرين السهم يركب فوق أوّل كلمة. */
+select { background-position: right var(--sp-4) center; padding-inline: var(--sp-4) 38px; }
+
+textarea:focus, input:focus, select:focus {
+  outline: none; border-color: var(--accent); box-shadow: var(--focus-ring);
+}
+
+/* معطّل وقراءة-برك: الزوج يبانو "ماشي للكتابة"، بصح المعطّل يبان أبهت
+   (ما ينفعش تلمسو) والقراءة-برك يبقى نصّو مقروء كامل (تنسخ منّو) */
+:where(input, select, textarea):disabled {
+  background: var(--bg-gray); color: var(--text-faint);
+  border-color: var(--border); cursor: not-allowed;
+}
+:where(input, textarea)[readonly] { background: var(--bg-gray); border-color: var(--border); }
+:where(input, textarea)[readonly]:focus { border-color: var(--border-strong); box-shadow: none; }
 
 /* أزرار وعناصر ملاحة اللوحة ما عندهاش قاعدة focus خاصة بيها — تفوت
    لتلقائي المتصفّح ديما. حلقة وحدة موحّدة أحسن من كل زر يبان بشكل مختلف. */
-:where(.nav-link, .mini-btn, .row-item--order, .viewport-btn):focus-visible {
+:where(.nav-link, .mini-btn, .row-item--order, .viewport-btn, .media-item[data-pick],
+       .tabs__tab, .menu__item, .menu__btn, .data-table th button, .toast__close):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.checkbox-row { display: flex; align-items: center; gap: 8px; }
+.checkbox-row { display: flex; align-items: center; gap: var(--sp-2); }
 .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
-.checkbox-row label { font-size: .86rem; font-weight: 600; cursor: pointer; }
+.checkbox-row label { font-size: var(--fs-label); font-weight: var(--fw-medium); cursor: pointer; }
 
 /* حقل صورة: رابط + معاينة صغيرة + زر اختيار من الميديا */
-.image-field { display: flex; align-items: center; gap: 10px; }
-.image-field input[type="text"] { flex: 1; }
+.image-field { display: flex; align-items: center; gap: var(--sp-3); }
+.image-field input[type="text"] { flex: 1; min-width: 0; }
 .image-field__thumb {
   width: 44px; height: 44px; border-radius: var(--r-sm);
   background: var(--bg-gray); border: 1px solid var(--border);
@@ -108,73 +241,280 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--a
 }
 
 /* ── مجموعات قابلة للتكرار (كروت، خطوات، تعليقات...) ─────────────────── */
-.group-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.group-list { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .group-item {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: var(--sp-4);
   background: var(--bg-gray);
   position: relative;
 }
-.group-item__head { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; }
-.group-item .field { margin-bottom: 10px; }
+.group-item__head { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.group-item .field { margin-bottom: var(--sp-3); }
 .group-item .field:last-child { margin-bottom: 0; }
 
 .mini-btn {
   width: 28px; height: 28px; display: grid; place-items: center;
   border-radius: var(--r-sm); border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--text-muted); font-size: .85rem;
+  background: var(--surface); color: var(--text-muted); font-size: var(--fs-label);
   cursor: pointer; line-height: 1;
 }
 .mini-btn:hover { color: var(--text); border-color: var(--text); }
+.mini-btn .ico { width: 15px; height: 15px; }
 .mini-btn--danger:hover { color: var(--st-danger); border-color: var(--st-danger); }
 
-/* ── نافذة عامة (فئة، اختيار صورة) ────────────────────────────────────── */
+/* ≤640: الفورم بعمودين ما يدخلش — عمود واحد */
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; gap: var(--sp-3); }
+  .admin-card--form { padding: var(--sp-4); }
+}
+
+/* ══ 5. جداول ═══════════════════════════════════════════════════════════
+   معيار واحد: .data-table. .stock-table صنف قديم ولّى اسم ثاني لنفس
+   المعيار (ماشي نظام موازي) — الفرق الوحيد بيناتهم هو أقلّ عرض.
+
+   الموبايل = زحليق أفقي، ماشي صفوف مكدّسة (شوف السبب في tokens.css).
+   .table-wrap يرسم ظل على الحافّة اللي فيها زيادة — بلاه، جدول مقصوص
+   يبان كامل والمستخدم ما يعرفش بلي ثمّة عمود ثالث على اليمين.        */
+
+.table-wrap {
+  overflow-x: auto;
+  /* حيلة قديمة وصافية: زوج تدرّجات بـ background-attachment:local
+     (يتحرّكو مع المحتوى) يخبّيو زوج ظلال بـ scroll (يبقاو ثابتين).
+     كي توصل للحافّة، التدرّج المحلّي يغطّي الظل ويختفي وحدو. */
+  background:
+    linear-gradient(to right, var(--surface) 40%, transparent) left center / 28px 100% no-repeat local,
+    linear-gradient(to left,  var(--surface) 40%, transparent) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--ink) 14%, transparent), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--ink) 14%, transparent), transparent) right center / 12px 100% no-repeat scroll;
+}
+/* رأس ملزوق ما عندو معنى إلا كان ثمّة زحليق عمودي جوّا الغلاف —
+   الصنف هذا هو اللي يخلقو. بلاه، الرأس يزحلق مع الصفحة كيما كل شي. */
+.table-wrap--tall { max-height: min(60vh, 520px); overflow: auto; }
+
+/* الخلية الأولى القابلة للضغط في كل جدول (اسم الزبون، اسم المنتج،
+   اسم الحملة): تملأ الخلية كاملة بدل زر صغير في الطرف. عنصر حقيقي
+   (<button> ولا <a>) — الكيبورد يخدم مجّاناً بلا role="button" يدوي.
+   ثلاث صفحات تستعملها، علاش راهي هنا ماشي في ملف صفحة. */
+.dt-link {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-hair);
+  width: 100%; padding: 0; border: 0; background: transparent;
+  font: inherit; color: inherit; text-align: start; cursor: pointer;
+  text-decoration: none; /* لازمة للنسخة <a> (قائمة المنتجات/الحملات) */
+}
+.dt-link:hover .dt-link__name { color: var(--accent); }
+.dt-link__name { font-weight: var(--fw-bold); font-size: var(--fs-body); }
+
+.data-table, .stock-table { width: 100%; border-collapse: collapse; margin-top: var(--sp-1); }
+.data-table  { min-width: 520px; }
+.stock-table { min-width: 460px; }
+
+:where(.data-table, .stock-table) th {
+  text-align: start;
+  font-size: var(--fs-micro); font-weight: var(--fw-black);
+  text-transform: uppercase; letter-spacing: var(--tracking-caps);
+  color: var(--text-faint);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  white-space: nowrap;
+}
+:where(.data-table, .stock-table) td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: var(--fs-body);
+}
+:where(.data-table, .stock-table) tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: var(--bg-gray); }
+
+/* أرقام على اليمين + tabular-nums باش الخانات توقف فوق بعضها وتتقارن
+   بالعين بلا ما تقرا كل رقم */
+.data-table .is-num { text-align: end; font-variant-numeric: tabular-nums; }
+.data-table .is-center { text-align: center; }
+
+/* رأس قابل للترتيب = <button> جوّا <th>. علاش ماشي onclick على th:
+   الزر يجي بالـ Tab وبالـ Enter بلا ما نكتبو حتى سطر JS للكيبورد. */
+.data-table th.is-sortable { padding: 0; }
+.data-table th.is-sortable > button {
+  display: flex; align-items: center; gap: var(--sp-1);
+  width: 100%; padding: var(--sp-2) var(--sp-3);
+  background: transparent; border: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: inherit;
+}
+.data-table th.is-sortable.is-num > button { justify-content: flex-end; }
+.data-table th.is-sortable > button:hover { color: var(--text); }
+.data-table th[aria-sort="ascending"] > button,
+.data-table th[aria-sort="descending"] > button { color: var(--accent); }
+.data-table__sort-ico { width: 13px; height: 13px; opacity: .4; }
+.data-table th[aria-sort="ascending"] .data-table__sort-ico,
+.data-table th[aria-sort="descending"] .data-table__sort-ico { opacity: 1; }
+
+.stock-table input[type="number"] { height: var(--ctl-h-sm); padding: 0 var(--sp-3); }
+.stock-table td.stock-low input { border-color: var(--st-danger); }
+.stock-table td.stock-low::after { content: '⚠'; margin-inline-start: var(--sp-2); color: var(--st-danger); }
+
+@media (max-width: 640px) {
+  :where(.data-table, .stock-table) th,
+  :where(.data-table, .stock-table) td { padding: var(--sp-2); }
+}
+
+/* ══ 6. نوافذ + تبويبات + قوائم منسدلة ══════════════════════════════════ */
+
+/* ── نافذة عامة (فئة، اختيار صورة) ────────────────────────────────────
+   z-index لازم يفوت زر الدرج والشريط الجانبي — بـ 50 كان زر القائمة
+   يبان فوق النافذة فالموبايل ويحلّ الدرج فوقها. */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(20,17,15,.45);
-  display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  position: fixed; inset: 0;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  z-index: var(--z-modal); padding: var(--sp-5);
 }
 .modal {
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg);
-  width: min(560px, 100%); max-height: 84vh; overflow-y: auto; padding: 22px;
+  width: min(560px, 100%); max-height: 84vh; overflow-y: auto; padding: var(--sp-6);
 }
-.modal h3 { font-size: 1.05rem; margin-bottom: 14px; }
-.modal__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal h3 { font-size: 1.05rem; margin-bottom: var(--sp-4); }
+.modal__foot { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); flex-wrap: wrap; }
+
+/* ≤640: النافذة تطلع من تحت وتلزق في القاع (bottom sheet). علاش ماشي
+   مربّع متوسّط: على تلفون، الإبهام يوصل لتحت الشاشة ماشي لوسطها، وأزرار
+   "احفظ/ألغي" لازم تكون في متناولو. */
+@media (max-width: 640px) {
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    width: 100%; max-height: 92vh;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: var(--sp-5) var(--sp-4) var(--sp-6);
+  }
+  .modal__foot > * { flex: 1 1 auto; }
+}
 
 /* ── نافذة تأكيد (بديل confirm()) ─────────────────────────────────────── */
 .dialog-overlay {
-  position: fixed; inset: 0; background: rgba(20,17,15,.45);
-  display: flex; align-items: center; justify-content: center; z-index: 90; padding: 20px;
+  position: fixed; inset: 0;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  z-index: var(--z-dialog); padding: var(--sp-5);
 }
 .dialog {
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg);
-  width: min(420px, 100%); padding: 22px;
+  width: min(420px, 100%); padding: var(--sp-6);
   border-top: 4px solid var(--st-info);
 }
 .dialog:focus { outline: none; }
 .dialog--danger { border-top-color: var(--st-danger); }
 .dialog__head h3 { font-size: 1.05rem; }
-.dialog__body { margin-top: 10px; color: var(--text-muted); font-size: .9rem; line-height: 1.55; }
-.dialog__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.dialog__body { margin-top: var(--sp-3); color: var(--text-muted); font-size: var(--fs-body); line-height: var(--lh-body); }
+.dialog__foot { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-5); }
 
-/* ── توست مكدّس ───────────────────────────────────────────────────────── */
+/* ── تبويبات ──────────────────────────────────────────────────────────
+   الأدوار (tablist/tab/tabpanel) وسهم اليمين/اليسار في js/ui/tabs.js —
+   هنا الشكل برك. القائمة تزحلق أفقياً في الموبايل بدل ما تتكسّر على
+   سطرين (تبويبات على سطرين ما تبانش بلي هي تبويبات). */
+.tabs__list {
+  display: flex; gap: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs__list::-webkit-scrollbar { display: none; }
+.tabs__tab {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: -1px;
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  font: inherit; font-size: var(--fs-body); font-weight: var(--fw-bold);
+  color: var(--text-muted); white-space: nowrap; cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.tabs__tab:hover { color: var(--text); }
+.tabs__tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tabs__tab .ico { width: 16px; height: 16px; }
+.tabs__panel { padding-top: var(--sp-4); }
+
+/* ── قائمة منسدلة ─────────────────────────────────────────────────────
+   للأفعال الزايدة في صف (مسح، نسخ، أرشفة…). ⚠️ ما تحطّهاش جوّا .modal:
+   النافذة عندها overflow-y:auto فالقائمة تتقصّ على حافّتها. */
+.menu { position: relative; display: inline-flex; }
+.menu__popup {
+  position: absolute; inset-inline-end: 0; top: calc(100% + var(--sp-2));
+  min-width: 180px; z-index: var(--z-menu);
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--sp-1);
+  display: none;
+}
+.menu.is-open .menu__popup { display: block; }
+.menu__item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: 100%; padding: var(--sp-2) var(--sp-3);
+  background: transparent; border: 0; border-radius: var(--r-sm);
+  font: inherit; font-size: var(--fs-body); font-weight: var(--fw-medium);
+  color: var(--text); text-align: start; white-space: nowrap; cursor: pointer;
+}
+.menu__item:hover { background: var(--bg-gray); }
+.menu__item .ico { width: 15px; height: 15px; opacity: .7; }
+.menu__item--danger { color: var(--st-danger); }
+.menu__item--danger:hover { background: var(--st-danger-soft); }
+.menu__sep { height: 1px; background: var(--border); margin: var(--sp-1) 0; }
+
+/* ══ 7. توست + تلميح ════════════════════════════════════════════════════ */
 .toast-stack {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px;
-  z-index: 95; pointer-events: none;
+  position: fixed; bottom: var(--sp-5); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; align-items: center; gap: var(--sp-2);
+  z-index: var(--z-toast); pointer-events: none;
+  max-width: min(420px, calc(100vw - var(--sp-7)));
 }
 .toast {
+  pointer-events: auto;   /* الرصّة كاملة none — التوست وحدو يستقبل الضغط */
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  max-width: 100%;
   background: var(--text); color: var(--bg);
-  padding: 11px 20px; border-radius: var(--r-md); font-size: .86rem; font-weight: 600;
-  box-shadow: var(--shadow-md); white-space: nowrap;
+  padding: var(--sp-3);
+  padding-inline-start: var(--sp-4);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
   opacity: 0; transform: translateY(6px);
-  transition: opacity .2s var(--ease), transform .2s var(--ease);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .toast.is-visible { opacity: 1; transform: translateY(0); }
-.toast--error { background: var(--st-danger); color: #fff; }
+.toast--error { background: var(--st-danger); color: var(--st-on-solid); }
 .toast--info { background: var(--st-info); color: var(--accent-text); }
 
-/* ── سكيلتون (تحميل) ──────────────────────────────────────────────────── */
+.toast__icon { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.toast__body { flex: 1; min-width: 0; }
+.toast__title { font-size: var(--fs-meta); font-weight: var(--fw-black); margin-bottom: var(--sp-hair); }
+.toast__msg { font-size: var(--fs-meta); font-weight: var(--fw-medium); line-height: 1.45; overflow-wrap: anywhere; }
+.toast__close {
+  flex: none; width: 22px; height: 22px; display: grid; place-items: center;
+  background: transparent; border: 0; border-radius: var(--r-sm);
+  color: inherit; opacity: .65; cursor: pointer;
+}
+.toast__close:hover { opacity: 1; }
+.toast__close .ico { width: 14px; height: 14px; }
+
+/* ── تلميح (CSS برك، بـ attribute) ────────────────────────────────────
+   data-tip="نص" على أي عنصر. ماشي بديل لـ aria-label — العنصر لازمو
+   اسم مقروء وحدو؛ هذا يزيد شرح برك. في الشاشة اللمسية يتخبّى (ما ثمّاش
+   hover، ويبقى معلّق بعد الضغطة). */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + var(--sp-2)); left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  z-index: var(--z-menu);
+  background: var(--text); color: var(--bg);
+  padding: 5px var(--sp-2); border-radius: var(--r-sm);
+  font-size: var(--fs-micro); font-weight: var(--fw-medium); white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (hover: none) { [data-tip]::after { display: none; } }
+
+/* ══ 8. سكيلتون + بلوك حالة ═════════════════════════════════════════════ */
 .sk { position: relative; overflow: hidden; background: var(--bg-gray); }
 .sk::after {
   content: ''; position: absolute; inset: 0; transform: translateX(-100%);
@@ -186,22 +526,38 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--a
 }
 @keyframes sk-shimmer { 100% { transform: translateX(100%); } }
 
-.sk--row { height: 58px; border-radius: var(--r-md); margin: 10px 18px; }
-.sk--line { height: 13px; border-radius: var(--r-sm); margin: 10px 0; }
+.sk--row  { height: 58px; border-radius: var(--r-md); margin: var(--sp-3) var(--sp-5); }
+.sk--line { height: 13px; border-radius: var(--r-sm); margin: var(--sp-3) 0; }
 .sk--card { height: 100%; min-height: 220px; border-radius: var(--r-lg); }
+.sk--cell { height: 14px; border-radius: var(--r-sm); }
+.sk--tile { height: 142px; border-radius: var(--r-md); }
 
 @media (prefers-reduced-motion: reduce) {
   .sk::after { animation: none; }
   .toast { transition: none; }
+  /* الدويرة تبقى تدور بصح بهدوء — توقيفها كامل يخلّي "راهي تخدم" بلا
+     إشارة، واللي طلب تقليل الحركة يحتاج يعرف هو ثاني */
+  .btn.is-busy::before, .state__spinner { animation-duration: 2.4s; }
 }
 
-/* ── بلوك حالة (فارغ / خطأ) ────────────────────────────────────────────── */
+/* ── بلوك حالة (فارغ / خطأ / تحميل) ───────────────────────────────────── */
 .state {
-  text-align: center; padding: 56px 24px;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; padding: var(--sp-9) var(--sp-6);
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
 }
-.state__icon { width: 40px; height: 40px; color: var(--st-neutral); margin-bottom: 4px; }
+.state__icon { width: 40px; height: 40px; color: var(--st-neutral); margin-bottom: var(--sp-1); }
 .state--error .state__icon { color: var(--st-danger); }
-.state__title { font-size: 1rem; font-weight: 800; color: var(--text); }
-.state__body { font-size: .86rem; color: var(--text-muted); max-width: 360px; }
-.state__action { margin-top: 10px; }
+.state__title { font-size: var(--fs-card); font-weight: var(--fw-black); color: var(--text); }
+.state__body { font-size: var(--fs-meta); color: var(--text-muted); max-width: 360px; line-height: var(--lh-body); }
+.state__action { margin-top: var(--sp-3); }
+.state__actions {
+  display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: center;
+  margin-top: var(--sp-3);
+}
+.state__actions .state__action { margin-top: 0; }
+.state__spinner {
+  width: 28px; height: 28px; margin-bottom: var(--sp-1);
+  border-radius: var(--r-full);
+  border: 3px solid var(--border-strong); border-top-color: var(--accent);
+  animation: qti-spin .8s linear infinite;
+}

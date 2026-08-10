@@ -8,7 +8,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
-import { fmtMoney } from '../format.js';
+import { fmtMoney, fmtDay, fmtPct } from '../format.js';
 import { t } from '../i18n.js';
 import { shell } from '../ui/shell.js';
 import { skeletonDashboard } from '../ui/skeleton.js';
@@ -22,15 +22,6 @@ var RANGE_OPTIONS = [
   { value: 30, label: 'dashboard.range30' },
   { value: 90, label: 'dashboard.range90' },
 ];
-
-function fmtDate(day) {
-  if (!day) return '';
-  return new Date(day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function fmtPct(n) {
-  return (n * 100).toFixed(1) + '%';
-}
 
 /* نسبة التغيير ديار كل مرّة تكون عندها نقطة انطلاق (prev > 0) — على صفر
    النسبة المئوية ما عندهاش معنى، أحسن نخبّيوها بدل رقم غالط (∞ ولا NaN) */
@@ -59,12 +50,12 @@ function kpiGrid(summary) {
     ? esc(t('dashboard.noVisitData'))
     : esc(k.visits + ' ' + t('dashboard.visits').toLowerCase());
   if (k.trackingSince && k.trackingSince > summary.window.startDay) {
-    conversionSub += ' · ' + esc(t('dashboard.trackingSince', { date: fmtDate(k.trackingSince) }));
+    conversionSub += ' · ' + esc(t('dashboard.trackingSince', { date: fmtDay(k.trackingSince) }));
   }
 
   return '<div class="kpi-grid">' +
     kpiTile(t('dashboard.revenue'), esc(fmtMoney(k.revenue)), esc(t('dashboard.revenueHint')), deltaHtml(k.revenue, k.revenuePrev)) +
-    kpiTile(t('dashboard.orders'), esc(String(k.ordersPlaced)), esc(k.delivered + ' delivered · ' + k.pending + ' pending')) +
+    kpiTile(t('dashboard.orders'), esc(String(k.ordersPlaced)), esc(t('dashboard.ordersSub', { delivered: k.delivered, pending: k.pending }))) +
     kpiTile(t('dashboard.aov'), esc(fmtMoney(k.aov)), '') +
     kpiTile(t('dashboard.productsSold'), esc(String(k.unitsSold)), '') +
     kpiTile(t('dashboard.customers'), esc(String(k.customers)), '') +
@@ -86,7 +77,7 @@ function revenueChartCard(summary) {
       { values: s.revenue, tone: 'accent' },
       { values: s.pipeline, tone: 'muted' },
     ],
-    labels: s.days.map(fmtDate),
+    labels: s.days.map(fmtDay),
     format: function (v) { return fmtMoney(v); },
     ariaLabel: t('dashboard.revenueChart') + ' / ' + t('dashboard.pipeline'),
   });
@@ -97,7 +88,7 @@ function ordersChartCard(summary) {
   var s = summary.series;
   var html = barChart({
     values: s.orders,
-    labels: s.days.map(fmtDate),
+    labels: s.days.map(fmtDay),
     format: function (v) { return String(v); },
     ariaLabel: t('dashboard.ordersChart'),
   });
@@ -137,10 +128,10 @@ function topProductsCard(summary) {
 function campaignsCard(summary) {
   var rows = (summary.campaigns || []).map(function (c) {
     var conv = c.conversionRate == null ? '—' : fmtPct(c.conversionRate);
+    var stats = t('dashboard.campaignStats', { visits: c.visits, orders: c.orders, conv: conv });
     return '<a class="row-item row-item--order" href="#/campaigns/' + esc(c.id) + '">' +
       '<div><div class="row-item__name"><bdi>' + esc(c.name || t('campaigns.untitled')) + '</bdi></div>' +
-      '<div class="row-item__meta">/' + esc(c.slug) + ' · ' + esc(String(c.visits)) + ' visits · ' +
-        esc(String(c.orders)) + ' orders · ' + esc(conv) + '</div></div>' +
+      '<div class="row-item__meta">/' + esc(c.slug) + ' · ' + esc(stats) + '</div></div>' +
       '<div class="row-item__amount">' + esc(fmtMoney(c.revenue)) + '</div>' +
     '</a>';
   }).join('');
@@ -171,8 +162,10 @@ function recentOrdersCard(summary) {
   return rowListCard(t('dashboard.recentOrders'), rows, viewAllLink('#/orders'));
 }
 
-function rangeSelectHtml() {
-  return '<select id="dashboardRange">' +
+/* busy: راهي تجيب مدى جديد — الاختيار يتعطّل باش المستخدم ما يبعثش
+   طلب ثاني فوق اللي مازال طاير */
+function rangeSelectHtml(busy) {
+  return '<select id="dashboardRange" aria-label="' + esc(t('dashboard.rangeAriaLabel')) + '"' + (busy ? ' disabled' : '') + '>' +
     RANGE_OPTIONS.map(function (opt) {
       return '<option value="' + opt.value + '"' + (state.dashboardDays === opt.value ? ' selected' : '') + '>' +
         esc(t(opt.label)) + '</option>';
@@ -197,17 +190,23 @@ export function renderDashboard() {
       '<div style="margin-top:14px">' + recentOrdersCard(summary) + '</div>';
   }
 
-  root.innerHTML = shell(t('dashboard.title'), rangeSelectHtml(), body);
+  root.innerHTML = shell(t('dashboard.title'), rangeSelectHtml(false), body);
 
   document.getElementById('dashboardRange').addEventListener('change', async function (event) {
+    var daysBefore = state.dashboardDays;
     state.dashboardDays = Number(event.target.value);
-    root.innerHTML = shell(t('dashboard.title'), rangeSelectHtml(), skeletonDashboard());
+    root.innerHTML = shell(t('dashboard.title'), rangeSelectHtml(true), skeletonDashboard());
     try {
       var res = await api('dashboard.summary', { days: state.dashboardDays });
       state.dashboard = res.summary;
       renderDashboard();
     } catch (error) {
+      /* بلا رندر ثاني، الشاسي (skeleton) يبقى للأبد والقائمة الجديدة
+         بلا مستمع — الصفحة توقف ميتة حتى للتنقّل. نرجعو للمدى القديم
+         (اللي عندنا ملخّصو مازال صالح) بدل ما نبقاو معلّقين على خطأ */
+      state.dashboardDays = daysBefore;
       toast(error.message, true);
+      renderDashboard();
     }
   });
 }

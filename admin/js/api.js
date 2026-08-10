@@ -24,7 +24,11 @@ export async function api(action, payload) {
   if (response.status === 401) {
     state.authed = false;
     renderLogin();
-    throw new Error(t('login.sessionExpired'));
+    /* العلامة تخلّي الطالب يفرّق بين "الجلسة طاحت، شاشة الدخول رَاهي
+       بانت" وبين خطأ حقيقي يستاهل رسالة — شوف boot() في app.js */
+    var expired = new Error(t('login.sessionExpired'));
+    expired.unauthorized = true;
+    throw expired;
   }
   if (!response.ok) throw new Error(data.error || t('common.error'));
   return data;

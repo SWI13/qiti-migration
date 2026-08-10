@@ -2,9 +2,10 @@
    Qiti admin — DOM helpers
    esc/getPath/setPath/delPath are pure and framework-free on purpose: the
    whole admin builds HTML by string concatenation, no template engine.
-   toast() is the one stateful thing here — a small stacking notification
-   queue (see .toast-stack in css/components.css).
+   toast() is kept here as a thin alias over ui/toast.js so the dozens of
+   existing `toast(msg, isError)` call sites keep working unchanged.
    ========================================================================== */
+import { showToast } from './ui/toast.js';
 
 export function esc(value) {
   return String(value == null ? '' : value)
@@ -44,36 +45,11 @@ export function delPath(obj, path) {
   else delete parent[last];
 }
 
-/* ── توست مكدّس ─────────────────────────────────────────────────────
-   عدّة توست يقدرو يبانو في نفس الوقت (مثلاً رفع بزوج صور)، كل وحدة
-   تختفي وحدها بعد وقتها — بلا ما توقف ولا تعاود توست قبلها. */
-var TOAST_MS = 3200;
-
-function toastStack() {
-  var node = document.querySelector('.toast-stack');
-  if (!node) {
-    node = document.createElement('div');
-    node.className = 'toast-stack';
-    document.body.appendChild(node);
-  }
-  return node;
-}
-
-/** نفس التوقيع القديم: toast(message, isError) — الفرق كامل داخلي. */
+/* ── توست ───────────────────────────────────────────────────────────
+   المنطق كامل ولّى في ui/toast.js (نغمات، عنوان، وقوف على الفأرة، زر
+   تسكير). هذي تبقى هنا بنفس التوقيع القديم — عشرات المناداة في
+   pages/*.js تكتب toast(msg, isError) وما ثمّاش سبب باش نبدّلوهم كامل.
+   الكود الجديد يستعمل showToast() مباشرة كي يحتاج نغمة 'info' ولا عنوان. */
 export function toast(message, isError) {
-  var stack = toastStack();
-  var node = document.createElement('div');
-  node.className = 'toast toast--' + (isError ? 'error' : 'success');
-  node.textContent = message;
-  stack.appendChild(node);
-
-  /* frame واحد قبل ما نزيدو is-visible باش الـ transition يخدم */
-  requestAnimationFrame(function () {
-    node.classList.add('is-visible');
-  });
-
-  setTimeout(function () {
-    node.classList.remove('is-visible');
-    setTimeout(function () { node.remove(); }, 220);
-  }, TOAST_MS);
+  return showToast({ message: message, variant: isError ? 'error' : 'success' });
 }

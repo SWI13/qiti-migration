@@ -1,0 +1,107 @@
+/* ==========================================================================
+   Qiti admin — نصوص المنتجات
+   يشمل variants.* وstock.*: الجداول تاعهم تعيش جوّا محرّر المنتج، ما
+   عندهاش صفحة وحدها.
+   ⚠️ المفاتيح هنا مربوطة بوصفات الحقول في js/product-fields.js (label
+   وhint فيها مفاتيح ماشي نصوص) — تبديل اسم مفتاح يخلّي الحقل يعرض
+   المفتاح روحو في الفورم.
+   ========================================================================== */
+
+export var PRODUCTS_EN = {
+  'products.title': 'Products',
+  'products.new': 'New Product',
+  'products.emptyTitle': 'No products yet',
+  'products.emptyBody': 'Create your first product to start selling.',
+  'products.emptyFilteredTitle': 'No products match',
+  'products.emptyFilteredBody': 'Try a different search term or status filter.',
+  'products.searchPlaceholder': 'Search name or slug…',
+  'products.filterAll': 'All statuses',
+  'products.filterActive': 'Active',
+  'products.filterArchived': 'Archived',
+  'products.filterAriaLabel': 'Filter by status',
+
+  /* ── أعمدة الجدول ── */
+  'products.colName': 'Product',
+  'products.colType': 'Type',
+  'products.colPrice': 'Price',
+  'products.colStatus': 'Status',
+
+  /* ── تبويبات المحرّر ── */
+  'products.tabBasic': 'Basic',
+  'products.tabPricing': 'Pricing',
+  'products.tabInventory': 'Inventory',
+  'products.tabVariants': 'Variants',
+  'products.tabOrganize': 'Organization',
+  'products.tabShipping': 'Shipping',
+  'products.tabSeo': 'SEO',
+
+  'products.groupBasics': 'Basics',
+  'products.name': 'Product name',
+  'products.slug': 'Slug',
+  'products.slugHint': 'qitishop.netlify.app/p/<slug>',
+  'products.shortDescription': 'Short description',
+  'products.shortDescriptionHint': 'Max 300 characters — used in listings and previews',
+  'products.description': 'Full description',
+  'products.descriptionHint': 'Max 5000 characters',
+  'products.groupMedia': 'Images',
+  'products.media': 'Gallery',
+  'products.mediaSrc': 'Image',
+  'products.mediaAlt': 'Description',
+  'products.mediaAltHint': 'For screen readers, and for Google',
+  'products.mediaHint': 'First image is the primary one — drag with ↑/↓ to reorder',
+  'products.groupPricing': 'Pricing',
+  'products.type': 'Type',
+  'products.category': 'Category',
+  'products.noCategory': '— No category —',
+  'products.price': 'Price (DZD)',
+  'products.compareAtPrice': 'Compare-at price (DZD)',
+  'products.compareAtPriceHint': 'Shown struck through on the page',
+  'products.unitCost': 'Unit cost (DZD)',
+  'products.unitCostHint': 'Used to calculate profit',
+  'products.profitMargin': 'Profit margin',
+  'products.profitMarginHint': 'Computed from price and unit cost — not stored',
+  'products.groupInventory': 'Inventory',
+  'products.defaultStockThreshold': 'Default low-stock threshold',
+  'products.defaultStockThresholdHint': 'Used to seed new variants only — edit live thresholds from the stock table below',
+  'products.initialStock': 'Initial stock quantity',
+  'products.initialStockHint': 'Only applies to products with no options (a single variant). Products with options start at 0 — fill the stock table after saving.',
+  'products.groupOrganize': 'Organize',
+  'products.status': 'Status',
+  'products.tags': 'Tags',
+  'products.tagsHint': 'One per line',
+  'products.featured': 'Featured',
+  'products.groupShipping': 'Shipping',
+  'products.weightGrams': 'Weight (grams)',
+  'products.weightGramsHint': 'Leave empty if unknown',
+  'products.shippingNote': 'Shipping note',
+  'products.shippingNoteHint': 'e.g. Fragile, ships in 2 boxes',
+  'products.groupSeo': 'SEO',
+  'products.seoTitle': 'Google title',
+  'products.seoTitleHint': 'Leave empty to use the product name',
+  'products.seoDescription': 'Google description',
+  'products.seoDescriptionHint': 'Leave empty to use the short description',
+  'products.seoOgImage': 'Social share image',
+  'products.seoOgImageHint': 'Shown when the link is shared — leave empty to use the primary image',
+  'products.optionsTitle': 'Options (sizes, colors…)',
+  'products.optionsHint': '⚠️ Values map to stock by position, not name. Removing or reordering a value shifts stock onto the wrong size/color — recheck the Stock table after saving.',
+  'products.optionName': 'Option name',
+  'products.optionNameHint': 'e.g. Size',
+  'products.optionValues': 'Values',
+  'products.optionValuesHint': 'One per line: S / M / L',
+  'products.addOption': '+ Add option',
+  'products.saved': 'Saved.',
+
+  /* ── فاريانتات ── */
+  'variants.title': 'Variants',
+  'variants.merchantSku': 'Merchant SKU',
+  'variants.barcode': 'Barcode',
+  'variants.priceDelta': 'Price difference (DZD)',
+
+  /* ── مخزون ── */
+  'stock.title': 'Stock',
+  'stock.variant': 'Variant',
+  'stock.quantity': 'Quantity',
+  'stock.threshold': 'Alert threshold',
+  'stock.single': 'Single',
+  'stock.updated': 'Stock updated.',
+};
