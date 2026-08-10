@@ -2,106 +2,117 @@
    Qiti admin — pages
    كل حاجة خاصة بصفحة وحدة برك (ماشي معاد استعمالها عبر الصفحات — هذاك
    في components.css). login, محرّر الحملة (split + معاينة + أقسام),
-   جدول مخزون المنتج, صفحة الميديا, صفحة الطلبات.
+   جداول المنتج, صفحة الميديا, صفحة الطلبات, لوحة القيادة.
    ========================================================================== */
 
 /* ── دخول ─────────────────────────────────────────────────────────────── */
 .login-screen {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  padding: var(--sp-6);
 }
 .login-card {
   width: min(380px, 100%);
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-lg); box-shadow: var(--shadow-md);
-  padding: 32px 28px;
+  padding: var(--sp-7) var(--sp-6);
 }
-.login-card h1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+.login-card h1 { font-size: 1.3rem; font-weight: var(--fw-black); margin-bottom: var(--sp-2); }
 .login-card h1 em { color: var(--accent); font-style: normal; }
-.login-card .sub { color: var(--text-muted); font-size: .88rem; line-height: 1.5; margin-bottom: 20px; }
-.login-card .err-msg { color: var(--st-danger); font-size: .84rem; margin-bottom: 4px; }
+.login-card .sub { color: var(--text-muted); font-size: var(--fs-label); line-height: var(--lh-body); margin-bottom: var(--sp-5); }
+.login-card .err-msg { color: var(--st-danger); font-size: var(--fs-label); margin-bottom: var(--sp-1); }
 .login-card .err-msg:empty { display: none; }
-.login-card form { display: flex; flex-direction: column; gap: 14px; }
-.login-card .btn { width: 100%; margin-top: 4px; }
+.login-card form { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* الفورم عندو gap — margin تاع .field يزيد فوقو ويضاعف الفراغ */
+.login-card .field { margin-bottom: 0; }
+.login-card .btn { width: 100%; margin-top: var(--sp-1); }
 
 /* ── محرّر الحملة: عمودين (فورم + معاينة) ────────────────────────────── */
-.editor-split { display: grid; grid-template-columns: minmax(340px, 480px) 1fr; gap: 20px; align-items: start; }
-.editor-form { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.editor-form .admin-card { padding: 18px; }
-.editor-form h3 { font-size: 1rem; margin-bottom: 14px; }
+.editor-split { display: grid; grid-template-columns: minmax(340px, 480px) 1fr; gap: var(--sp-5); align-items: start; }
+.editor-form { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.editor-form .admin-card { padding: var(--sp-5); }
+.editor-form h3 { font-size: var(--fs-card); margin-bottom: var(--sp-4); }
 
 .section-block {
   border: 1px solid var(--border); border-radius: var(--r-md);
-  background: var(--bg-gray); margin-bottom: 10px; overflow: hidden;
+  background: var(--bg-gray); margin-bottom: var(--sp-3); overflow: hidden;
 }
 .section-block:last-child { margin-bottom: 0; }
 .section-block summary {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; cursor: pointer; list-style: none;
-  font-weight: 700; font-size: .92rem;
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); cursor: pointer; list-style: none;
+  font-weight: var(--fw-bold); font-size: var(--fs-body);
 }
 .section-block summary::-webkit-details-marker { display: none; }
 .section-block summary::before {
   content: ''; width: 7px; height: 7px; flex: none;
   border-inline-end: 2px solid var(--text-faint); border-block-end: 2px solid var(--text-faint);
-  transform: rotate(-45deg); transition: transform .15s var(--ease);
+  transform: rotate(-45deg); transition: transform var(--dur-fast) var(--ease);
 }
 .section-block[open] summary::before { transform: rotate(45deg); }
 .section-block__title { flex: 1; }
 .section-block__body {
-  padding: 14px; border-top: 1px solid var(--border);
-  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--sp-4); border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: var(--sp-hair);
 }
 
-.add-section-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.add-section-row { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-3); }
 .add-section-row select { flex: 1; min-width: 160px; }
 
-.preview-panel { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 10px; }
-.preview-toolbar { display: flex; gap: 6px; }
+.preview-panel { position: sticky; top: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+.preview-toolbar { display: flex; gap: var(--sp-2); }
 .viewport-btn {
-  padding: 7px 14px; border-radius: var(--r-md);
+  padding: 7px var(--sp-4); border-radius: var(--r-md);
   border: 1px solid var(--border-strong); background: var(--surface);
-  color: var(--text-muted); font-size: .8rem; font-weight: 700; cursor: pointer;
+  color: var(--text-muted); font-size: .8rem; font-weight: var(--fw-bold); cursor: pointer;
 }
 .viewport-btn.is-active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .preview-frame-wrap {
   background: var(--bg-gray); border: 1px solid var(--border); border-radius: var(--r-lg);
-  padding: 20px; display: flex; justify-content: center; overflow: auto;
+  padding: var(--sp-5); display: flex; justify-content: center; overflow: auto;
 }
 .preview-frame {
-  width: 100%; height: 640px; background: var(--bg);
+  width: 100%;
+  /* الطول يتبع الشاشة: 640 ثابتة كانت تخرج برّا الشاشة على لابتوب قصير
+     وتخلّي المستخدم يزحلق باش يشوف زر الحفظ */
+  height: clamp(420px, 68vh, 720px);
+  background: var(--bg);
   border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-sm);
-  transition: max-width .2s var(--ease);
+  transition: max-width var(--dur) var(--ease);
 }
 .preview-frame iframe { width: 100%; height: 100%; border: 0; }
 .preview-frame-wrap[data-viewport="mobile"] .preview-frame { max-width: 390px; }
 .preview-frame-wrap[data-viewport="tablet"] .preview-frame { max-width: 768px; }
 .preview-frame-wrap[data-viewport="desktop"] .preview-frame { max-width: 100%; }
-.save-indicator { font-size: .78rem; color: var(--text-faint); text-align: center; }
+.save-indicator { font-size: var(--fs-micro); color: var(--text-faint); text-align: center; }
 .save-indicator:empty { display: none; }
 
+/* شاشة واسعة: عمود الفورم يربح شوية عرض — الحقول بعمودين تولّي مقروءة */
+@media (min-width: 1600px) {
+  .editor-split { grid-template-columns: minmax(380px, 540px) 1fr; }
+}
+
+/* ≤1100: المعاينة تحت الفورم بدل حداه. تبقى كاملة العرض — معاينة
+   مضغوطة في عمود 300px ما تعطي حتى فكرة على الصفحة الحقيقية. */
 @media (max-width: 1100px) {
   .editor-split { grid-template-columns: 1fr; }
   .preview-panel { position: static; }
 }
-
-/* ── محرّر المنتج: جدول مخزون الفاريانتات ─────────────────────────────── */
-.stock-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-.stock-table th {
-  text-align: start; font-size: .72rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint);
-  padding: 8px 10px; border-bottom: 1px solid var(--border);
+@media (max-width: 640px) {
+  .preview-frame-wrap { padding: var(--sp-3); }
+  .preview-toolbar > * { flex: 1 1 auto; }
 }
-.stock-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.stock-table tr:last-child td { border-bottom: 0; }
-.stock-table input[type="number"] { height: 36px; padding: 0 10px; }
-.stock-table td.stock-low input { border-color: var(--st-danger); }
-.stock-table td.stock-low::after { content: '⚠'; margin-inline-start: 6px; color: var(--st-danger); }
+
+/* ── جداول المنتج (مخزون + فاريانتات) ─────────────────────────────────
+   المعيار كامل في components.css (.data-table/.stock-table). هنا برك
+   الملاحظة: الجدول فيه 4 أعمدة أغلبها حقول إدخال — تحت 500px يتقصّ
+   (body عندو overflow-x:hidden) ويولّي زر "احفظ" غير موصول. الغلاف
+   .table-wrap يزحلق وحدو ويبيّن ظل على الحافّة. */
 
 /* ── ميديا ────────────────────────────────────────────────────────────── */
-.media-upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.media-upload-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-5); }
 .media-upload-row .hint { margin: 0; }
-.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.media-upload-row input[type="file"] { width: auto; flex: 1 1 240px; }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-3); }
 .media-item {
   border: 1px solid var(--border); border-radius: var(--r-md);
   overflow: hidden; background: var(--surface);
@@ -109,65 +120,90 @@
 .media-item[data-pick] { cursor: pointer; }
 .media-item[data-pick]:hover { border-color: var(--accent); }
 .media-item img { width: 100%; height: 110px; object-fit: cover; display: block; background: var(--bg-gray); }
-.media-item__foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; }
+.media-item__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2); }
 .media-item__name {
-  font-size: .72rem; color: var(--text-muted);
+  font-size: var(--fs-micro); color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .media-item__del {
   border: 0; background: transparent; color: var(--text-faint);
-  cursor: pointer; font-size: .85rem; line-height: 1; padding: 2px;
+  cursor: pointer; font-size: var(--fs-label); line-height: 1; padding: var(--sp-hair);
 }
 .media-item__del:hover { color: var(--st-danger); }
 
+/* ≤480: 140px يعطي عمودين برك مع فراغ كبير — 104px يعطي ثلاثة */
+@media (max-width: 480px) {
+  .media-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--sp-2); }
+  .media-item img { height: 88px; }
+}
+
 /* ── طلبات ────────────────────────────────────────────────────────────── */
-.order-hint { margin-bottom: 12px; }
-.order-search { width: 200px; height: 38px; }
+.order-hint { margin-bottom: var(--sp-3); }
+/* نفس نوعية المحدّد اللي في base.css (.admin__actions input) — بلا ما
+   نرفعو الوزن، القاعدة العامة تغلب وحقل البحث يرجع 160px */
+.admin__actions .order-search { min-width: 200px; }
 .row-item--order { cursor: pointer; }
 .row-item--order:hover { background: var(--bg-gray); }
-.row-item__amount { text-align: end; font-weight: 700; font-size: .92rem; white-space: nowrap; }
-.row-item__amount .row-item__meta { margin-top: 2px; font-weight: 400; }
+.row-item__amount { text-align: end; font-weight: var(--fw-bold); font-size: var(--fs-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.row-item__amount .row-item__meta { margin-top: var(--sp-hair); font-weight: var(--fw-normal); }
+/* لوحة القيادة تحطّ .stock-low على مبلغ الصف (بطاقة "مخزون ناقص")، وكان
+   الصنف ميّت برّا .stock-table — الرقم كان يبان عادي حتى كي يكون تحت
+   العتبة، وهي بالضبط المعلومة اللي البطاقة موجودة عليها */
+.row-item__amount.stock-low { color: var(--st-danger); }
 
-/* --st-info أصلو نفس --accent (البراند البرتقالي) — نخلّيوه لـ "accepted"
-   برك، وpending تبقى محايدة. غيرها، pending/accepted كانو يبانو بلون
-   برتقالي قدّ بعضهم بالضبط (info و warn الزوج مشتقّين من نفس العائلة). */
-.badge--order-pending   { background: var(--st-neutral-soft); color: var(--st-neutral); }
-.badge--order-accepted  { background: var(--st-info-soft);    color: var(--st-info); }
-.badge--order-delivered { background: var(--st-success);      color: #fff; }
-.badge--order-returned  { background: var(--st-danger-soft);  color: var(--st-danger); }
-.badge--order-denied    { background: var(--st-neutral-soft); color: var(--st-neutral); text-decoration: line-through; }
-
-.order-detail dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; font-size: .86rem; align-items: center; }
-.order-detail dt { color: var(--text-muted); font-weight: 600; }
+.order-detail dl { display: grid; grid-template-columns: auto 1fr; gap: 7px var(--sp-4); font-size: var(--fs-label); align-items: center; }
+.order-detail dt { color: var(--text-muted); font-weight: var(--fw-medium); }
 .order-detail dd { color: var(--text); }
 .order-detail h4 {
-  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--text-faint); margin: 18px 0 8px;
+  font-size: var(--fs-micro); font-weight: var(--fw-black);
+  text-transform: uppercase; letter-spacing: var(--tracking-caps);
+  color: var(--text-faint); margin: var(--sp-5) 0 var(--sp-2);
 }
 .order-detail h4:first-child { margin-top: 0; }
 
-@media (max-width: 640px) {
-  .order-search { width: 100%; }
-  .admin__actions { width: 100%; }
+@media (max-width: 480px) {
+  /* على 360px، عمود التسميات ياكل نص السطر — نكدّسو */
+  .order-detail dl { grid-template-columns: 1fr; gap: var(--sp-hair); }
+  .order-detail dd { margin-bottom: var(--sp-2); }
 }
 
 /* ── لوحة القيادة (KPIs + شارطات) ─────────────────────────────────────────
    .kpi/.chart-card ما يعيدوش تعريف الخلفية/الحدود/الظل — هذوك من
    .admin-card (components.css)، والصفحة تزيد الصنفين مع بعض فالـ HTML
    (class="admin-card kpi"). هنا برك الفرق: الحشو الداخلي والـ layout. */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
-.kpi { padding: 18px; display: flex; flex-direction: column; gap: 4px; }
-.kpi__label { font-size: .78rem; color: var(--text-muted); font-weight: 600; }
-.kpi__value { font-size: 1.6rem; font-weight: 800; color: var(--text); }
-.kpi__sub { font-size: .78rem; color: var(--text-faint); }
-.kpi__delta { font-size: .82rem; font-weight: 700; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-3); }
+.kpi { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
+.kpi__label { font-size: var(--fs-meta); color: var(--text-muted); font-weight: var(--fw-medium); }
+.kpi__value { font-size: 1.6rem; font-weight: var(--fw-black); color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi__sub { font-size: var(--fs-meta); color: var(--text-faint); }
+.kpi__delta { font-size: var(--fs-label); font-weight: var(--fw-bold); }
 .kpi__delta--up { color: var(--st-success); }
 .kpi__delta--down { color: var(--st-danger); }
 
-.chart-card { padding: 18px; }
-.chart-card__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.chart-card__head h3 { font-size: .96rem; }
+.chart-card { padding: var(--sp-5); }
+.chart-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.chart-card__head h3 { font-size: var(--fs-card); }
 .chart-wrap { direction: ltr; } /* احتياط: chart.js يحطها inline هي ثانية، بصح هنا لو حد بغى يستهدفها بـ CSS خارجي */
 
-.dash-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.dash-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
 @media (min-width: 1100px) { .dash-grid { grid-template-columns: 1fr 1fr; } }
+
+/* عنصر grid عندو min-width:auto بالتلقائي — يعني ما يصغرش تحت حجم
+   محتواه. الشارط تحتو min-width:520px، فالبطاقة كانت تمدّد الشبكة
+   كاملة وتخرّج الصفحة برّا الشاشة بدل ما الغلاف يزحلق وحدو. */
+.dash-grid > *, .kpi-grid > * { min-width: 0; }
+
+/* الرسوم viewBox 600 عرض — على 360px الشاشة، خط التسمية 11 يولّي 6px
+   حقيقية وما يتقراش. نفرضو أقلّ عرض 520 ونخلّيوه يزحلق: قراءة الأرقام
+   أهمّ من رؤية الشارط كامل دفعة وحدة. */
+@media (max-width: 700px) {
+  .chart-wrap { overflow-x: auto; }
+  .chart-wrap > svg { min-width: 520px; }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  .kpi { padding: var(--sp-3); }
+  .kpi__value { font-size: 1.25rem; }
+  .chart-card { padding: var(--sp-4); }
+}

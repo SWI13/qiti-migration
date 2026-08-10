@@ -9,6 +9,7 @@
 import { state } from '../state.js';
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
+import { icon } from './icon.js';
 
 export var NAV = [
   { view: 'dashboard', group: null, label: 'nav.dashboard', icon: 'dashboard' },
@@ -25,20 +26,9 @@ var GROUPS = [
   { key: 'store', label: 'nav.group.store' },
 ];
 
-/* أيقونات خط (نفس روح .ico في styles.css) — كل صفحة عندها شكل مميّز
-   بدل المربّع الموحّد القديم، تفرّق بالعين بلا ما تقرا النص. */
-var ICON_PATHS = {
-  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
-  orders: '<path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>',
-  campaigns: '<path d="M3 10v4a1 1 0 0 0 1 1h2l7 4V5L6 9H4a1 1 0 0 0-1 1Z"/><path d="M17.5 8.5a4 4 0 0 1 0 7"/>',
-  media: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5.5-5.5L11 15l-2.5-2.5L3 18"/>',
-  products: '<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
-  categories: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-};
-
-function navIcon(name) {
-  return '<svg class="ico nav-link__icon" viewBox="0 0 24 24" aria-hidden="true">' + (ICON_PATHS[name] || '') + '</svg>';
-}
+/* الأيقونات كامل في ui/icon.js — كل صفحة عندها شكل مميّز بدل المربّع
+   الموحّد القديم، تفرّق بالعين بلا ما تقرا النص (مهمّة خاصة في وضع سكة
+   الأيقونات 64px، أين النص مخبّي أصلاً). */
 
 function navHtml() {
   return GROUPS.map(function (group) {
@@ -50,7 +40,7 @@ function navHtml() {
         var count = item.badge ? Number(state[item.badge] || 0) : 0;
         return '<a class="nav-link' + (state.view === item.view ? ' is-active' : '') +
           '" href="#/' + item.view + '">' +
-          navIcon(item.icon) +
+          icon(item.icon, 'nav-link__icon') +
           '<span class="nav-link__text sidebar-label">' + esc(t(item.label)) + '</span>' +
           (count > 0 ? '<span class="nav-link__badge sidebar-label">' + (count > 99 ? '99+' : count) + '</span>' : '') +
         '</a>';
@@ -60,6 +50,12 @@ function navHtml() {
 }
 
 export function shell(title, actions, body) {
+  /* الزر يطوي ويحلّ — فاسمو لازم يقلب مع الحالة. كان ديما "Collapse"
+     حتى وهو مطوي، يعني قارئ الشاشة يقول للمستخدم عكس اللي غادي يصرا.
+     app.js يبدّلو تاني بعد كل ضغطة (بلا ما نعاودو نبنيو الشاسي كامل). */
+  var collapsed = localStorage.getItem('qiti-admin-collapsed') === '1';
+  var collapseLabel = t(collapsed ? 'nav.expand' : 'nav.collapse');
+
   return '<button type="button" class="admin__nav-toggle" data-act="toggle-nav" aria-label="' + esc(t('nav.toggle')) + '" aria-expanded="false">' +
       '<span class="admin__nav-toggle-bar"></span><span class="admin__nav-toggle-bar"></span><span class="admin__nav-toggle-bar"></span>' +
     '</button>' +
@@ -71,9 +67,9 @@ export function shell(title, actions, body) {
       '</div>' +
       '<nav class="admin__nav">' + navHtml() + '</nav>' +
       '<div class="admin__sidebar-foot">' +
-        '<button type="button" class="admin__collapse-toggle" data-act="toggle-nav-collapsed" aria-label="' + esc(t('nav.collapse')) + '">' +
-          '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v16"/><path d="m15 8-4 4 4 4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>' +
-          '<span class="sidebar-label">' + esc(t('nav.collapse')) + '</span>' +
+        '<button type="button" class="admin__collapse-toggle" data-act="toggle-nav-collapsed" aria-label="' + esc(collapseLabel) + '">' +
+          icon('sidebar') +
+          '<span class="sidebar-label">' + esc(collapseLabel) + '</span>' +
         '</button>' +
         '<button class="btn btn--outline btn--xs" data-act="logout">' + esc(t('nav.logout')) + '</button>' +
       '</div>' +

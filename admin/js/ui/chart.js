@@ -4,6 +4,12 @@
    بلا event listeners — لو الغلاف (dashboard.js) حاب تفاعل، يديره هو
    فوق النتيجة. viewBox ثابت (600×180 للعمودي، ارتفاع متغيّر للأفقي)
    باش preserveAspectRatio يقدر يكبّر وينقّص بلا ما يعوّج الخطوط.
+
+   ⚠️ حجم الخط هنا بوحدات viewBox ماشي بكسل حقيقي: البطاقة تعرض الرسم
+   في ~520px، يعني كل رقم يتقسم على 600/520 ≈ 1.15. font-size="10"
+   القديمة كانت تولّي 8.6px حقيقية — تحت الحدّ المقروء. الأرقام دروك
+   محسوبة على هاذ الأساس، وcss/pages.css يفرض أقلّ عرض 520px في
+   الموبايل ويخلّي الرسم يزحلق بدل ما يتقلّص للاقراءة.
    ========================================================================== */
 import { esc } from '../dom.js';
 
@@ -43,7 +49,7 @@ function xLabelsSvg(labels, xAt) {
   return idxs.map(function (idx, k) {
     var anchor = k === 0 ? 'start' : (k === idxs.length - 1 ? 'end' : 'middle');
     return '<text x="' + xAt(idx).toFixed(2) + '" y="' + (H - 6) + '" text-anchor="' + anchor +
-      '" font-size="10" fill="var(--text-faint)">' + esc(labels[idx] != null ? labels[idx] : '') + '</text>';
+      '" font-size="12" fill="var(--text-faint)">' + esc(labels[idx] != null ? labels[idx] : '') + '</text>';
   }).join('');
 }
 
@@ -82,7 +88,9 @@ export function areaChart(opts) {
 
   var allValues = [];
   series.forEach(function (s) { allValues = allValues.concat(s.values); });
-  var min = Math.min.apply(null, allValues);
+  /* القاعدة صفر إجبارياً — مساحة مملية على قاعدة متحرّكة تقرا كأنّ
+     الرقم طلع من والو، ونفس الصف فيه barChart بقاعدة صفر */
+  var min = Math.min(0, Math.min.apply(null, allValues));
   var max = Math.max.apply(null, allValues);
 
   function xAt(i) { return n > 1 ? PAD_LEFT + i * (PLOT_W / (n - 1)) : PAD_LEFT + PLOT_W / 2; }
@@ -191,10 +199,10 @@ export function hbarChart(opts) {
     var barW = Math.max(0, (v / max) * barMaxW);
     var title = esc((item.label || '') + ': ' + format(v));
     return '<g>' +
-      '<text x="0" y="' + midY.toFixed(2) + '" dominant-baseline="middle" font-size="12" font-weight="600" fill="var(--text)">' + esc(item.label || '') + '</text>' +
+      '<text x="0" y="' + midY.toFixed(2) + '" dominant-baseline="middle" font-size="13" font-weight="600" fill="var(--text)">' + esc(item.label || '') + '</text>' +
       '<rect x="' + barX0 + '" y="' + (midY - 7).toFixed(2) + '" width="' + barMaxW.toFixed(2) + '" height="14" rx="3" fill="var(--border)"/>' +
       '<rect x="' + barX0 + '" y="' + (midY - 7).toFixed(2) + '" width="' + barW.toFixed(2) + '" height="14" rx="3" fill="var(--accent)"><title>' + title + '</title></rect>' +
-      '<text x="' + W + '" y="' + midY.toFixed(2) + '" dominant-baseline="middle" text-anchor="end" font-size="11" fill="var(--text-muted)">' + esc(format(v)) + '</text>' +
+      '<text x="' + W + '" y="' + midY.toFixed(2) + '" dominant-baseline="middle" text-anchor="end" font-size="12" fill="var(--text-muted)">' + esc(format(v)) + '</text>' +
     '</g>';
   }).join('');
 

@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Qiti admin — قوائم (طلبات/فئات/ميديا/دخول)
+   الأساس (row-item, kpi-grid, order-detail dl, media-grid, login-card…)
+   موجود في pages.css من قبل — هنا غير الزيادات الجديدة: خلية الزبون
+   القابلة للضغط في جدول الطلبات، تفاصيل الطلب بعمودين، وتصفّح الصفحات.
+   ========================================================================== */
+
+/* .dt-link رحّلناها لـ components.css — ثلاث صفحات تستعملها دروك
+   (طلبات، حملات، منتجات)، فما بقاتش خاصة بصفحة. */
+
+/* ── تفاصيل الطلب: عمودين على الشاشة الواسعة ────────────────────────────
+   dl.order-detail (pages.css) يبقى كيفكيف — هنا برك الغلاف اللي يقسم
+   الأقسام الأربعة لعمودين بدل ما يطوّلو عمود وحيد على شاشة كبيرة. */
+.order-detail__cols {
+  display: grid; grid-template-columns: 1fr; gap: 0 var(--sp-6);
+}
+@media (min-width: 640px) {
+  .order-detail__cols { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── تصفّح الصفحات (قائمة الطلبات) ──────────────────────────────────────
+   الفلترة/البحث تقدر تخلّي القائمة تطول بزاف — صفحات 20 برك بدل زحليق
+   بلا نهاية على شبكة ضعيفة. */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); flex-wrap: wrap;
+  margin-top: var(--sp-4); padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.pagination__summary { font-size: var(--fs-meta); color: var(--text-muted); }
+.pagination__nav { display: flex; align-items: center; gap: var(--sp-2); }
+.pagination__page {
+  font-size: var(--fs-label); font-weight: var(--fw-medium); color: var(--text-muted);
+  min-width: 3.5em; text-align: center;
+}
+
+@media (max-width: 480px) {
+  .pagination { justify-content: center; text-align: center; }
+}

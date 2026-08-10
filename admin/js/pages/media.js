@@ -8,13 +8,15 @@ import { esc, toast } from '../dom.js';
 import { t } from '../i18n.js';
 import { shell } from '../ui/shell.js';
 import { stateBlock } from '../ui/state-block.js';
-import { confirmDialog } from '../ui/dialog.js';
+import { confirmDialog, mountModal } from '../ui/dialog.js';
+import { showToast } from '../ui/toast.js';
 
 var root = document.getElementById('adminRoot');
 
 function mediaGrid(onPick) {
   return state.media.map(function (item) {
-    return '<div class="media-item"' + (onPick ? ' data-pick="/media/' + esc(item.id) + '"' : '') + '>' +
+    return '<div class="media-item"' +
+        (onPick ? ' data-pick="/media/' + esc(item.id) + '" role="button" tabindex="0"' : '') + '>' +
       '<img src="/media/' + esc(item.id) + '" alt="' + esc(item.alt || '') + '" loading="lazy">' +
       '<div class="media-item__foot">' +
         '<span class="media-item__name">' + esc(item.filename) + '</span>' +
@@ -27,8 +29,9 @@ function mediaGrid(onPick) {
 export function renderMedia() {
   root.innerHTML = shell(t('media.title'), '',
     '<div class="media-upload-row">' +
-      '<input type="file" id="mediaFile" accept="image/jpeg,image/png,image/webp,image/avif" multiple>' +
-      '<span class="hint">' + esc(t('media.uploadHint')) + '</span>' +
+      '<input type="file" id="mediaFile" accept="image/jpeg,image/png,image/webp,image/avif" multiple' +
+        ' aria-label="' + esc(t('media.uploadAriaLabel')) + '">' +
+      '<span class="hint" id="mediaUploadStatus">' + esc(t('media.uploadHint')) + '</span>' +
     '</div>' +
     '<div class="media-grid">' + (mediaGrid(false) || stateBlock({
       variant: 'empty',
@@ -38,20 +41,57 @@ export function renderMedia() {
       actionLabel: t('media.uploadAction'),
     })) + '</div>');
 
-  document.getElementById('mediaFile').addEventListener('change', async function (event) {
+  var fileInput = document.getElementById('mediaFile');
+  var statusEl = document.getElementById('mediaUploadStatus');
+
+  fileInput.addEventListener('change', async function (event) {
     var files = Array.prototype.slice.call(event.target.files || []);
     if (!files.length) return;
-    toast(t('media.uploading'));
+
+    fileInput.disabled = true;
+    var succeeded = 0;
+    var failed = [];
+
     for (var i = 0; i < files.length; i++) {
+      statusEl.textContent = t('media.uploadingProgress', { current: i + 1, total: files.length });
       try {
         await uploadFile(files[i]);
+        succeeded++;
       } catch (error) {
-        toast(error.message, true);
+        failed.push(files[i].name);
       }
     }
-    state.media = (await api('media.list')).media;
-    renderMedia();
-    toast(t('media.uploaded'));
+
+    /* رفعة وحدة نجحت تكفي باش نعاودو نجيبو القائمة — إذا الكل طاح، ما
+       ثمّة والو جديد يستاهل طلب شبكة زايد */
+    if (succeeded > 0) {
+      try {
+        state.media = (await api('media.list')).media;
+        renderMedia();
+      } catch (error) {
+        /* الرفع نجح بصح جلب القائمة طاح — بلا هذا الحرس، الحقل يبقى
+           معطّل للأبد والمستخدم يحسب بلي الرفع مازال جاري */
+        fileInput.disabled = false;
+        fileInput.value = '';
+        statusEl.textContent = t('media.uploadHint');
+        toast(error.message, true);
+        return;
+      }
+    } else {
+      fileInput.disabled = false;
+      fileInput.value = '';
+      statusEl.textContent = t('media.uploadHint');
+    }
+
+    /* ملخّص واحد يقول بالضبط واش صار — توست "تمّ" وحدو كان يخبّي فشل
+       جزئي (بعض الصور تعدّاو، بعضهم لا) وكان يخلّي المستخدم يحسب يدويًا */
+    if (!failed.length) {
+      toast(t('media.uploadedCount', { n: succeeded }));
+    } else if (succeeded > 0) {
+      showToast({ message: t('media.uploadedPartial', { ok: succeeded, fail: failed.length }), variant: 'info' });
+    } else {
+      toast(t('media.uploadFailedAll', { n: failed.length }), true);
+    }
   });
 }
 
@@ -78,7 +118,8 @@ export async function pickMedia() {
     overlay.innerHTML = '<div class="modal">' +
       '<h3>' + esc(t('media.pickTitle')) + '</h3>' +
       '<div class="media-upload-row">' +
-        '<input type="file" id="pickUpload" accept="image/jpeg,image/png,image/webp,image/avif">' +
+        '<input type="file" id="pickUpload" accept="image/jpeg,image/png,image/webp,image/avif"' +
+          ' aria-label="' + esc(t('media.uploadAriaLabel')) + '">' +
       '</div>' +
       '<div class="media-grid" id="pickGrid">' +
         (mediaGrid(true) || esc(t('media.pickEmpty'))) +
@@ -86,24 +127,37 @@ export async function pickMedia() {
       '<div class="modal__foot"><button class="btn btn--outline btn--xs" data-close>' + esc(t('common.cancel')) + '</button></div>' +
     '</div>';
 
-    document.body.appendChild(overlay);
-    var done = function (value) { overlay.remove(); resolve(value); };
+    var settled = false;
+    var close = mountModal(overlay, function () { if (!settled) { settled = true; resolve(null); } });
+    var done = function (value) { settled = true; close(); resolve(value); };
 
     overlay.addEventListener('click', function (event) {
-      if (event.target === overlay || event.target.hasAttribute('data-close')) { done(null); return; }
       var item = event.target.closest('[data-pick]');
       if (item) done(item.getAttribute('data-pick'));
     });
 
-    overlay.querySelector('#pickUpload').addEventListener('change', async function (event) {
+    /* role="button" ما يعطيش سلوك الكيبورد بروحو */
+    overlay.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      var item = event.target.closest('[data-pick]');
+      if (!item) return;
+      event.preventDefault();
+      done(item.getAttribute('data-pick'));
+    });
+
+    var pickUpload = overlay.querySelector('#pickUpload');
+    pickUpload.addEventListener('change', async function (event) {
       var file = (event.target.files || [])[0];
       if (!file) return;
+      pickUpload.disabled = true;
       try {
         var record = await uploadFile(file);
         state.media = (await api('media.list')).media;
         done('/media/' + record.id);
       } catch (error) {
         toast(error.message, true);
+        pickUpload.disabled = false;
+        pickUpload.value = '';
       }
     });
   });

@@ -8,6 +8,11 @@
    ⚠️ المسارات هنا جذرية (root-relative) — "shipping.weightGrams" ماشي
    "sections.N.data...". products.js يبعث def.key مباشرة كـ path
    لـ fieldHtml، وsetPath في dom.js يصنع الكائنات الناقصة في الطريق.
+
+   ترتيب المصفوفة هو نفسو ترتيب التبويبات في المحرّر (شوف TAB_ORDER
+   في products.js) — basics+media يتجمّعو في تبويب "Basic" وحدو، والباقي
+   تبويب لكل قسم. زيد قسم هنا؟ زيد مفتاحو لـ TAB_ORDER ثاني وإلا
+   يبقى معروض بلا تبويب.
    ========================================================================== */
 import { field, area, num, img, bool, lines, list, readout, PRODUCT_TYPES } from './section-fields.js';
 

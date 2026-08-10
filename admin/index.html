@@ -6,10 +6,18 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Qiti Admin</title>
 
+<!-- الترتيب مقصود: styles.css (tokens تاع المتجر) → tokens.css (tokens
+     اللوحة، تبني فوقهم) → base (الهيكل) → components (العناصر) →
+     pages (الخاص بصفحة). أي ملف يقرا من اللي قبلو برك. -->
 <link rel="stylesheet" href="/assets/css/styles.css">
+<link rel="stylesheet" href="/admin/css/tokens.css">
 <link rel="stylesheet" href="/admin/css/base.css">
 <link rel="stylesheet" href="/admin/css/components.css">
 <link rel="stylesheet" href="/admin/css/pages.css">
+<!-- الخاص بمحرّر واحد برك — منفصل باش pages.css ما يكبرش بلا حدّ -->
+<link rel="stylesheet" href="/admin/css/page-products.css">
+<link rel="stylesheet" href="/admin/css/page-campaigns.css">
+<link rel="stylesheet" href="/admin/css/page-lists.css">
 </head>
 <body>
 

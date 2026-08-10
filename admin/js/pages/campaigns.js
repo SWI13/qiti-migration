@@ -1,18 +1,25 @@
 /* ==========================================================================
    Qiti admin — الحملات (قائمة + محرّر)
-   المحرّر عندو عمودين: فورم مبني من SECTION_FIELDS، ومعاينة مباشرة في
-   iframe تنادي نفس فنكشن الرندر الحقيقي (preview) بلا حفظ.
+   المحرّر مبني بأربع خطوات (Details/Design/Content/Review) فوق js/ui/tabs.js
+   — يعني يتنقّل بينهم بحرّية (ضغطة على الخطوة) ولا بخط مستقيم (Back/Next).
+   عمود المعاينة المباشرة يبقى ظاهر طول الوقت، برّا الخطوات، على خاطر
+   هو أهمّ حاجة في المحرّر (شوف preview-panel تحت).
    ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
-import { fmtMoney } from '../format.js';
+import { fmtMoney, fmtDateTime } from '../format.js';
 import { t } from '../i18n.js';
 import { SECTION_FIELDS, SECTION_LABELS, FONTS, RADII } from '../section-fields.js';
 import { shell } from '../ui/shell.js';
 import { fieldHtml } from '../ui/field-html.js';
 import { stateBlock } from '../ui/state-block.js';
 import { confirmDialog } from '../ui/dialog.js';
+import { icon } from '../ui/icon.js';
+import { tabsHtml, bindTabs } from '../ui/tabs.js';
+import { dataTable } from '../ui/table.js';
+import { menuHtml } from '../ui/menu.js';
+import { validate, showErrors, markClean } from '../ui/form.js';
 
 var root = document.getElementById('adminRoot');
 /* field() القديمة صارت في section-fields.js تحت نفس الاسم القديم t() —
@@ -21,44 +28,124 @@ var root = document.getElementById('adminRoot');
 var textField = function (key, label, hint) { return { key: key, label: label, type: 'text', hint: hint }; };
 var areaField = function (key, label, hint) { return { key: key, label: label, type: 'area', hint: hint }; };
 
+/** شارة الحالة — تخدم لصف القائمة وخطوة المراجعة بلا ما نكرّروها */
+function statusBadge(campaign) {
+  var published = campaign.status === 'published';
+  return '<span class="badge badge--' + (published ? 'published' : 'draft') + '">' +
+    esc(published ? t('campaigns.published') : t('campaigns.draft')) + '</span>';
+}
+
 /* ── قائمة الحملات ──────────────────────────────────────────────── */
 
-export function renderCampaignList() {
-  var rows = state.campaigns
-    .slice()
-    .sort(function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); })
-    .map(function (campaign) {
-      var published = campaign.status === 'published';
-      return '<div class="row-item">' +
-          '<div>' +
-            '<div class="row-item__name"><bdi>' + esc(campaign.name || t('campaigns.untitled')) + '</bdi></div>' +
-            '<div class="row-item__meta">/' + esc(campaign.slug) + '</div>' +
-          '</div>' +
-          '<span class="badge badge--' + (published ? 'published">' + esc(t('campaigns.published')) : 'draft">' + esc(t('campaigns.draft'))) + '</span>' +
-          '<div class="row-item__actions">' +
-            (published ? '<a class="btn btn--outline btn--xs" href="/' + esc(campaign.slug) + '" target="_blank" rel="noopener">' + esc(t('common.view')) + '</a>' : '') +
-            '<a class="btn btn--outline btn--xs" href="#/campaigns/' + esc(campaign.id) + '">' + esc(t('common.edit')) + '</a>' +
-            '<button class="btn btn--twin btn--xs" data-act="dup" data-id="' + esc(campaign.id) + '">' + esc(t('campaigns.duplicate')) + '</button>' +
-            '<button class="btn btn--xs ' + (published ? 'btn--outline' : 'btn--primary') + '" data-act="publish" data-id="' + esc(campaign.id) + '">' +
-              (published ? esc(t('campaigns.unpublish')) : esc(t('campaigns.publish'))) + '</button>' +
-            '<button class="btn btn--danger btn--xs" data-act="del-campaign" data-id="' + esc(campaign.id) + '">' + esc(t('common.delete')) + '</button>' +
-          '</div>' +
-        '</div>';
-    }).join('');
+var campaignFilter = { q: '', status: 'all' };
+var campaignSort = { key: 'updatedAt', dir: 'desc' };
 
-  root.innerHTML = shell(
-    t('campaigns.title'),
-    '<a class="btn btn--primary" href="#/campaigns/new">' + esc(t('campaigns.new')) + '</a>',
-    '<div class="admin-card"><div class="row-list">' +
-      (rows || stateBlock({
-        variant: 'empty',
-        title: t('campaigns.emptyTitle'),
-        body: t('campaigns.emptyBody'),
-        actionHref: '#/campaigns/new',
-        actionLabel: t('campaigns.new'),
-      })) +
-    '</div></div>',
-  );
+function matchesCampaignFilter(campaign) {
+  if (campaignFilter.status !== 'all' && campaign.status !== campaignFilter.status) return false;
+  if (campaignFilter.q) {
+    var q = campaignFilter.q.toLowerCase();
+    var name = (campaign.name || '').toLowerCase();
+    var slug = (campaign.slug || '').toLowerCase();
+    if (name.indexOf(q) === -1 && slug.indexOf(q) === -1) return false;
+  }
+  return true;
+}
+
+function sortValue(campaign, key) {
+  if (key === 'name') return (campaign.name || '').toLowerCase();
+  if (key === 'status') return campaign.status || '';
+  return campaign.updatedAt || '';
+}
+
+function sortCampaignRows(rows) {
+  var key = campaignSort.key;
+  var dir = campaignSort.dir === 'asc' ? 1 : -1;
+  return rows.slice().sort(function (a, b) {
+    var av = sortValue(a, key);
+    var bv = sortValue(b, key);
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+
+/* فعل ولا زوج يبقاو بارزين (تعديل + شوف كي تكون منشورة)، والباقي
+   (نسخ/نشر/حذف) تحت قائمة "⋯" — بلا هذا خمسة أزرار جنب بعضهم يطيّحو
+   على 360px (شوف الملاحظة في ui/menu.js) */
+function campaignRowActions(campaign) {
+  var published = campaign.status === 'published';
+  var items = [
+    { label: t('campaigns.duplicate'), act: 'dup', id: campaign.id },
+    { label: published ? t('campaigns.unpublish') : t('campaigns.publish'), act: 'publish', id: campaign.id },
+    { sep: true },
+    { label: t('common.delete'), icon: 'trash', act: 'del-campaign', id: campaign.id, danger: true },
+  ];
+  return (published ? '<a class="btn btn--outline btn--xs" href="/' + esc(campaign.slug) + '" target="_blank" rel="noopener">' + esc(t('common.view')) + '</a> ' : '') +
+    '<a class="btn btn--outline btn--xs" href="#/campaigns/' + esc(campaign.id) + '">' + esc(t('common.edit')) + '</a> ' +
+    menuHtml({ items: items, label: t('campaigns.rowMenuLabel', { name: campaign.name || t('campaigns.untitled') }) });
+}
+
+function campaignColumns() {
+  return [
+    { key: 'name', label: t('campaigns.colName'), sortable: true, render: function (c) {
+        return '<bdi>' + esc(c.name || t('campaigns.untitled')) + '</bdi>' +
+          '<div class="row-item__meta">/' + esc(c.slug) + '</div>';
+      } },
+    { key: 'status', label: t('campaigns.colStatus'), sortable: true, render: statusBadge },
+    { key: 'updatedAt', label: t('campaigns.colUpdated'), sortable: true, render: function (c) { return esc(fmtDateTime(c.updatedAt)); } },
+    { key: '_actions', label: '', align: 'end', render: campaignRowActions },
+  ];
+}
+
+function campaignEmptyOpts() {
+  var any = state.campaigns.length > 0;
+  return any
+    ? { variant: 'empty', title: t('campaigns.emptyFilteredTitle'), body: t('campaigns.emptyFilteredBody') }
+    : { variant: 'empty', title: t('campaigns.emptyTitle'), body: t('campaigns.emptyBody'), actionHref: '#/campaigns/new', actionLabel: t('campaigns.new') };
+}
+
+function campaignListBody() {
+  return dataTable({
+    columns: campaignColumns(),
+    rows: sortCampaignRows(state.campaigns.filter(matchesCampaignFilter)),
+    sort: campaignSort,
+    onSortAct: 'campaigns-sort',
+    empty: campaignEmptyOpts(),
+  });
+}
+
+export function renderCampaignList() {
+  var actions =
+    '<input type="text" id="campaignSearch" class="campaign-search" placeholder="' + esc(t('campaigns.searchPlaceholder')) +
+      '" aria-label="' + esc(t('campaigns.searchPlaceholder')) + '" value="' + esc(campaignFilter.q) + '">' +
+    '<select id="campaignStatusFilter" aria-label="' + esc(t('campaigns.filterAriaLabel')) + '">' +
+      '<option value="all"' + (campaignFilter.status === 'all' ? ' selected' : '') + '>' + esc(t('campaigns.filterAll')) + '</option>' +
+      '<option value="draft"' + (campaignFilter.status === 'draft' ? ' selected' : '') + '>' + esc(t('campaigns.draft')) + '</option>' +
+      '<option value="published"' + (campaignFilter.status === 'published' ? ' selected' : '') + '>' + esc(t('campaigns.published')) + '</option>' +
+    '</select>' +
+    '<a class="btn btn--primary" href="#/campaigns/new">' + esc(t('campaigns.new')) + '</a>';
+
+  root.innerHTML = shell(t('campaigns.title'), actions, '<div class="admin-card" id="campaignsCard">' + campaignListBody() + '</div>');
+
+  var card = document.getElementById('campaignsCard');
+  function refresh() { card.innerHTML = campaignListBody(); }
+
+  document.getElementById('campaignSearch').addEventListener('input', function (event) {
+    campaignFilter.q = event.target.value.trim();
+    refresh();
+  });
+  document.getElementById('campaignStatusFilter').addEventListener('change', function (event) {
+    campaignFilter.status = event.target.value;
+    refresh();
+  });
+  /* مستمع مفوَّض واحد على الكارت — الكارت روحو ما يتبدّلش (innerHTML
+     تاعو برك اللي يتبدّل)، فالتسجيل مرّة وحدة يكفي، نفس نمط orders.js */
+  card.addEventListener('click', function (event) {
+    var sortBtn = event.target.closest('[data-act="campaigns-sort"]');
+    if (!sortBtn) return;
+    campaignSort = { key: sortBtn.getAttribute('data-sort-key'), dir: sortBtn.getAttribute('data-sort-dir') };
+    refresh();
+  });
 }
 
 /* ── ثيم الحملة ─────────────────────────────────────────────────── */
@@ -78,21 +165,30 @@ function contrastRatio(a, b) {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-function themeBlock(theme) {
-  var defaults = theme.mood === 'dark'
+function themeDefaults(mood) {
+  return mood === 'dark'
     ? { accent: '#FF6B2C', accentText: '#1A0E07', bg: '#0C0B0A', surface: '#161412', text: '#F6F2EE' }
     : { accent: '#FF6B2C', accentText: '#FFFFFF', bg: '#FFFFFF', surface: '#FFFFFF', text: '#14110F' };
+}
+
+/* عنصر مستقلّ بمعرّف — bindThemeContrast() يعوّضو وحدو كل ما لون يتبدّل،
+   بلا ما نعاودو نبنيو الفورم (ونطيّحو الفوكس من حقل اللون). */
+function contrastNote(theme) {
+  var defaults = themeDefaults(theme.mood);
+  var ratio = contrastRatio(theme.text || defaults.text, theme.bg || defaults.bg);
+  var key = ratio < 4.5 ? 'theme.contrastWarn' : 'theme.contrastOk';
+  return '<div class="hint" id="themeContrast"' + (ratio < 4.5 ? ' style="color:var(--danger)"' : '') + '>' +
+    esc(t(key, { ratio: ratio.toFixed(2) })) + '</div>';
+}
+
+function themeBlock(theme) {
+  var defaults = themeDefaults(theme.mood);
 
   var color = function (key, label) {
     return '<div class="field"><label for="th_' + key + '">' + esc(label) + '</label>' +
       '<input type="color" id="th_' + key + '" data-path="theme.' + key + '" value="' +
       esc(theme[key] || defaults[key]) + '"></div>';
   };
-
-  var ratio = contrastRatio(theme.text || defaults.text, theme.bg || defaults.bg);
-  var warn = ratio < 4.5
-    ? '<div class="hint" style="color:var(--danger)">' + esc(t('theme.contrastWarn', { ratio: ratio.toFixed(2) })) + '</div>'
-    : '<div class="hint">' + esc(t('theme.contrastOk', { ratio: ratio.toFixed(2) })) + '</div>';
 
   return '<div class="admin-card"><h3>' + esc(t('theme.title')) + '</h3>' +
     '<div class="form-grid">' +
@@ -106,13 +202,161 @@ function themeBlock(theme) {
       color('bg', t('theme.bg')) +
       color('surface', t('theme.surface')) +
       color('text', t('theme.text')) +
-    '</div>' + warn + '</div>';
+    '</div>' + contrastNote(theme) + '</div>';
 }
 
-/* ── محرّر الحملة ───────────────────────────────────────────────── */
+function bindThemeContrast() {
+  var form = document.querySelector('.editor-form');
+  if (!form) return;
+  var refresh = function (event) {
+    var path = event.target.getAttribute && event.target.getAttribute('data-path');
+    if (path !== 'theme.text' && path !== 'theme.bg' && path !== 'theme.mood') return;
+    var note = document.getElementById('themeContrast');
+    if (!note) return;
+    /* هذا المستمع على الفورم، وonInput العام تاع app.js على document —
+       فنخدمو قبلو فالفقّاعة، وstate.draft.theme مازال بالقيمة القديمة.
+       نقراو القيمة الطرية من الحقل روحو (نفس نمط هامش الربح فـ
+       products.js) بدل ما نتّكلو على ترتيب المستمعين. */
+    var theme = Object.assign({}, state.draft.theme || {});
+    theme[path.split('.')[1]] = event.target.value;
+    note.outerHTML = contrastNote(theme);
+  };
+  form.addEventListener('input', refresh);
+  form.addEventListener('change', refresh);
+}
 
-export function renderCampaignEditor() {
-  var draft = state.draft;
+/* ── محرّر الحملة: الخطوات ──────────────────────────────────────── */
+
+var STEP_KEYS = ['details', 'design', 'content', 'review'];
+
+/* حالة الجلسة تعيش على مستوى الموديول (state.js ماشي ملفي) — الخطوة
+   الحالية وrenderCampaignEditor() يتنادى بزاف (كل زيادة/حذف قسم)، وما
+   بغيناهاش ترجع لـ "Details" في كل مرّة. */
+var currentStep = STEP_KEYS[0];
+/* آخر مرجع (reference) تاع state.draft شفناه — ماشي id: زيادة/حذف قسم
+   يبدّل فالكائن الحالي روحو (نفس المرجع)، وفتح جديد (ولا رجوع لنفس
+   الحملة بعد ما خرجنا منها) يعطي كائن جديد كل مرّة، حتى لو نفس id. */
+var lastSeenDraft = null;
+/* الحفظ يبدّل مرجع state.draft (كائن جديد جاي من السيرفر)، فبلا هذا
+   العلَم، الحفظة العادية من خطوة ثانية (Design مثلاً) كانت ترجّع
+   currentStep لـ "Details" فوق كل حفظة، ماشي الحفظة الأولى برك. */
+var skipStepReset = false;
+
+function stepLabel(key) {
+  return t('campaigns.step' + key.charAt(0).toUpperCase() + key.slice(1));
+}
+
+/** القواعد اللي لازمها تصحّ قبل النشر — الحفظ العادي (مسودّة) بلا قيود */
+function publishRules() {
+  return {
+    name: { required: true, maxLength: 80 },
+    slug: { required: true, slug: true },
+    productId: { required: true, message: t('campaigns.productRequired') },
+  };
+}
+
+/** أي خطوة فيها هذا المسار — يخدم كي نوجّهو المستخدم لمكان الخطأ */
+function stepForPath(path) {
+  if (path.indexOf('theme.') === 0) return 'design';
+  if (path.indexOf('sections.') === 0) return 'content';
+  return 'details';
+}
+
+/* حقول النشر كاملها (اسم/رابط/منتج) عايشين في خطوة Details، فـ"جاهزة
+   للنشر" تتلخّص في: هاذوك الثلاثة مليحين ولا لا. design/content ما
+   فيهمش حقل إجباري دروك، فيبقاو "check" ديماً. */
+function stepStatus(errors) {
+  var detailsBad = !!(errors.name || errors.slug || errors.productId);
+  return { details: detailsBad ? 'alert' : 'check', design: 'check', content: 'check', review: detailsBad ? 'alert' : 'check' };
+}
+
+function refreshStepIcons(draft) {
+  var status = stepStatus(validate(draft, publishRules()).errors);
+  STEP_KEYS.forEach(function (key) {
+    var btn = document.getElementById('campaignSteps-tab-' + key);
+    var svg = btn && btn.querySelector('svg');
+    if (svg) svg.outerHTML = icon(status[key]);
+  });
+}
+
+/* التحقّق أثناء الكتابة (input/change على الفورم كامل) — بلا هذا،
+   أيقونة "alert" تبقى معلّقة بعد ما المستخدم يصلّح الحقل حتى رندر جاي */
+function bindStepValidation(rootEl) {
+  var refresh = function () { refreshStepIcons(state.draft); };
+  rootEl.addEventListener('input', refresh);
+  rootEl.addEventListener('change', refresh);
+}
+
+function onStepChange(key) {
+  currentStep = key;
+  updateStepNav();
+}
+
+function moveStep(dir) {
+  var at = STEP_KEYS.indexOf(currentStep);
+  var target = STEP_KEYS[at + dir];
+  if (!target) return;
+  var btn = document.getElementById('campaignSteps-tab-' + target);
+  if (btn) btn.click();
+}
+
+function bindStepNav(rootEl) {
+  var back = rootEl.querySelector('#stepBack');
+  var next = rootEl.querySelector('#stepNext');
+  if (back) back.addEventListener('click', function () { moveStep(-1); });
+  if (next) next.addEventListener('click', function () { moveStep(1); });
+}
+
+function updateStepNav() {
+  var at = STEP_KEYS.indexOf(currentStep);
+  var back = document.getElementById('stepBack');
+  var next = document.getElementById('stepNext');
+  var pos = document.getElementById('stepPos');
+  if (back) back.disabled = at <= 0;
+  if (next) next.disabled = at >= STEP_KEYS.length - 1;
+  if (pos) pos.textContent = t('campaigns.stepPosition', { n: at + 1, total: STEP_KEYS.length });
+}
+
+/* أوّل مرّة يبان فيها كائن draft جديد (فتح فعلي، ماشي إعادة رندر
+   داخلية على نفس الكائن) = جلسة جديدة: نعلّمو الحالة "نظيفة" من جديد
+   (markClean — شوف ui/form.js) ونرجّعو للخطوة الأولى.
+   ⚠️ app.js يسكّر clearDirty() على كل تنقّل (حتى الناجح بلا تعديل) —
+   يعني الرجوع لنفس الحملة بعد ما خرجنا منها يوصل هنا بكائن جديد (نفس
+   id، مرجع آخر) ولازمو يعاود يسلّح markClean، ماشي يبقى معلَّق. */
+function ensureEditorSession(draft) {
+  if (draft === lastSeenDraft) return;
+  lastSeenDraft = draft;
+  markClean(draft, function () { return state.draft; });
+  if (skipStepReset) { skipStepReset = false; return; }
+  currentStep = STEP_KEYS[0];
+}
+
+/* ── خطوة 1: التفاصيل ───────────────────────────────────────────── */
+
+function detailsPanel(draft) {
+  /* U+2066/U+2069 (FSI/PDI) بدل <bdi> — بلاصة الاستعمال هنا نص <option>،
+     والمتصفّح ما يرندريش وسوم HTML جوّا <option> */
+  var productOptions = [{ value: '', label: t('campaigns.selectProduct') }].concat(
+    state.products.map(function (p) {
+      return { value: p.id, label: '⁦' + p.name + '⁩' + ' — ' + fmtMoney(p.price) };
+    }),
+  );
+
+  return '<div class="admin-card"><h3>' + esc(t('campaigns.basics')) + '</h3><div class="form-grid">' +
+    fieldHtml(textField('name', t('campaigns.name'), t('campaigns.nameHint')), draft.name, 'name') +
+    fieldHtml(textField('slug', t('campaigns.slug'), t('campaigns.slugHint')), draft.slug, 'slug') +
+    fieldHtml({ key: 'productId', label: t('campaigns.product'), type: 'select', options: productOptions },
+      draft.productId || '', 'productId') +
+    fieldHtml(textField('seo.title', t('campaigns.seoTitle')), (draft.seo || {}).title, 'seo.title') +
+    '<div class="field field--full">' +
+      fieldHtml(areaField('seo.description', t('campaigns.seoDescription')), (draft.seo || {}).description, 'seo.description') +
+    '</div>' +
+  '</div></div>';
+}
+
+/* ── خطوة 3: المحتوى (الأقسام) ──────────────────────────────────── */
+
+function contentPanel(draft) {
   var used = (draft.sections || []).map(function (s) { return s.type; });
   var addable = Object.keys(SECTION_LABELS).filter(function (type) { return used.indexOf(type) === -1; });
 
@@ -125,9 +369,15 @@ export function renderCampaignEditor() {
       '</summary>' +
       '<div class="section-block__body">' +
         '<div class="group-item__head">' +
-          '<button type="button" class="mini-btn" data-act="move-section" data-index="' + index + '" data-dir="-1" title="' + esc(t('common.moveUp')) + '">↑</button>' +
-          '<button type="button" class="mini-btn" data-act="move-section" data-index="' + index + '" data-dir="1" title="' + esc(t('common.moveDown')) + '">↓</button>' +
-          '<button type="button" class="mini-btn mini-btn--danger" data-act="del-section" data-index="' + index + '" title="' + esc(t('common.delete')) + '">✕</button>' +
+          '<button type="button" class="mini-btn" data-act="move-section" data-index="' + index + '" data-dir="-1"' +
+            ' title="' + esc(t('common.moveUp')) + '" aria-label="' + esc(t('common.moveUp')) + '">' +
+            icon('chevron', 'mini-btn__ico--up') + '</button>' +
+          '<button type="button" class="mini-btn" data-act="move-section" data-index="' + index + '" data-dir="1"' +
+            ' title="' + esc(t('common.moveDown')) + '" aria-label="' + esc(t('common.moveDown')) + '">' +
+            icon('chevron') + '</button>' +
+          '<button type="button" class="mini-btn mini-btn--danger" data-act="del-section" data-index="' + index + '"' +
+            ' title="' + esc(t('common.delete')) + '" aria-label="' + esc(t('common.delete')) + '">' +
+            icon('trash') + '</button>' +
         '</div>' +
         '<div class="field checkbox-row">' +
           '<input type="checkbox" id="en_' + index + '" data-path="sections.' + index + '.enabled" data-kind="bool"' +
@@ -141,44 +391,121 @@ export function renderCampaignEditor() {
     '</details>';
   }).join('');
 
-  /* U+2066/U+2069 (FSI/PDI) بدل <bdi> — بلاصة الاستعمال هنا نص <option>،
-     والمتصفّح ما يرندريش وسوم HTML جوّا <option> */
-  var productOptions = [{ value: '', label: t('campaigns.selectProduct') }].concat(
-    state.products.map(function (p) {
-      return { value: p.id, label: '⁦' + p.name + '⁩' + ' — ' + fmtMoney(p.price) };
-    }),
-  );
-
-  var body = '<div class="editor-split">' +
-    '<div class="editor-form">' +
-      '<div class="admin-card"><h3>' + esc(t('campaigns.basics')) + '</h3><div class="form-grid">' +
-        fieldHtml(textField('name', t('campaigns.name'), t('campaigns.nameHint')), draft.name, 'name') +
-        fieldHtml(textField('slug', t('campaigns.slug'), t('campaigns.slugHint')), draft.slug, 'slug') +
-        fieldHtml({ key: 'productId', label: t('campaigns.product'), type: 'select', options: productOptions },
-          draft.productId || '', 'productId') +
-        fieldHtml(textField('seo.title', t('campaigns.seoTitle')), (draft.seo || {}).title, 'seo.title') +
-        '<div class="field field--full">' +
-          fieldHtml(areaField('seo.description', t('campaigns.seoDescription')), (draft.seo || {}).description, 'seo.description') +
-        '</div>' +
-      '</div></div>' +
-
-      themeBlock(draft.theme || {}) +
-
-      '<div class="admin-card"><h3>' + esc(t('campaigns.sections')) + '</h3>' +
-        (sectionsHtml || stateBlock({
-          variant: 'empty',
-          title: t('campaigns.sectionsEmptyTitle'),
-          body: t('campaigns.sectionsEmptyBody'),
-        })) +
-        '<div class="add-section-row">' +
-          '<select id="addSectionType">' +
+  return '<div class="admin-card"><h3>' + esc(t('campaigns.sections')) + '</h3>' +
+    (sectionsHtml || stateBlock({
+      variant: 'empty',
+      title: t('campaigns.sectionsEmptyTitle'),
+      body: t('campaigns.sectionsEmptyBody'),
+    })) +
+    '<div class="add-section-row">' +
+      /* كل الأنواع مستعملة = ما بقى والو نزيدو — نبيّنو السبب بدل زر
+         يبان مفعّل وما يديرش والو كي يتضغط */
+      (addable.length
+        ? '<select id="addSectionType" aria-label="' + esc(t('campaigns.addSectionLabel')) + '">' +
             addable.map(function (type) {
               return '<option value="' + type + '">' + esc(SECTION_LABELS[type]) + '</option>';
             }).join('') +
           '</select>' +
-          '<button type="button" class="btn btn--outline btn--xs" data-act="add-section">' + esc(t('campaigns.addSection')) + '</button>' +
-          '<button type="button" class="btn btn--outline btn--xs" data-act="blank-sections">' + esc(t('campaigns.blankSections')) + '</button>' +
-        '</div>' +
+          '<button type="button" class="btn btn--outline btn--xs" data-act="add-section">' + esc(t('campaigns.addSection')) + '</button>'
+        : '<span class="hint" style="margin:0">' + esc(t('campaigns.allSectionsUsed')) + '</span>') +
+      '<button type="button" class="btn btn--outline btn--xs" data-act="blank-sections">' + esc(t('campaigns.blankSections')) + '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+/* المقاسات جوّا قسم مفتوح = تبعد بالكيبورد كيما بالفارة (Tab للزر، Enter
+   يضغط) — Alt+↑/↓ فوق أي بلاصة جوّا القسم يزيدها طريق أقصر بلا ما
+   يوصل المستخدم بالتاب للزر بالضبط. نديرو click على الزر الموجود روحو
+   باش ما نكرّروش منطق التحريك (هو في app.js). */
+document.addEventListener('keydown', function (event) {
+  if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+  var block = event.target.closest && event.target.closest('.section-block');
+  if (!block) return;
+  var dir = event.key === 'ArrowUp' ? '-1' : '1';
+  var moveBtn = block.querySelector('[data-act="move-section"][data-dir="' + dir + '"]');
+  if (!moveBtn) return;
+  event.preventDefault();
+  moveBtn.click();
+});
+
+/* ── خطوة 4: المراجعة والنشر ────────────────────────────────────── */
+
+function reviewChecklist(errors) {
+  var items = [
+    { path: 'name', label: t('campaigns.name') },
+    { path: 'slug', label: t('campaigns.slug') },
+    { path: 'productId', label: t('campaigns.product') },
+  ];
+  return '<ul class="review-checklist">' + items.map(function (item) {
+    var bad = errors[item.path];
+    return '<li class="review-checklist__item ' + (bad ? 'is-bad' : 'is-ok') + '">' +
+      icon(bad ? 'alert' : 'check') +
+      '<span>' + esc(bad ? (item.label + ' — ' + bad) : item.label) + '</span>' +
+    '</li>';
+  }).join('') + '</ul>';
+}
+
+function reviewSummary(draft) {
+  var product = state.products.filter(function (p) { return p.id === draft.productId; })[0];
+  var sections = draft.sections || [];
+  var enabledCount = sections.filter(function (s) { return s.enabled !== false; }).length;
+  var theme = draft.theme || {};
+  var defaults = themeDefaults(theme.mood);
+
+  return '<dl class="review-summary">' +
+    '<dt>' + esc(t('campaigns.name')) + '</dt><dd><bdi>' + esc(draft.name || t('campaigns.untitled')) + '</bdi></dd>' +
+    '<dt>' + esc(t('campaigns.reviewLink')) + '</dt><dd>/' + esc(draft.slug || '') + '</dd>' +
+    '<dt>' + esc(t('campaigns.product')) + '</dt><dd>' +
+      (product ? esc(product.name) + ' — ' + esc(fmtMoney(product.price)) : esc(t('campaigns.selectProduct'))) + '</dd>' +
+    '<dt>' + esc(t('theme.title')) + '</dt><dd>' +
+      '<span class="review-swatch" style="background:' + esc(theme.accent || defaults.accent) + '"></span>' +
+      esc(theme.mood === 'dark' ? 'Dark' : 'Light') + '</dd>' +
+    '<dt>' + esc(t('campaigns.reviewSections')) + '</dt><dd>' +
+      esc(t('campaigns.reviewSectionsCount', { enabled: enabledCount, total: sections.length })) + '</dd>' +
+    '<dt>' + esc(t('campaigns.reviewStatus')) + '</dt><dd>' + statusBadge(draft) + '</dd>' +
+  '</dl>';
+}
+
+function reviewPanel(draft, errors) {
+  return '<div class="admin-card"><h3>' + esc(t('campaigns.reviewTitle')) + '</h3>' +
+      reviewChecklist(errors) +
+      '<div class="hint review-hint">' + esc(t('campaigns.reviewPublishHint')) + '</div>' +
+    '</div>' +
+    '<div class="admin-card"><h3>' + esc(t('campaigns.reviewSummaryTitle')) + '</h3>' +
+      reviewSummary(draft) +
+    '</div>';
+}
+
+function stepPanel(key, draft, errors) {
+  if (key === 'details') return detailsPanel(draft);
+  if (key === 'design') return themeBlock(draft.theme || {});
+  if (key === 'content') return contentPanel(draft);
+  return reviewPanel(draft, errors);
+}
+
+/* ── محرّر الحملة ───────────────────────────────────────────────── */
+
+export function renderCampaignEditor() {
+  var draft = state.draft;
+  ensureEditorSession(draft);
+
+  var errors = validate(draft, publishRules()).errors;
+  var status = stepStatus(errors);
+  var tabs = STEP_KEYS.map(function (key) {
+    return { key: key, label: stepLabel(key), icon: status[key], panel: stepPanel(key, draft, errors) };
+  });
+
+  var body = '<div class="editor-split">' +
+    '<div class="editor-form">' +
+      tabsHtml({ id: 'campaignSteps', tabs: tabs, active: currentStep }) +
+      '<div class="step-nav">' +
+        '<button type="button" class="btn btn--outline btn--xs" id="stepBack">' +
+          icon('chevron', 'step-nav__ico step-nav__ico--prev') + esc(t('campaigns.stepBack')) +
+        '</button>' +
+        '<span class="step-nav__pos" id="stepPos"></span>' +
+        '<button type="button" class="btn btn--outline btn--xs" id="stepNext">' +
+          esc(t('campaigns.stepNext')) + icon('chevron', 'step-nav__ico') +
+        '</button>' +
       '</div>' +
     '</div>' +
 
@@ -206,6 +533,11 @@ export function renderCampaignEditor() {
       (isPublished ? esc(t('campaigns.saveKeepPublished')) : esc(t('campaigns.savePublish'))) + '</button>';
 
   root.innerHTML = shell('⁦' + (draft.name || t('campaigns.untitled')) + '⁩', actions, body);
+  bindTabs(root, onStepChange);
+  bindThemeContrast();
+  bindStepValidation(root.querySelector('.editor-form'));
+  bindStepNav(root);
+  updateStepNav();
   refreshPreview();
 }
 
@@ -237,14 +569,40 @@ export function reorderSections() {
 
 export async function saveCampaign(publish) {
   var draft = state.draft;
+
+  /* النشر يوقف على تحقّق حقيقي (اسم/رابط/منتج) — المسودّة ما فيهاش
+     هاذ القيد، عندها الحقّ تبقى ناقصة */
+  if (publish) {
+    var result = validate(draft, publishRules());
+    if (!result.ok) {
+      var firstPath = Object.keys(result.errors)[0];
+      var step = stepForPath(firstPath);
+      var stepBtn = document.getElementById('campaignSteps-tab-' + step);
+      if (stepBtn) stepBtn.click();
+      refreshStepIcons(draft);
+      showErrors(document.querySelector('.editor-form'), result.errors);
+      toast(t('validation.summary', { n: Object.keys(result.errors).length }), true);
+      return;
+    }
+  }
+
+  var statusBefore = draft.status;
   if (publish) draft.status = 'published';
   /* الـ select يعطي '' كي ما يكونش مختار — و'' ماشي nullish، فتخزّن
      كيما هي وتخلّي الحملة "عندها منتج" بمعرّف فارغ */
   if (!draft.productId) draft.productId = null;
 
+  /* الحفظ يعطينا كائن draft جديد (مرجع آخر) — بلا هاذ العلَم،
+     ensureEditorSession() كانت ترجّع currentStep لـ "Details" فوق كل
+     حفظة، حتى حفظة مسودّة عادية من خطوة "Design" مثلاً */
+  skipStepReset = true;
   try {
     var res = await api('campaigns.save', { campaign: draft });
     state.draft = res.campaign;
+    /* نسلّحو markClean هنا، قبل تبديل الهاش: onHashChange (app.js) يفحص
+       isDirty() فور ما الهاش يتبدّل، وبلا هذا كان يبان "متبدّل" (السيرفر
+       رجّع updatedAt/id جداد) ويسأل المستخدم فوق حفظة ناجحة توّها */
+    markClean(state.draft, function () { return state.draft; });
     state.campaigns = (await api('campaigns.list')).campaigns;
     /* أول حفظ يعطينا id — نبدّلو الهاش باش refresh ما يضيّعش الحملة */
     if (location.hash !== '#/campaigns/' + res.campaign.id) {
@@ -254,6 +612,10 @@ export async function saveCampaign(publish) {
     }
     toast(publish ? t('campaigns.publishedToast', { slug: res.campaign.slug }) : t('campaigns.saved'));
   } catch (error) {
+    /* بلا هذا، نشر فاشل يخلّي status='published' فالذاكرة — والحفظة
+       الجاية بزر "Save" العادي تنشر الحملة بلا ما المستخدم يطلب */
+    draft.status = statusBefore;
+    skipStepReset = false; /* الحفظ فشل — الجلسة ما تبدّلاتش فعلاً */
     toast(error.message, true);
   }
 }

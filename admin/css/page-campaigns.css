@@ -1,0 +1,48 @@
+/* ==========================================================================
+   Qiti admin — محرّر الحملة (خاص بهذي الصفحة برك)
+   العمود + المعاينة + الأقسام (.editor-split / .preview-panel /
+   .section-block / .add-section-row) معرّفين في pages.css المشترك —
+   هنا غير اللي زاد مع الخطوات (stepper) وخطوة المراجعة وقائمة الحملات.
+   ========================================================================== */
+
+/* ── بحث القائمة ──────────────────────────────────────────────────────── */
+.admin__actions .campaign-search { min-width: 200px; }
+
+/* ── تنقّل الخطوات (Back/Next) ───────────────────────────────────────────
+   .tabs (js/ui/tabs.js) هي الخطوات روحها — القفز الحرّ. هذا الشريط تحتها
+   هو الطريق المستقيم (Back/Next)، وما يعرفش هو واش راهو نشط: بيبدّل
+   حالة زوج الأزرار بلا ما يبني الـ HTML من جديد (شوف updateStepNav في
+   campaigns.js). */
+.step-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); padding-top: var(--sp-3); margin-top: var(--sp-1);
+  border-top: 1px solid var(--border);
+}
+.step-nav__pos { font-size: var(--fs-meta); color: var(--text-muted); font-weight: var(--fw-medium); }
+.step-nav__ico { width: 14px; height: 14px; transform: rotate(-90deg); }
+.step-nav__ico--prev { transform: rotate(90deg); }
+
+/* ── خطوة المراجعة ────────────────────────────────────────────────────── */
+.review-checklist { list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; }
+.review-checklist__item { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--fs-body); }
+.review-checklist__item .ico { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+.review-checklist__item.is-ok .ico { color: var(--st-success); }
+.review-checklist__item.is-bad { color: var(--st-danger); }
+.review-checklist__item.is-bad .ico { color: var(--st-danger); }
+.review-hint { margin-top: var(--sp-3); }
+
+.review-summary { display: grid; grid-template-columns: auto 1fr; gap: 7px var(--sp-4); font-size: var(--fs-label); align-items: center; margin: 0; }
+.review-summary dt { color: var(--text-muted); font-weight: var(--fw-medium); }
+.review-summary dd { color: var(--text); display: flex; align-items: center; gap: var(--sp-2); }
+.review-swatch { width: 16px; height: 16px; border-radius: var(--r-sm); border: 1px solid var(--border); flex: none; }
+
+/* ── أزرار تحريك القسم: السهم مبني من chevron مقلوب (شوف icon.js) ──────── */
+.mini-btn__ico--up { transform: rotate(180deg); }
+
+@media (max-width: 480px) {
+  .review-summary { grid-template-columns: 1fr; gap: var(--sp-hair); }
+  .review-summary dd { margin-bottom: var(--sp-2); }
+  .step-nav__pos { order: -1; flex-basis: 100%; text-align: center; }
+  .step-nav { flex-wrap: wrap; }
+  .step-nav > .btn { flex: 1 1 auto; }
+}
