@@ -11,7 +11,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SECTIONS_DIR = 'netlify/lib/render/sections';
+const SECTIONS_DIR = 'lib/render/sections';
 
 /* ── واش يقرا كل قسم؟ ─────────────────────────────────────────────── */
 

@@ -68,7 +68,7 @@ export var list = function (key, label, fields, hint) {
 export var readout = function (key, label, hint) { return { key: key, label: label, type: 'readout', hint: hint }; };
 
 /*
- * الحقول تتبع بالضبط واش يقراه كل قسم في netlify/lib/render/sections/.
+ * الحقول تتبع بالضبط واش يقراه كل قسم في lib/render/sections/.
  * حقل ماشي هنا = حقل الزبون ما يشوفوش عمرو. لو زدت حقل في قسم، زيدو هنا.
  */
 export var SECTION_FIELDS = {

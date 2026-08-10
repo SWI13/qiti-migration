@@ -9,9 +9,15 @@
  * ولا استنّى دقيقة على البناء. الـ CDN يخبّي النتيجة فالزائر ما يحسّش.
  *
  * ── التخبئة (cache) ────────────────────────────────────────────────
- * `public, max-age=0, must-revalidate` + `netlify-cdn-cache-control`
- * يخلّي الـ CDN يخبّي، والمتصفّح يسقسي في كل مرّة. هكذا كي تنشر تبديل،
- * تمسح الكاش من الـ CDN والزوّار يشوفو الجديد على طول.
+ * `cache-control: max-age=0, must-revalidate` للمتصفّح (يسقسي في كل
+ * مرّة) + `cdn-cache-control` للـ CDN وحدو (يخبّي 5 دقايق ويقدّم
+ * النسخة القديمة كي يعاود يجيب الجديدة). هكذا كي تنشر تبديل، الزوّار
+ * يشوفوه بلا ما كل زيارة تضرب الفنكشن.
+ *
+ * ⚠️ الهيدر كان `netlify-cdn-cache-control` — اسم خاص بـ Netlify، وعلى
+ * Vercel ما يعني والو (يعدّي كهيدر عادي والـ CDN ما يقراهش). Vercel
+ * يقرا `cdn-cache-control` (المعيار المشترك) و`vercel-cdn-cache-control`.
+ * نحطّو المعياري باش يخدم في الزوج.
  */
 import { resolveRoute, getCampaign, getProduct, getCategory, listProducts } from '../lib/catalog.mjs';
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
@@ -31,7 +37,7 @@ const html = (body, status = 200, extraHeaders = {}) =>
 /* صفحات منشورة تتخبّى، الباقي لا */
 const CACHE_PUBLIC = {
   'cache-control': 'public, max-age=0, must-revalidate',
-  'netlify-cdn-cache-control': 'public, max-age=300, stale-while-revalidate=86400',
+  'cdn-cache-control': 'public, max-age=300, stale-while-revalidate=86400',
 };
 
 /*
@@ -59,9 +65,18 @@ function notFound() {
 </html>`, 404);
 }
 
-/** مسار الطلب بلا query ولا شرطة في الأخير */
+/*
+ * مسار الطلب بلا query ولا شرطة في الأخير.
+ *
+ * ⚠️ الفنكشن يوصلها الطلب عبر rewrite في vercel.json، والـ rewrite
+ * يقدر يبدّل pathname لـ /api/render — وقتها السلاڨ يضيع. علاش
+ * الـ rewrite يمرّر المسار الأصلي في ?path=، وهو اللي نقراوه الأوّل.
+ * pathname يبقى احتياط للنداء المباشر (تجارب محلّية).
+ */
 function pathOf(request) {
-  const { pathname } = new URL(request.url);
+  const url = new URL(request.url);
+  const raw = url.searchParams.get('path') || url.pathname;
+  const pathname = raw.startsWith('/') ? raw : `/${raw}`;
   if (pathname.length > 1 && pathname.endsWith('/')) return pathname.slice(0, -1);
   return pathname;
 }

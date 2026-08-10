@@ -8,12 +8,13 @@
  * فنحسبو التاريخ من ساعة لور (23:00 تاع البارح) باش نجيبو النهار الصح.
  *
  * تقدر تشغّلو باليد للتجريب:
- *   curl "https://<موقعك>.netlify.app/.netlify/functions/daily-report?key=<SECRET>"
+ *   curl "https://<موقعك>.netlify.app/api/daily-report?key=<SECRET>"
  */
 import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock, getCosts } from '../lib/store.mjs';
 import { dz, esc, profitFor } from '../lib/message.mjs';
+import { authorized } from '../lib/cron-auth.mjs';
 
-export const config = { schedule: '0 23 * * *' };
+/* الجدولة ولّات في vercel.json ("crons") — Vercel ما يقراش config هنا */
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 
@@ -127,16 +128,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
 }
 
 export default async function handler(request) {
-  /*
-   * كي يشغّلو الـ cron ما كاينش request عادي. كي تشغّلو انت باليد عبر URL،
-   * نطلبو المفتاح باش حتى واحد ما يقدر يستهلك التقرير كيما يحب.
-   */
-  const url = request?.url ? new URL(request.url) : null;
-  const manualKey = url?.searchParams.get('key');
-  if (manualKey !== null) {
-    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (!secret || manualKey !== secret) return new Response('Forbidden', { status: 403 });
-  }
+  if (!authorized(request)) return new Response('Forbidden', { status: 403 });
 
   /* ساعة لور = ما زلنا في النهار اللي كمل، حتى لو تشغّل على 00:00 بالضبط */
   const dayJustEnded = algiersDate(new Date(Date.now() - 60 * 60 * 1000));

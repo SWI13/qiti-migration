@@ -1,10 +1,10 @@
 /*
- * سكريبت تحقّق يدوي لـ netlify/lib/auth.mjs — يفحص الفنكشنز الصافية
+ * سكريبت تحقّق يدوي لـ lib/auth.mjs — يفحص الفنكشنز الصافية
  * (بلا Blobs) بتعديل process.env مباشرة بين كل حالة.
  */
 import assert from 'node:assert/strict';
 
-const AUTH_PATH = '../../netlify/lib/auth.mjs';
+const AUTH_PATH = '../../lib/auth.mjs';
 
 let pass = 0;
 let fail = 0;

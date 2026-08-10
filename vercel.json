@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/media/:id", "destination": "/api/media-serve?id=:id" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/admin/:path*", "destination": "/admin/index.html" },
+    { "source": "/c/:path*", "destination": "/api/render?path=/c/:path*" },
+    { "source": "/p/:path*", "destination": "/api/render?path=/p/:path*" },
+    { "source": "/:path*", "destination": "/api/render?path=/:path*" }
+  ],
+  "crons": [
+    { "path": "/api/daily-report", "schedule": "0 23 * * *" },
+    { "path": "/api/weekly-report", "schedule": "0 23 * * 0" }
+  ]
+}

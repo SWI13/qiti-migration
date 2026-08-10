@@ -1,6 +1,6 @@
 /*
  * يخدم صورة مخزّنة. الرابط العام `/media/:id` يوصل هنا عبر redirect
- * في netlify.toml — الـ id هو آخر جزء في المسار، ونفس المنطق يخدم
+ * في vercel.json — الـ id هو آخر جزء في المسار، ونفس المنطق يخدم
  * سواء الـ redirect جا بـ :id ولا بـ :splat.
  */
 import { getMedia, getMediaBytes } from '../lib/media.mjs';
@@ -16,7 +16,11 @@ const notFound = () => new Response('Not found', {
 
 export default async function handler(request) {
   const url = new URL(request.url);
-  const id = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '');
+  /* الـ rewrite في vercel.json يمرّر المعرّف في ?id= — pathname بعد
+     الـ rewrite يولّي /api/media-serve وما فيهش المعرّف. آخر جزء من
+     المسار يبقى احتياط للنداء المباشر. */
+  const raw = url.searchParams.get('id') ?? url.pathname.split('/').filter(Boolean).pop() ?? '';
+  const id = decodeURIComponent(raw);
   if (!id) return notFound();
 
   const record = await getMedia(id);

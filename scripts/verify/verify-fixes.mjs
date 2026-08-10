@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-const lib = (p) => import(new URL(`../../netlify/lib/${p}`, import.meta.url).href);
+const lib = (p) => import(new URL(`../../lib/${p}`, import.meta.url).href);
 
 const { safeUrl } = await lib('render/html.mjs');
 const { totalWith, totalFor, ownerMessage } = await lib('message.mjs');

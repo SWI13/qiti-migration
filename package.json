@@ -6,8 +6,9 @@
     "build": "node scripts/build.mjs",
     "verify": "node scripts/verify/all.mjs"
   },
-  "description": "صفحة هبوط Qiti — الصفحة روحها ستاتيك بلا dependencies. هذا الملف موجود غير باش الـ Netlify Functions تلقى @netlify/blobs.",
+  "description": "صفحة هبوط Qiti — الصفحة روحها ستاتيك بلا dependencies. الحزم هنا يستعملوها غير الفنكشنات (api/) للتخزين.",
   "dependencies": {
-    "@netlify/blobs": "^10.7.12"
+    "@upstash/redis": "^1.34.3",
+    "@vercel/blob": "^2.7.0"
   }
 }

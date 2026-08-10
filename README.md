@@ -5,7 +5,7 @@
 التجارة الإلكترونية الجزائرية.
 
 الصفحة ستاتيك بالكامل: **بلا build، بلا framework، بلا أي dependency وقت التشغيل.**
-معاها فنكشن وحدة صغيرة (Netlify Function) تبعثلك **إشعار تيليغرام على كل طلب**.
+معاها فنكشنات صغيرة (Vercel Functions في `api/`) تبعثلك **إشعار تيليغرام على كل طلب**.
 
 ---
 
@@ -13,7 +13,10 @@
 
 ```bash
 # الصفحة + الفنكشنات + اللوحة (نفس حالة الإنتاج)
-npx netlify dev
+npx vercel dev
+
+# الملفات برك (أسرع للوحة — بلا فنكشنات، بلا حساب)
+PORT=8888 node scripts/dev-server.mjs
 
 # فحوصات (118 فحص — أقسام، مصادقة، ميديا، حقول اللوحة)
 npm run verify
@@ -24,14 +27,15 @@ npm run build
 
 ## النشر (Deploy)
 
-الموقع دروك يحتاج **Netlify** على خاطر فيه فنكشن (`netlify/functions/order.mjs`).
-GitHub Pages ما يخدمش — يخدم غير ملفات ستاتيك.
+الموقع يحتاج **Vercel** على خاطر فيه فنكشنات (`api/`). GitHub Pages ما يخدمش —
+يخدم غير ملفات ستاتيك.
 
 ```bash
-npx netlify deploy --prod
+npx vercel --prod
 ```
 
-ولا اربط الـ repo تاعك (`SWI13/qiti`) من لوحة Netlify، `netlify.toml` يهدر على كلش.
+ولا اربط الـ repo تاعك (`SWI13/qiti`) من لوحة Vercel، `vercel.json` يهدر على كلش:
+أمر البناء، مجلّد النشر، الروابط (rewrites)، والتقارير المجدولة (crons).
 
 ---
 
@@ -47,49 +51,54 @@ qiti/
 ├── assets/
 │   ├── css/styles.css            # نظام التصميم كامل — كلش يمرّ على tokens
 │   └── js/main.js                # ثيم، نافبار، أنيميشن، فورم الطلب، الإسناد
-├── netlify/
-│   ├── functions/
-│   │   ├── order.mjs             # يستقبل الطلب، يسجّلو، ويبعث إشعار تيليغرام
-│   │   ├── telegram-webhook.mjs  # نقرات قبول / رفض + المخزون + التكاليف
-│   │   ├── render.mjs            # يعرض الحملات والمنتجات والفئات من المعطيات
-│   │   ├── admin-api.mjs         # واجهة اللوحة (محميّة بالمصادقة)
-│   │   ├── admin-login.mjs       # كلمة سرّ + كود تيليغرام
-│   │   ├── media-upload.mjs      # رفع الصور (يتفحّص magic bytes)
-│   │   ├── media-serve.mjs       # يخدم الصور المخزّنة
-│   │   ├── daily-report.mjs      # تقرير آخر النهار (00:00)
-│   │   └── weekly-report.mjs     # تقرير الأسبوع (كل إثنين 00:00)
-│   └── lib/
-│       ├── catalog.mjs           # المنتجات، الحملات، الفئات، المخزون، الروابط
-│       ├── theme.mjs             # ثيم الحملة → tokens (مقيّد، بلا CSS حر)
-│       ├── media.mjs             # تخزين الصور
-│       ├── auth.mjs              # جلسة الإدارة (كوكي ممضي)
-│       ├── store.mjs             # الطلبات + المخزون القديم + قائمة الحظر
-│       ├── message.mjs           # رسالة تيليغرام، الأزرار، حساب الربح
-│       ├── render/
-│       │   ├── index.mjs         # سجلّ الأقسام + عقد القسم
-│       │   ├── layout.mjs        # غلاف الصفحة (head, nav, footer, SEO)
-│       │   ├── html.mjs          # الهروب — esc / escAttr / safeUrl
-│       │   ├── sprite.mjs        # أيقونات SVG (مستخرجة من index.html)
-│       │   └── sections/         # 10 أقسام: hero, order, gallery, faq…
-│       ├── attribution.mjs       # منين جا الزبون (utm / fbclid / ttclid)
-│       ├── meta.mjs              # Meta CAPI — Lead عند الطلب، Purchase عند التوصيل
-│       ├── trust.mjs             # فحص الثقة البرّاني (tkawen)
-│       └── wilayas.mjs           # الـ58 ولاية بترتيبها الرسمي (اسم → رقم)
+├── api/                          # Vercel Functions — الملف هو الرابط (/api/<اسم>)
+│   ├── order.mjs                 # يستقبل الطلب، يسجّلو، ويبعث إشعار تيليغرام
+│   ├── telegram-webhook.mjs      # نقرات قبول / رفض + المخزون + التكاليف
+│   ├── render.mjs                # يعرض الحملات والمنتجات والفئات من المعطيات
+│   ├── admin-api.mjs             # واجهة اللوحة (محميّة بالمصادقة)
+│   ├── admin-login.mjs           # كلمة سرّ + كود تيليغرام
+│   ├── media-upload.mjs          # رفع الصور (يتفحّص magic bytes)
+│   ├── media-serve.mjs           # يخدم الصور المخزّنة
+│   ├── track.mjs                 # بيكون الزيارات
+│   ├── daily-report.mjs          # تقرير آخر النهار (00:00)
+│   └── weekly-report.mjs         # تقرير الأسبوع (كل إثنين 00:00)
+├── lib/                          # كود مشترك — ما يتنشرش للزائر
+│   ├── blobs.mjs                 # طبقة التخزين — Redis + Vercel Blob وراء getStore()
+│   ├── site.mjs                  # رابط الموقع الرسمي (ماشي من الطلب — أمان)
+│   ├── cron-auth.mjs             # من يقدر يشغّل تقرير مجدول
+│   ├── catalog.mjs               # المنتجات، الحملات، الفئات، المخزون، الروابط
+│   ├── theme.mjs                 # ثيم الحملة → tokens (مقيّد، بلا CSS حر)
+│   ├── media.mjs                 # تخزين الصور
+│   ├── auth.mjs                  # جلسة الإدارة (كوكي ممضي)
+│   ├── store.mjs                 # الطلبات + المخزون القديم + قائمة الحظر
+│   ├── visits.mjs                # عدّادات الزيارات (HINCRBY ذرّي)
+│   ├── message.mjs               # رسالة تيليغرام، الأزرار، حساب الربح
+│   ├── render/
+│   │   ├── index.mjs             # سجلّ الأقسام + عقد القسم
+│   │   ├── layout.mjs            # غلاف الصفحة (head, nav, footer, SEO)
+│   │   ├── html.mjs              # الهروب — esc / escAttr / safeUrl
+│   │   ├── sprite.mjs            # أيقونات SVG (مستخرجة من index.html)
+│   │   └── sections/             # 10 أقسام: hero, order, gallery, faq…
+│   ├── attribution.mjs           # منين جا الزبون (utm / fbclid / ttclid)
+│   ├── meta.mjs                  # Meta CAPI — Lead عند الطلب، Purchase عند التوصيل
+│   ├── analytics.mjs             # تجميع أرقام لوحة القيادة
+│   ├── trust.mjs                 # فحص الثقة البرّاني (tkawen)
+│   └── wilayas.mjs               # الـ58 ولاية بترتيبها الرسمي (اسم → رقم)
 ├── scripts/
 │   ├── build.mjs                 # ينسخ الملفات العامّة لـ dist/ (شوف تحت)
 │   ├── check-admin-fields.mjs    # يتأكّد اللوحة تغطّي كل حقل قسم يقراه
 │   └── verify/                   # فحوصات — npm run verify
-├── netlify.toml                  # إعدادات Netlify + ترتيب الروابط (مهم!)
-├── package.json                  # scripts + @netlify/blobs
+├── vercel.json                   # بناء + rewrites + crons (الترتيب مهم!)
+├── package.json                  # scripts + @upstash/redis + @vercel/blob
 └── README.md
 ```
 
 ### ⚠️ علاش كاين `dist/` وسكريبت بناء
 
-كان `publish = "."` — يعني Netlify كان ينشر جذر المستودع كامل، و
-`/netlify/lib/catalog.mjs` و`/netlify/lib/auth.mjs` كانو يتقراو من برّا.
-دروك `npm run build` ينسخ غير `index.html` و`assets/` و`admin/` لـ`dist/`،
-وهو اللي يتنشر. الفنكشنات تتبني وحدها من `netlify/functions/`.
+كان مجلّد النشر هو جذر المستودع كامل، و`/lib/catalog.mjs` و`/lib/auth.mjs`
+كانو يتقراو من برّا. دروك `npm run build` ينسخ غير `index.html` و`assets/`
+و`admin/` لـ`dist/`، وهو اللي يتنشر (`outputDirectory` في `vercel.json`).
+الفنكشنات تتبني وحدها من `api/` وما تمرّش على `dist/` أصلاً.
 
 القائمة بيضا في [`scripts/build.mjs`](scripts/build.mjs) — **ملف جديد للزائر
 لازم تزيدو ثمّة بيدك**، وإلا ما يتنشرش.
@@ -97,7 +106,7 @@ qiti/
 ### اللوحة الإدارية — `/admin`
 
 كلمة سر + كود يوصل في تيليغرام (نفس البوت تاع الطلبات)، ومن بعد كوكي ممضية
-7 أيام. لازم تحطّ في Netlify: `ADMIN_PASSWORD_HASH` و`ADMIN_SESSION_SECRET`.
+7 أيام. لازم تحطّ في Vercel: `ADMIN_PASSWORD_HASH` و`ADMIN_SESSION_SECRET`.
 
 اللوحة تدير: حملات (إنشاء، نسخ، نشر، حذف)، منتجات (سومة، تكلفة، خيارات،
 مخزون لكل فاريانت)، فئات، وصور. المعاينة المباشرة تنادي **نفس** `renderSections`
@@ -199,7 +208,7 @@ WhatsApp Cloud API** مع template فيه 6 متغيّرات. قوللي ونب�
 **3. ابعث رسالة للبوت تاعك** — مهم! تيليغرام ما يخلّي البوت يبعثلك حتى
 تبدا انت المحادثة. حلّ البوت واضغط **Start**.
 
-**4. حطّ الـ environment variables في Netlify** (*Site settings → Environment variables*):
+**4. حطّ الـ environment variables في Vercel** (*Settings → Environment Variables*):
 
 | المتغيّر | الشرح | مثال |
 |---|---|---|
@@ -216,16 +225,21 @@ WhatsApp Cloud API** مع template فيه 6 متغيّرات. قوللي ونب�
 | `TKAWEN_API_URL` | *(اختياري)* رابط آخر (sandbox مثلاً) | `https://trust.tkawen.com/v1/check` |
 | `ADMIN_PASSWORD_HASH` | للوحة الإدارة — sha256 تاع كلمة السرّ، ماشي الكلمة روحها | `9f86d081…` |
 | `ADMIN_SESSION_SECRET` | يمضي كوكي الجلسة — **سرّي**، أي نص عشوائي طويل | `أي نص عشوائي` |
+| `CRON_SECRET` | Vercel يبعثو في نداء التقارير المجدولة — بلاه التقرير يترفض | `أي نص عشوائي طويل` |
+| `SITE_URL` | *(اختياري)* الدومين الرسمي؛ بلاه ياخذ دومين Vercel | `https://qiti.com` |
+| `UPSTASH_REDIS_REST_URL` | يتحطّ **وحدو** كي تربط Upstash من لوحة Vercel | — |
+| `UPSTASH_REDIS_REST_TOKEN` | نفس الشي — **سرّي** | — |
+| `BLOB_READ_WRITE_TOKEN` | نفس الشي، كي تربط Vercel Blob — **سرّي** | — |
 
 > 🔐 اللوحة تخدم غير إذا الزوج متغيّرات تاع `ADMIN_*` محطوطين. بلاهم، الدخول
 > مسدود تماماً (fail closed) — ماشي مفتوح. باش تولّد الهاش:
 > `node -e "console.log(require('node:crypto').createHash('sha256').update('كلمتك').digest('hex'))"`
 
 للتجريب المحلي، دير ملف `.env` (مضاف في `.gitignore`) بنفس المتغيّرات وشغّل
-`npx netlify dev`.
+`npx vercel dev`. ولا `npx vercel env pull` يجيبهم من المشروع مباشرةً.
 
 **5. جرّب** — عمّر الفورم وشوف تيليغرام. إذا ما وصلاتش، شوف اللوغ:
-*Netlify → Functions → order*. كل طلب يتسجّل في اللوغ حتى لو الإشعار فشل، فما
+*Vercel → Logs → api/order*. كل طلب يتسجّل في اللوغ حتى لو الإشعار فشل، فما
 تخسر حتى زبون.
 
 > **إذا حبيت الإشعار يجي لأكثر من واحد** (شريك، عامل): دير گروب في تيليغرام،
@@ -290,20 +304,21 @@ WhatsApp Cloud API** مع template فيه 6 متغيّرات. قوللي ونب�
 deploy جديد (ولا كي تبدّل `TELEGRAM_WEBHOOK_SECRET`)، حلّ هذا الرابط:
 
 ```
-https://qitishop.netlify.app/.netlify/functions/telegram-webhook?setup=1
+https://qitishop.netlify.app/api/telegram-webhook?setup=1
 ```
 
 الفنكشن تسجّل روحها عند تيليغرام: هي روحها تعرف الـ secret (من الـ env)
 وتعرف رابط الموقع، فما تحتاجش تكتب حتى حاجة سرّية بيدك. الجواب يبان هكذا:
 
 ```json
-{"ok":true,"url":"https://qitishop.netlify.app/.netlify/functions/telegram-webhook","pending":0}
+{"ok":true,"url":"https://qitishop.netlify.app/api/telegram-webhook","pending":0}
 ```
 
 **علاش الرابط ثابت وماشي ماخوذ من الطلب**: لو بنيناه من الـ request، أي
 واحد يبعث `Host: evil.com` يحوّل الويبهوك لسيرفر تاعو — وتيليغرام يبعثلو
-الـ secret في الـ header. علاش ناخذوه من `process.env.URL` (Netlify يحطّو
-وحدو)، فحتى لو حلّ الرابط شكون ما كان، ديما يتسجّل نفس الموقع.
+الـ secret في الـ header. علاش ناخذوه من `siteUrl()` في `lib/site.mjs` (يقرا
+`SITE_URL` ولا `VERCEL_PROJECT_PRODUCTION_URL`)، فحتى لو حلّ الرابط شكون ما
+كان، ديما يتسجّل نفس الموقع.
 
 الـ secret روحو يمنع النقرات المزوّرة: تيليغرام يزيدو في كل طلب، والفنكشن
 ترفض أي حاجة بلاه.
@@ -317,7 +332,7 @@ curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 لازم تشوف الـ `url` تاعك و`pending_update_count: 0`. إذا لقيت
 `last_error_message`، هذاك هو سبب المشكل.
 
-> **الأزرار ما تخدمش في `netlify dev` المحلي** — تيليغرام يحتاج رابط عمومي
+> **الأزرار ما تخدمش في `vercel dev` المحلي** — تيليغرام يحتاج رابط عمومي
 > باش يوصلك. جرّبهم بعد الـ deploy، ولا استعمل `npx ngrok http 8888` إذا
 > حبيت تجرّب محلياً.
 
@@ -346,17 +361,21 @@ curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 سطر "ما زال بلا قرار" يبان غير كي يكونو طلبات ما نقرتش عليهم — يفكّرك
 بيهم قبل ما يفوت الوقت.
 
-**التوقيت**: الـ cron تاع Netlify يخدم بـ UTC، والجزائر UTC+1 بلا توقيت
-صيفي، علاش الجدول مكتوب `0 23 * * *` (23:00 UTC = 00:00 عندنا) في
-`daily-report.mjs`. التقرير يغطّي النهار اللي **كمل**، ماشي اللي بدا.
+**التوقيت**: الـ cron يخدم بـ UTC، والجزائر UTC+1 بلا توقيت صيفي، علاش
+الجدول مكتوب `0 23 * * *` (23:00 UTC = 00:00 عندنا) — دروك في `vercel.json`
+تحت `crons`، ماشي في الفنكشن روحها. التقرير يغطّي النهار اللي **كمل**.
 
-**⚠️ ما تقدرش تشغّلو بـ curl**: Netlify يمنع استدعاء الفنكشنز المجدولة عبر
-HTTP — يرجّع `403` ديما، حتى بالمفتاح الصحيح. (جرّبناها.)
+**تشغيل يدوي** (تبدّل مع الهجرة): على Netlify كان ممنوع بـ 403. على Vercel
+الرابط عمومي عادي، فالفنكشن ولّات تتحقّق بيدها:
 
-باش تشوفو قبل الوقت، عندك زوج طرق:
-- من لوحة Netlify: *Functions → daily-report → Run* (تشغيل يدوي).
-- ولا بدّل الجدول مؤقّتاً في `daily-report.mjs` لوقت قريب، مثلاً
-  `schedule: '*/5 * * * *'` (كل 5 دقايق)، وكي تتأكّد رجّعو لـ `0 23 * * *`.
+```bash
+curl "https://<موقعك>/api/daily-report?key=$TELEGRAM_WEBHOOK_SECRET"
+```
+
+⚠️ بلا مفتاح صحيح ترجّع `403`. نداء الـ cron تاع Vercel يمرّ بـ
+`Authorization: Bearer $CRON_SECRET` — لازم `CRON_SECRET` تكون محطوطة في
+متغيّرات البيئة، وإلا التقرير المجدول روحو يترفض (فشل مغلق مقصود: تقرير
+ناقص يتلاحظ، رابط مفتوح للعالم لا).
 
 ### تقرير الأسبوع (كل إثنين 00:00)
 
@@ -398,15 +417,20 @@ HTTP — يرجّع `403` ديما، حتى بالمفتاح الصحيح. (جر
 `weekly-report.mjs` — الـ `0` الأخير هو الأحد في جدول cron الكلاسيكي
 (0=الأحد … 6=السبت)، وماشي `1` (يلي كان يبعث التقرير بيوم كامل متأخّر).
 
-نفس ملاحظة التقرير اليومي: **ما تقدرش تشغّلو بـ curl** مباشرة (Netlify
-يرجّع `403` للفنكشنز المجدولة)، جرّبو من *Functions → weekly-report → Run*
-في لوحة Netlify، ولا بدّل الجدول مؤقّتاً كيما فوق.
+نفس منطق التقرير اليومي في التشغيل اليدوي:
+`curl "https://<موقعك>/api/weekly-report?key=$TELEGRAM_WEBHOOK_SECRET"`.
 
 ### وين تتخزّن الطلبات
 
-في **Netlify Blobs** — تخزين مدمج في Netlify، بلا قاعدة بيانات وبلا حساب
-برّاني وبلا فلوس. هذا علاش زدنا `package.json` (غير باش الفنكشنز تلقى
-`@netlify/blobs`؛ الصفحة روحها باقية ستاتيك بلا حتى dependency).
+في **Upstash Redis** (عبر Vercel) — كل شي JSON صغير: طلبات، منتجات، حملات،
+مخزون، تكاليف، زيارات، جلسات الدخول. الصور وحدهم في **Vercel Blob**
+(`media-bin`) — ملفات كبيرة ما عندهاش بلاصة في Redis.
+
+كلش يعدّي على `getStore(name)` في [`lib/blobs.mjs`](lib/blobs.mjs) — نفس
+التوقيع تاع `@netlify/blobs` القديم، علاش 104 نداءات في 6 ملفات ما تبدّلوش
+كي هاجرنا. تبديل المزوّد مرّة ثانية = تكتب هذاك الملف وحدو.
+
+الصفحة روحها باقية ستاتيك بلا حتى dependency — الحزم يستعملوهم غير الفنكشنات.
 
 كل طلب يتسجّل **قبل** ما يتبعث الإشعار، يعني حتى لو تيليغرام طاح، الطلب
 يبقى محفوظ ويبان في تقرير آخر النهار.
@@ -440,7 +464,7 @@ HTTP — يرجّع `403` ديما، حتى بالمفتاح الصحيح. (جر
 الصفحة القديمة ما فيهاش هذا الوسم، فـ `main.js` يرجع للثوابت وكلش يخدم كيما
 قبل. كي تنقل الطوق لحملة، الثوابت هذي ما يبقاش عندها معنى وتتحيّد.
 
-> ⚠️ سومة التوصيل (`SHIPPING`) مازال ثابتة في `netlify/lib/message.mjs` — هي
+> ⚠️ سومة التوصيل (`SHIPPING`) مازال ثابتة في `lib/message.mjs` — هي
 > سومة شركة التوصيل، ماشي تاع المنتج، فبقات في بلاصة وحدة مشتركة.
 
 ### التكلفة والربح الصافي — `/cost`
@@ -458,11 +482,11 @@ HTTP — يرجّع `403` ديما، حتى بالمفتاح الصحيح. (جر
 ```
 
 القيم الافتراضية (`productCost: 1500، adsCost: 300، returnLoss: 700`) في
-`netlify/lib/store.mjs` (`DEFAULT_COSTS`) **تخمين برك** — بدّلهم بـ `/cost`
+`lib/store.mjs` (`DEFAULT_COSTS`) **تخمين برك** — بدّلهم بـ `/cost`
 لأرقامك الحقيقية أوّل حاجة، وإلا رقم "الربح الصافي" في التقرير يبقى غلط.
 
 تكلفة التوصيل (`COURIER_COST` = 350 دج) وحدها ماشي جزء من `/cost` — باقية
-ثابتة في `netlify/lib/message.mjs` (تعديلها يحتاج `deploy`). الحساب:
+ثابتة في `lib/message.mjs` (تعديلها يحتاج `deploy`). الحساب:
 `الربح = المجموع − (سوما البضاعة × الكمية) − تكلفة التوصيل − تكلفة الإعلانات`
 للطلبات اللي توصّلت، و`−خسارة الرجعة` للطلبات اللي رجعت.
 
@@ -544,7 +568,7 @@ https://qitishop.netlify.app/?utm_source=facebook&utm_medium=cpc&utm_campaign=co
 `06 61 44 55 66` كلهم نفس المفتاح، فما يصرالش يتحظر رقم وحدة بزوج صيغ.
 
 > ⚠️ **قائمة الولايات موجودة مرّتين**: في `assets/js/main.js` (متغيّر
-> `WILAYAS`، باش تعمّر الـ`<select>`) وفي `netlify/lib/wilayas.mjs`
+> `WILAYAS`، باش تعمّر الـ`<select>`) وفي `lib/wilayas.mjs`
 > (باش السيرفر يحوّل الاسم لرقم للخدمة البرّانية). نفس الترتيب الرسمي —
 > إذا بدّلتي وحدة بدّل الثانية.
 
@@ -645,7 +669,7 @@ https://qitishop.netlify.app/?utm_source=facebook&utm_medium=cpc&utm_campaign=co
    بصورة حقيقية كي تكون عندك.
 
 **السعر** (3900 دج) مكتوب مباشرة في `index.html` (4 بلايص)، `main.js`
-(`PRODUCT_PRICE`)، و `netlify/functions/order.mjs` (`PRODUCT_PRICE`).
+(`PRODUCT_PRICE`)، و `api/order.mjs` (`PRODUCT_PRICE`).
 بدّلهم كامل مع بعض — شوف تحذير "الأسعار مكتوبة في بلاصتين" فوق.
 
 **عدد الزبائن** (200+) في stats، rating pill، وعنوان قسم التقييمات.

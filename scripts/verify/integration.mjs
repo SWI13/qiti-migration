@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const lib = (p) => import(new URL(`../../netlify/lib/${p}`, import.meta.url).href);
+const lib = (p) => import(new URL(`../../lib/${p}`, import.meta.url).href);
 const { renderSections, priceViewFor, SECTIONS, DEFAULT_SECTIONS, blankSectionsFor } = await lib('render/index.mjs');
 const { renderPage } = await lib('render/layout.mjs');
 const { buildVariants } = await lib('catalog.mjs');

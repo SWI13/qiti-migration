@@ -98,7 +98,7 @@ export function renderMedia() {
 async function uploadFile(file) {
   var form = new FormData();
   form.append('file', file);
-  var response = await fetch('/.netlify/functions/media-upload', { method: 'POST', body: form });
+  var response = await fetch('/api/media-upload', { method: 'POST', body: form });
   var data = await response.json().catch(function () { return {}; });
   if (!response.ok) throw new Error(data.error || 'Failed to upload ' + file.name);
   return data;

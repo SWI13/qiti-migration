@@ -1,14 +1,14 @@
 // فحص الأقسام الثمانية الجداد — يتأكّد من: الكلاسات، الحقول الفارغة،
 // الهروب من XSS، وبقاء الـ hooks اللي main.js يقرا بيهم.
-import trust from '../../netlify/lib/render/sections/trust.mjs';
-import features from '../../netlify/lib/render/sections/features.mjs';
-import how from '../../netlify/lib/render/sections/how.mjs';
-import lifestyle from '../../netlify/lib/render/sections/lifestyle.mjs';
-import gallery from '../../netlify/lib/render/sections/gallery.mjs';
-import reviews from '../../netlify/lib/render/sections/reviews.mjs';
-import faq from '../../netlify/lib/render/sections/faq.mjs';
-import cta from '../../netlify/lib/render/sections/cta.mjs';
-import { SECTIONS } from '../../netlify/lib/render/index.mjs';
+import trust from '../../lib/render/sections/trust.mjs';
+import features from '../../lib/render/sections/features.mjs';
+import how from '../../lib/render/sections/how.mjs';
+import lifestyle from '../../lib/render/sections/lifestyle.mjs';
+import gallery from '../../lib/render/sections/gallery.mjs';
+import reviews from '../../lib/render/sections/reviews.mjs';
+import faq from '../../lib/render/sections/faq.mjs';
+import cta from '../../lib/render/sections/cta.mjs';
+import { SECTIONS } from '../../lib/render/index.mjs';
 
 let failures = 0;
 const ok = (cond, label) => {

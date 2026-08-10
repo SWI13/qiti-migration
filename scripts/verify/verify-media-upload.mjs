@@ -1,6 +1,6 @@
 // يتحقّق من validateUpload/sniffImageType في media-upload.mjs بلا ما يلمس
 // أي تخزين — بينات حقيقية مبنية يدوياً، بلا شبكة، بلا Netlify Blobs.
-import { validateUpload, sniffImageType } from '../../netlify/functions/media-upload.mjs';
+import { validateUpload, sniffImageType } from '../../api/media-upload.mjs';
 
 function hex(...bytes) {
   return Uint8Array.from(bytes);

@@ -43,7 +43,7 @@
  *
  * ── تشبيك الـ webhook (مرّة وحدة بعد الـ deploy) ─────────────────────
  *   curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
- *     -d "url=https://<موقعك>.netlify.app/.netlify/functions/telegram-webhook" \
+ *     -d "url=https://<موقعك>.netlify.app/api/telegram-webhook" \
  *     -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
  */
 import {
@@ -57,6 +57,7 @@ import {
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { getProduct, listProducts, listStockFor } from '../lib/catalog.mjs';
+import { siteUrl } from '../lib/site.mjs';
 
 const TELEGRAM_TIMEOUT_MS = 10_000;
 const MAX_REASON_LENGTH = 200;
@@ -576,10 +577,10 @@ async function setupWebhook() {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret) return { ok: false, error: 'TELEGRAM_WEBHOOK_SECRET is not configured' };
 
-  const site = process.env.URL ?? process.env.DEPLOY_URL;
+  const site = siteUrl();
   if (!site) return { ok: false, error: 'Site URL is not available in the environment' };
 
-  const webhookUrl = `${site.replace(/\/$/, '')}/.netlify/functions/telegram-webhook`;
+  const webhookUrl = `${site}/api/telegram-webhook`;
 
   await telegram('setWebhook', {
     url: webhookUrl,
