@@ -3,8 +3,9 @@
 .env.*
 !.env.example
 
-# Netlify
+# Netlify (إرث) + Vercel
 .netlify/
+.vercel/
 node_modules/
 dist/
 

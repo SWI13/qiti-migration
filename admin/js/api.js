@@ -13,7 +13,7 @@ import { t } from './i18n.js';
 import { renderLogin } from './pages/login.js';
 
 export async function api(action, payload) {
-  var response = await fetch('/.netlify/functions/admin-api', {
+  var response = await fetch('/api/admin-api', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(Object.assign({ action: action }, payload || {})),
@@ -35,7 +35,7 @@ export async function api(action, payload) {
 }
 
 export async function loginStep(payload) {
-  var response = await fetch('/.netlify/functions/admin-login', {
+  var response = await fetch('/api/admin-login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),

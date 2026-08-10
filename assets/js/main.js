@@ -376,8 +376,8 @@
     var orderDoneMsg = document.getElementById('orderDoneMsg');
     var orderAgain = document.getElementById('orderAgain');
 
-    /* الفنكشن اللي تبعث إشعار واتساب — الكود تاعها في netlify/functions/order.mjs */
-    var ORDER_ENDPOINT = '/.netlify/functions/order';
+    /* الفنكشن اللي تبعث إشعار واتساب — الكود تاعها في api/order.mjs */
+    var ORDER_ENDPOINT = '/api/order';
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();

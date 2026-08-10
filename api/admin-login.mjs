@@ -18,7 +18,7 @@
  *   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID       — نفس بوت order.mjs،
  *                                                 هو اللي يبعثلك الكود
  */
-import { getStore } from '@netlify/blobs';
+import { getStore } from '../lib/blobs.mjs';
 import {
   verifyPassword, generateCode, newChallengeId, timingSafeStringEqual,
   sessionCookie, clearCookie,
@@ -81,11 +81,14 @@ async function handlePassword(payload) {
     return json(502, { error: 'ما قدرناش نبعثو الكود دروك. عاود حاول.' });
   }
 
+  /* ttlSeconds يخلّي المخزن يمسحو وحدو كي يفوت وقتو. expiresAt يبقى
+     مكتوب ومتفحّص تحت: التحقّق في الكود هو الحارس الحقيقي، والـ TTL
+     غير باش التحدّيات الميتة ما تتكدّسش للأبد. */
   await challenges().setJSON(challengeId, {
     code,
     attempts: 0,
     expiresAt: Date.now() + CODE_TTL_MS,
-  });
+  }, { ttlSeconds: Math.ceil(CODE_TTL_MS / 1000) });
 
   return json(200, { challengeId });
 }
@@ -108,7 +111,12 @@ async function handleCode(payload) {
       /* 5 محاولات غالطة تكفي — التحدّي يتحرق، يخصّو يبدا من كلمة السر */
       await challenges().delete(challengeId);
     } else {
-      await challenges().setJSON(challengeId, { ...challenge, attempts });
+      /* ⚠️ الكتابة بلا ttlSeconds تمسح وقت الانتهاء اللي حطّيناه في
+         handlePassword — التحدّي يقعد للأبد. نعاودو نحسبو الباقي من
+         expiresAt بدل ما نجدّدو الخمس دقايق: محاولة غالطة ما تستاهلش
+         تمدّد عمر التحدّي. */
+      const remaining = Math.max(1, Math.ceil((challenge.expiresAt - Date.now()) / 1000));
+      await challenges().setJSON(challengeId, { ...challenge, attempts }, { ttlSeconds: remaining });
     }
     return json(401, { error: GENERIC_ERROR });
   }

@@ -338,7 +338,7 @@ if (isLive) {
 }
 
 const { saveProduct, saveCategory, listProducts, listCategories, setVariantStock } =
-  await import('../netlify/lib/catalog.mjs');
+  await import('../lib/catalog.mjs');
 
 if (!isLive) {
   printPlan();
