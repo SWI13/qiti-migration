@@ -34,6 +34,16 @@ function loadingTitle() {
   return t(VIEW_TITLE[state.view] || 'nav.dashboard');
 }
 
+/* الصفحات اللي شريط الأزرار تاعها (فلتر الطلبات، "منتج جديد"…) يبان
+   من أوّل تحميل — بلا هذا العنصر البديل، الشريط يفقّز يبان بعد ما
+   يوصل الجواب ويزحلق الصفحة تحتو. */
+var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, orders: true, products: true, campaigns: true };
+
+function loadingActions() {
+  if (state.id || !LIST_VIEWS_WITH_ACTIONS[state.view]) return '';
+  return '<div class="sk sk--line" style="width:220px;height:38px;margin:0;border-radius:var(--r-md)"></div>';
+}
+
 export async function route() {
   if (!state.authed) return;
 
@@ -47,7 +57,7 @@ export async function route() {
   /* التنقّل يسكّر الدرج (شاشة صغيرة) — البقاء مفتوح بعد اختيار صفحة يبان غالط */
   root.classList.remove('is-nav-open');
 
-  root.innerHTML = shell(loadingTitle(), '', state.view === 'dashboard' ? skeletonDashboard() : (state.id ? skeletonEditor() : skeletonList()));
+  root.innerHTML = shell(loadingTitle(), loadingActions(), state.view === 'dashboard' ? skeletonDashboard() : (state.id ? skeletonEditor() : skeletonList()));
 
   try {
     if (state.view === 'dashboard') {

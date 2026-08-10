@@ -24,6 +24,10 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xs);
 }
+/* بطاقة فورم — نفس الحشو والمسافة اللي كانت مكرّرة inline في عدّة
+   بلايص (products.js، skeleton.js). صنف وحدو باش الحشو ما يتفرّقش. */
+.admin-card--form { padding: 18px; margin-bottom: 16px; }
+.admin-card--form:last-child { margin-bottom: 0; }
 .row-list { display: flex; flex-direction: column; }
 .row-item {
   display: grid;
@@ -82,6 +86,13 @@ textarea { min-height: 78px; resize: vertical; line-height: 1.5; }
 input[type="text"], input[type="number"], select { height: 44px; }
 input[type="color"] { height: 44px; padding: 4px; cursor: pointer; }
 textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+
+/* أزرار وعناصر ملاحة اللوحة ما عندهاش قاعدة focus خاصة بيها — تفوت
+   لتلقائي المتصفّح ديما. حلقة وحدة موحّدة أحسن من كل زر يبان بشكل مختلف. */
+:where(.nav-link, .mini-btn, .row-item--order, .viewport-btn):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .checkbox-row { display: flex; align-items: center; gap: 8px; }
 .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
@@ -181,6 +192,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--a
 
 @media (prefers-reduced-motion: reduce) {
   .sk::after { animation: none; }
+  .toast { transition: none; }
 }
 
 /* ── بلوك حالة (فارغ / خطأ) ────────────────────────────────────────────── */

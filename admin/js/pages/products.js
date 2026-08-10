@@ -63,7 +63,7 @@ function stockTable() {
     '</tr>';
   }).join('');
 
-  return '<div class="admin-card" style="padding:18px"><h3>' + esc(t('stock.title')) + '</h3>' +
+  return '<div class="admin-card admin-card--form"><h3>' + esc(t('stock.title')) + '</h3>' +
     '<table class="stock-table"><thead><tr>' +
       '<th>' + esc(t('stock.variant')) + '</th><th>' + esc(t('stock.quantity')) + '</th><th>' + esc(t('stock.threshold')) + '</th><th></th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
@@ -101,7 +101,7 @@ function variantTable(product) {
     '</tr>';
   }).join('');
 
-  return '<div class="admin-card" style="padding:18px;margin-bottom:16px"><h3>' + esc(t('variants.title')) + '</h3>' +
+  return '<div class="admin-card admin-card--form"><h3>' + esc(t('variants.title')) + '</h3>' +
     '<table class="stock-table"><thead><tr>' +
       '<th>' + esc(t('stock.variant')) + '</th><th>' + esc(t('variants.merchantSku')) + '</th>' +
       '<th>' + esc(t('variants.barcode')) + '</th><th>' + esc(t('variants.priceDelta')) + '</th>' +
@@ -159,7 +159,7 @@ function fieldGroupHtml(group, product, categoryOptions) {
     return fieldHtml(def, value, f.key);
   }).join('');
 
-  return '<div class="admin-card" style="padding:18px;margin-bottom:16px">' +
+  return '<div class="admin-card admin-card--form">' +
     '<h3>' + esc(t(group.title)) + '</h3>' +
     '<div class="form-grid">' + html + '</div></div>';
 }
@@ -187,7 +187,7 @@ export function renderProductEditor() {
 
   var body = groupsHtml +
 
-    '<div class="admin-card" style="padding:18px;margin-bottom:16px">' +
+    '<div class="admin-card admin-card--form">' +
       '<h3>' + esc(t('products.optionsTitle')) + '</h3>' +
       '<div class="hint" style="margin-bottom:10px">' + esc(t('products.optionsHint')) + '</div>' +
       '<div class="group-list">' + optionsHtml + '</div>' +

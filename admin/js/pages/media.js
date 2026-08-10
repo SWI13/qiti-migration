@@ -34,6 +34,8 @@ export function renderMedia() {
       variant: 'empty',
       title: t('media.emptyTitle'),
       body: t('media.emptyBody'),
+      actionAct: 'focus-media-upload',
+      actionLabel: t('media.uploadAction'),
     })) + '</div>');
 
   document.getElementById('mediaFile').addEventListener('change', async function (event) {

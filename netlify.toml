@@ -9,7 +9,7 @@
 [functions]
   node_bundler = "esbuild"
 
-# محلياً نخدمو من الجذر مباشرة — التعديل في admin/admin.js يبان بـ refresh
+# محلياً نخدمو من الجذر مباشرة — التعديل في admin/js/*.js يبان بـ refresh
 # برك، بلا ما تعاود npm run build في كل مرّة. تسريب المصدر ما عندو معنى
 # على localhost؛ اللي يهمّ هو [build] فوق، وهو اللي يتنشر.
 #
