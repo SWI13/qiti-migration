@@ -56,7 +56,9 @@ import {
 } from '../lib/store.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
-import { getProduct, listProducts, listStockFor } from '../lib/catalog.mjs';
+import {
+  getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
+} from '../lib/catalog.mjs';
 import { siteUrl } from '../lib/site.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -417,6 +419,42 @@ async function buildStateMessage() {
  * محصورة في الشات المسجّل في TELEGRAM_CHAT_ID: أي واحد آخر يحلّ محادثة
  * مباشرة مع البوت (خارج الگروب) ما يقدرش يشوف الطلبات ولا يبدّل المخزون/التكاليف.
  */
+/*
+ * كل فاريانت عندو مخزون في لائحة وحدة مرقّمة.
+ *
+ * ⚠️ علاش: /restock كان ينادي adjustStock() — العدّاد العام القديم في
+ * store.mjs. بصح الطلبات واللوحة يقراو مخزون الفاريانت في catalog.mjs.
+ * يعني "زدت 10 في تيليغرام" ما كان يبان لا في اللوحة لا وقت القبول:
+ * جوج أرقام منفصلين ما يتلاقاو عمرهم. دروك الأوامر تكتب في نفس البلاصة
+ * اللي تقرا منها اللوحة.
+ *
+ * الترتيب لازم يكون ثابت — الرقم اللي يبان في /stock هو اللي يتكتب في
+ * /restock، فلو تبدّل بين الأمرين المستخدم يزوّد الفاريانت الغالط.
+ */
+async function stockTargets() {
+  const products = await listProducts().catch(() => []);
+  const sorted = products.slice().sort((a, b) =>
+    String(a.name ?? '').localeCompare(String(b.name ?? '')) || String(a.id).localeCompare(String(b.id)));
+
+  const targets = [];
+  for (const product of sorted) {
+    const rows = await listStockFor(product).catch(() => []);
+    for (const { variant, stock } of rows) {
+      targets.push({
+        index: targets.length + 1,
+        productId: product.id,
+        productName: product.name || '—',
+        sku: variant.sku,
+        label: Object.keys(variant.options || {}).length
+          ? Object.values(variant.options).join(' / ')
+          : 'وحيد',
+        stock,
+      });
+    }
+  }
+  return targets;
+}
+
 async function handleCommand(message) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
@@ -455,8 +493,8 @@ async function handleCommand(message) {
   }
 
   if (command === '/stock') {
-    const [legacy, awaitingReturn, products] = await Promise.all([
-      getStock(), listAwaitingReturnReceipt(), listProducts().catch(() => []),
+    const [legacy, awaitingReturn, targets] = await Promise.all([
+      getStock(), listAwaitingReturnReceipt(), stockTargets(),
     ]);
     const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
     const lines = [];
@@ -466,42 +504,72 @@ async function handleCommand(message) {
      * الحالية) مازال يخدمو عليه، فما نخبّيوهش، بصح ما نعرضوهش فارغ
      * كي يولّي كلش على المنتجات.
      */
-    if (legacy.qty > 0 || !products.length) {
+    if (legacy.qty > 0 || !targets.length) {
       const warn = legacy.qty <= legacy.threshold ? ' ⚠️' : '';
       lines.push(`📦 <b>${legacy.qty}</b>${warn}  (المخزون العام · حد التنبيه ${legacy.threshold})`);
     }
 
-    for (const product of products) {
-      const rows = await listStockFor(product).catch(() => []);
-      if (!rows.length) continue;
-      lines.push('', `<b>${esc(product.name)}</b>`);
-      for (const { variant, stock } of rows) {
-        const label = Object.keys(variant.options).length
-          ? Object.values(variant.options).join(' / ')
-          : 'وحيد';
-        const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
-        lines.push(`  ${esc(label)} — <b>${stock.qty}</b>${warn}`);
+    /* الرقم قدّام كل سطر هو اللي تستعملو في /restock و/setstock —
+       بلاه، ما كانش كيفاش تسمّي فاريانت معيّن في رسالة تيليغرام */
+    let lastProduct = null;
+    for (const target of targets) {
+      if (target.productName !== lastProduct) {
+        lines.push('', `<b>${esc(target.productName)}</b>`);
+        lastProduct = target.productName;
       }
+      const warn = target.stock.qty <= target.stock.threshold ? ' ⚠️' : '';
+      lines.push(`  <b>${target.index}</b>) ${esc(target.label)} — <b>${target.stock.qty}</b>${warn}`);
     }
 
+    if (targets.length) {
+      lines.push('', `زوّد: <code>/restock ${targets.length > 1 ? '&lt;رقم&gt; ' : ''}10</code>`);
+    }
     if (returnQty) {
       lines.push('', `🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> — /state يوريك أشمن طلبات`);
     }
     return reply(lines.join('\n') || 'ما كاين حتى مخزون مسجّل.');
   }
 
-  if (command === '/restock') {
-    const n = parseInt(arg, 10);
-    if (!Number.isFinite(n) || n <= 0) return reply('استعمل: /restock 20');
-    const stock = await adjustStock(n);
-    return reply(`✅ تزوّد المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
-  }
+  if (command === '/restock' || command === '/setstock') {
+    const isSet = command === '/setstock';
+    const targets = await stockTargets();
 
-  if (command === '/setstock') {
-    const n = parseInt(arg, 10);
-    if (!Number.isFinite(n) || n < 0) return reply('استعمل: /setstock 50');
-    const stock = await setStock(n);
-    return reply(`✅ تسجّل المخزون. الكمية الحالية: <b>${stock.qty}</b> طوق`);
+    /* بلا منتجات مسجّلة، نبقاو على العدّاد القديم — الصفحة القديمة
+       تاع الطوق مازالت تخدم عليه */
+    if (!targets.length) {
+      const n = parseInt(arg, 10);
+      if (!Number.isFinite(n) || (isSet ? n < 0 : n <= 0)) return reply(`استعمل: ${command} ${isSet ? 50 : 20}`);
+      const stock = isSet ? await setStock(n) : await adjustStock(n);
+      return reply(`✅ ${isSet ? 'تسجّل' : 'تزوّد'} المخزون. الكمية الحالية: <b>${stock.qty}</b>`);
+    }
+
+    /* منتج وحيد بفاريانت وحيد = ما نطلبوش رقم، الأمر يبقى /restock 10 */
+    const [a, b] = parts.slice(1);
+    let target = null;
+    let amountRaw = a;
+    if (b !== undefined) {
+      const index = parseInt(a, 10);
+      target = targets.find((t) => t.index === index) ?? null;
+      amountRaw = b;
+      if (!target) return reply(`ما لقيتش رقم <b>${esc(String(a))}</b>. شوف /stock للأرقام.`);
+    } else if (targets.length === 1) {
+      target = targets[0];
+    } else {
+      return reply('عندك أكثر من فاريانت — لازم رقم.\n'
+        + `استعمل: <code>${command} &lt;رقم&gt; ${isSet ? 50 : 10}</code>\nشوف /stock للأرقام.`);
+    }
+
+    const n = parseInt(amountRaw, 10);
+    if (!Number.isFinite(n) || (isSet ? n < 0 : n <= 0)) {
+      return reply(`استعمل: <code>${command} ${targets.length > 1 ? '&lt;رقم&gt; ' : ''}${isSet ? 50 : 10}</code>`);
+    }
+
+    const updated = isSet
+      ? await setVariantStock(target.productId, target.sku, n)
+      : await adjustVariantStock(target.productId, target.sku, n);
+
+    return reply(`✅ ${esc(target.productName)} — ${esc(target.label)}\n`
+      + `الكمية الحالية: <b>${updated.qty}</b>`);
   }
 
   /*

@@ -53,8 +53,16 @@ function kpiGrid(summary) {
     conversionSub += ' · ' + esc(t('dashboard.trackingSince', { date: fmtDay(k.trackingSince) }));
   }
 
+  /* مداخيل صفر مع طلبات في الطريق ماشي "ما كان والو" — معناها ما زال
+     حتى طلب ما توصّل. التلميح العام ("الموصّلة برك") ما يقولش هذا،
+     فالتاجر يشوف 0 ويحسب اللوحة خاسرة. هنا نقولوها بالضبط ونعطيوه
+     الخطوة اللي تبدّلها. */
+  var revenueSub = (k.revenue === 0 && k.inTransit > 0)
+    ? esc(t('dashboard.revenueWaiting', { n: k.inTransit }))
+    : esc(t('dashboard.revenueHint'));
+
   return '<div class="kpi-grid">' +
-    kpiTile(t('dashboard.revenue'), esc(fmtMoney(k.revenue)), esc(t('dashboard.revenueHint')), deltaHtml(k.revenue, k.revenuePrev)) +
+    kpiTile(t('dashboard.revenue'), esc(fmtMoney(k.revenue)), revenueSub, deltaHtml(k.revenue, k.revenuePrev)) +
     kpiTile(t('dashboard.orders'), esc(String(k.ordersPlaced)), esc(t('dashboard.ordersSub', { delivered: k.delivered, pending: k.pending }))) +
     kpiTile(t('dashboard.aov'), esc(fmtMoney(k.aov)), '') +
     kpiTile(t('dashboard.productsSold'), esc(String(k.unitsSold)), '') +
