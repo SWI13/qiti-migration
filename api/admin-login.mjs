@@ -85,11 +85,18 @@ async function handlePassword(payload) {
   /* ttlSeconds يخلّي المخزن يمسحو وحدو كي يفوت وقتو. expiresAt يبقى
      مكتوب ومتفحّص تحت: التحقّق في الكود هو الحارس الحقيقي، والـ TTL
      غير باش التحدّيات الميتة ما تتكدّسش للأبد. */
-  await challenges().setJSON(challengeId, {
-    code,
-    attempts: 0,
-    expiresAt: Date.now() + CODE_TTL_MS,
-  }, { ttlSeconds: Math.ceil(CODE_TTL_MS / 1000) });
+  /* الكتابة كانت بلا حماية: عطب في التخزين كان يطلع "server error"
+     عام من الجسر، والمستخدم ما يعرفش واش صرا ولا وين يشوف. */
+  try {
+    await challenges().setJSON(challengeId, {
+      code,
+      attempts: 0,
+      expiresAt: Date.now() + CODE_TTL_MS,
+    }, { ttlSeconds: Math.ceil(CODE_TTL_MS / 1000) });
+  } catch (err) {
+    console.error('Admin login: failed to store challenge:', err.message);
+    return json(503, { error: 'التخزين ماشي متوفّر دروك. عاود حاول.' });
+  }
 
   return json(200, { challengeId });
 }

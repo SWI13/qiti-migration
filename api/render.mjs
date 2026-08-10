@@ -90,8 +90,20 @@ async function handler(request) {
   try {
     route = await resolveRoute(path);
   } catch (error) {
+    /*
+     * ⚠️ كان يرجّع notFound() هنا. المشكل: عطب في التخزين يولّي شكلو
+     * بالضبط كي صفحة ما كايناش — الموقع كامل يطيح ويجاوب 404 هادي،
+     * وحتى غوغل يفهرس الأخطاء. وفي التشخيص، 404 قالت "التخزين يخدم"
+     * وهي كذبة كلّفت وقت.
+     * دروك 503: عطب مؤقّت، ماشي صفحة مفقودة. Retry-After يقول
+     * للزواحف ترجع من بعد بدل ما تشطب الرابط.
+     */
     console.error('Route lookup failed:', error.message, '| path:', path);
-    return notFound();
+    return html(`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">
+<title>الخدمة ماشي متوفّرة</title>
+<body style="font:16px/1.6 system-ui;padding:3rem;text-align:center">
+<h1>الخدمة ماشي متوفّرة دروك</h1><p>عاود حاول بعد شوية.</p></body></html>`,
+      503, { 'retry-after': '30', 'cache-control': 'no-store' });
   }
 
   if (!route) return notFound();
