@@ -61,8 +61,14 @@ function kpiGrid(summary) {
     ? esc(t('dashboard.revenueWaiting', { n: k.inTransit }))
     : esc(t('dashboard.revenueHint'));
 
+  /* الربح يقدر يكون سالب (رجعات أكثر من توصيلات) — نلوّنوه باش الإشارة
+     تبان بلا ما تقرا الرقم كامل */
+  var profitClass = k.profit < 0 ? ' kpi__value--down' : (k.profit > 0 ? ' kpi__value--up' : '');
+  var profitValue = '<span class="kpi__value-inner' + profitClass + '">' + esc(fmtMoney(k.profit)) + '</span>';
+
   return '<div class="kpi-grid">' +
     kpiTile(t('dashboard.revenue'), esc(fmtMoney(k.revenue)), revenueSub, deltaHtml(k.revenue, k.revenuePrev)) +
+    kpiTile(t('dashboard.profit'), profitValue, esc(t('dashboard.profitHint')), deltaHtml(k.profit, k.profitPrev)) +
     kpiTile(t('dashboard.orders'), esc(String(k.ordersPlaced)), esc(t('dashboard.ordersSub', { delivered: k.delivered, pending: k.pending }))) +
     kpiTile(t('dashboard.aov'), esc(fmtMoney(k.aov)), '') +
     kpiTile(t('dashboard.productsSold'), esc(String(k.unitsSold)), '') +

@@ -37,3 +37,10 @@
 @media (max-width: 480px) {
   .pagination { justify-content: center; text-align: center; }
 }
+
+/* ── الربح الصافي ────────────────────────────────────────────────────
+   الربح يقدر يكون سالب (رجعات أكثر من توصيلات) — اللون يخلّي الإشارة
+   تبان قبل ما تقرا الرقم. نلوّنو النص جوّا .kpi__value بدل ما نلوّنو
+   البطاقة كاملة: بطاقة حمرا كبيرة تقرا كأنّها عطب في اللوحة. */
+.kpi__value-inner--up { color: var(--st-success); }
+.kpi__value-inner--down { color: var(--st-danger); }

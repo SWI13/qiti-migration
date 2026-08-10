@@ -605,25 +605,36 @@ async function handleCommand(message) {
   }
 
   if (command === '/cost') {
-    const FIELDS = { product: { key: 'productCost', label: 'سوما البضاعة' }, ads: { key: 'adsCost', label: 'تكلفة الإعلانات' }, returns: { key: 'returnLoss', label: 'خسارة الرجعة' } };
+    const FIELDS = {
+      product: { key: 'productCost', label: 'سوما البضاعة' },
+      ads: { key: 'adsCost', label: 'تكلفة الإعلانات' },
+      returns: { key: 'returnLoss', label: 'خسارة الرجعة' },
+      /* التوصيل: صفر بالتلقائي — الزبون يخلّصو في الدفع عند الاستلام.
+         اللي يخلّصو بروحو يحطّ رقمو هنا ويدخل في حساب الربح. */
+      courier: { key: 'courierCost', label: 'تكلفة التوصيل (تخلّصها انت)' },
+    };
 
-    /* بلا فرعي: نعرضو التكاليف الثلاثة كاملة */
+    /* بلا فرعي: نعرضو التكاليف كاملة */
     if (!arg) {
       const costs = await getCosts();
+      const courier = costs.courierCost ?? 0;
       return reply([
         '💰 <b>تكاليف الربح</b>',
-        `سوما البضاعة (لكل طوق): <b>${dz(costs.productCost)}</b>`,
+        `سوما البضاعة (لكل وحدة): <b>${dz(costs.productCost)}</b>`,
         `تكلفة الإعلانات (لكل طلب): <b>${dz(costs.adsCost)}</b>`,
         `خسارة الرجعة (لكل طلب رجع): <b>${dz(costs.returnLoss)}</b>`,
+        `تكلفة التوصيل: <b>${dz(courier)}</b>${courier === 0 ? ' (الزبون يخلّص)' : ''}`,
         '',
-        'بدّل بـ: /cost product 1600 — /cost ads 250 — /cost returns 800',
+        '<b>الربح</b> = المجموع − سوما البضاعة×الكمية − الإعلانات − التوصيل',
+        '',
+        'بدّل بـ: /cost product 1800 — /cost ads 300 — /cost returns 800 — /cost courier 0',
       ].join('\n'));
     }
 
     const field = FIELDS[arg];
     const n = parseInt(parts[2], 10);
     if (!field || !Number.isFinite(n) || n < 0) {
-      return reply('استعمل: /cost product 1600  ولا  /cost ads 250  ولا  /cost returns 800');
+      return reply('استعمل: /cost product 1800  ولا  /cost ads 300  ولا  /cost returns 800  ولا  /cost courier 0');
     }
     const costs = await setCost(field.key, n);
     return reply(`✅ تسجّل. ${field.label}: <b>${dz(costs[field.key])}</b>`);

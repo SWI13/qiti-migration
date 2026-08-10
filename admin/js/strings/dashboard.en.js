@@ -9,6 +9,8 @@ export var DASHBOARD_EN = {
   'dashboard.range90': 'Last 90 days',
   'dashboard.revenue': 'Revenue',
   'dashboard.revenueHint': 'Delivered orders only',
+  'dashboard.profit': 'Net profit',
+  'dashboard.profitHint': 'After cost, ads and returns',
   'dashboard.revenueWaiting': '{n} order(s) in transit — revenue counts only once you mark 📦 Delivered in Telegram',
   'dashboard.orders': 'Orders',
   'dashboard.ordersSub': '{delivered} delivered · {pending} pending',
