@@ -18,8 +18,10 @@ import {
   renderCampaignList, renderCampaignEditor, saveCampaign, reorderSections,
   schedulePreview, deleteCampaign,
 } from './pages/campaigns.js';
-import { renderProductEditor, addProductOption, saveProduct, saveStock } from './pages/products.js';
-import { categoryModal, presetPicker } from './pages/categories.js';
+import {
+  renderProductEditor, addProductOption, saveProduct, saveStock, deleteProduct,
+} from './pages/products.js';
+import { categoryModal, presetPicker, deleteCategory } from './pages/categories.js';
 import { pickMedia, deleteMedia } from './pages/media.js';
 
 var root = document.getElementById('adminRoot');
@@ -306,6 +308,16 @@ async function onClick(event) {
 
   if (act === 'category-presets') {
     await presetPicker();
+    return;
+  }
+
+  if (act === 'del-category') {
+    await deleteCategory(node.getAttribute('data-id'), Number(node.getAttribute('data-count')) || 0);
+    return;
+  }
+
+  if (act === 'del-product') {
+    await deleteProduct(node.getAttribute('data-id'));
     return;
   }
 

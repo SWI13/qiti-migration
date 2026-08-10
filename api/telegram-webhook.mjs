@@ -50,7 +50,7 @@ import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
   getStockForOrder, adjustStockForOrder, markLowStockAlertedForOrder,
-  listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
+  listOrders, listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
   saveProductDraft, getProductDraft, forgetProductDraft,
@@ -60,7 +60,7 @@ import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from 
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
-  saveProduct, saveCategory, listCategories, availableSlug,
+  saveProduct, saveCategory, listCategories, availableSlug, deleteProduct,
 } from '../lib/catalog.mjs';
 import { guessPreset, findPreset } from '../lib/category-presets.mjs';
 import { siteUrl } from '../lib/site.mjs';
@@ -220,6 +220,10 @@ async function handleCallback(query) {
   if (action === 'mk' || action === 'mkx') {
     if (!message) return;
     return handleDraftDecision(query, orderId, action === 'mk', answer);
+  }
+  if (action === 'rm') {
+    if (!message) return;
+    return handleDeleteProduct(query, orderId, answer);
   }
 
   const isDecision = action === 'ok' || action === 'no';
@@ -692,8 +696,54 @@ async function createAndAnnounce(chatId, fields, reply) {
     text: lines.join('\n'),
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: '🚀 انشر في المتجر', callback_data: `pub:${product.id}` }]] },
+    /* التراجع لازم يكون في نفس البلاصة اللي صرات فيها الغلطة — منتج
+       تصنع بالغلط من رسالة ما يستاهلش رحلة للوحة باش يتحيّد */
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '🚀 انشر في المتجر', callback_data: `pub:${product.id}` },
+        { text: '🗑️ امسحو', callback_data: `rm:${product.id}` },
+      ]],
+    },
   }).catch((error) => console.error('Product reply failed:', error.message));
+}
+
+/*
+ * حذف منتج من تيليغرام — للتراجع على منتج تصنع دروك بالغلط.
+ *
+ * نفس حاجز اللوحة: منتج عندو طلبات ما يتمسحش، على خاطر التقارير
+ * تقرا اسمو من الكاتالوغ. الفحص مكتوب هنا وفي admin-api.mjs — الزوج
+ * يقراو نفس القاعدة، وهي في سطر واحد، فتكرارها أرخص من موديول
+ * مشترك يجرّ store.mjs لحلقة استيراد مع catalog.mjs.
+ */
+async function handleDeleteProduct(query, productId, answer) {
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
+    return answer('ما عندكش الصلاحية.');
+  }
+
+  try {
+    const product = await getProduct(productId);
+    if (!product) return answer('المنتج ماشي موجود — يمكن تمسح من قبل.');
+
+    const orders = await listOrders();
+    const used = orders.filter((order) => order.productId === product.id).length;
+    if (used) {
+      return answer(`عندو ${used} طلب في التاريخ — ما يتمسحش. أرشفو من اللوحة.`);
+    }
+
+    await deleteProduct(product.id);
+    await telegram('editMessageText', {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      text: `🗑️ <b>تمسح</b> — ${esc(product.name)}\nما بقا حتى أثر: لا رابط، لا مخزون.`,
+      parse_mode: 'HTML',
+    }).catch((error) => console.error('Delete repaint failed:', error.message));
+
+    return answer('تمسح 🗑️');
+  } catch (error) {
+    console.error('Delete failed:', error.message, '| product:', productId);
+    return answer('صار خطأ، عاود حاول.');
+  }
 }
 
 /* ── قراءة رسالة عادية (بلا أمر) ───────────────────────────────────

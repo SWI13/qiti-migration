@@ -10,8 +10,10 @@ import { PRODUCT_FIELD_GROUPS, PRODUCT_CREATE_ONLY_FIELDS } from '../product-fie
 import { shell } from '../ui/shell.js';
 import { fieldHtml } from '../ui/field-html.js';
 import { dataTable } from '../ui/table.js';
+import { menuHtml } from '../ui/menu.js';
 import { tabsHtml, bindTabs } from '../ui/tabs.js';
 import { validate, showErrors, clearErrors, markClean } from '../ui/form.js';
+import { confirmDialog } from '../ui/dialog.js';
 
 var root = document.getElementById('adminRoot');
 
@@ -26,8 +28,22 @@ var sort = { key: 'name', dir: 'asc' };
 var STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'products.filterAll' },
   { value: 'active', label: 'products.filterActive' },
+  { value: 'draft', label: 'products.filterDraft' },
   { value: 'archived', label: 'products.filterArchived' },
 ];
+
+/* ثلاث حالات، ماشي زوج: 'draft' هي حالة المنتج اللي يتصنع من تيليغرام
+   (بلا صور ولا وصف). قبل، القائمة كانت تعتبر كل ما ماشي 'archived'
+   نشيط — فالمسودّة كانت تبان "Active" وهي ما توصلش للزبون. */
+var STATUS_TONE = { active: 'success', draft: 'warn', archived: 'neutral' };
+var STATUS_LABEL = {
+  active: 'products.filterActive',
+  draft: 'products.filterDraft',
+  archived: 'products.filterArchived',
+};
+function statusOf(product) {
+  return STATUS_TONE[product.status] ? product.status : 'active';
+}
 
 function matchesListFilter(product) {
   if (listFilter.status !== 'all' && product.status !== listFilter.status) return false;
@@ -42,7 +58,7 @@ function matchesListFilter(product) {
 
 function sortValue(product, key) {
   if (key === 'price') return Number(product.price) || 0;
-  if (key === 'status') return product.status === 'archived' ? 'archived' : 'active';
+  if (key === 'status') return statusOf(product);
   if (key === 'type') return product.type || '';
   return (product.name || '').toLowerCase();
 }
@@ -68,9 +84,18 @@ function nameCell(product) {
 }
 
 function statusCell(product) {
-  var active = product.status !== 'archived';
-  return '<span class="badge badge--' + (active ? 'success' : 'neutral') + '">' +
-    esc(active ? t('products.filterActive') : t('products.filterArchived')) + '</span>';
+  var status = statusOf(product);
+  return '<span class="badge badge--' + STATUS_TONE[status] + '">' + esc(t(STATUS_LABEL[status])) + '</span>';
+}
+
+/* التعديل بارز، والحذف تحت "⋯" — نفس منطق قائمة الحملات: فعل بلا
+   رجوع ما يتحطّش حدا فعل عادي تحت نفس الإبهام */
+function productRowActions(product) {
+  return '<a class="btn btn--outline btn--xs" href="#/products/' + esc(product.id) + '">' + esc(t('common.edit')) + '</a> ' +
+    menuHtml({
+      items: [{ label: t('common.delete'), icon: 'trash', act: 'del-product', id: product.id, danger: true }],
+      label: t('products.rowMenuLabel', { name: product.name || t('products.untitled') }),
+    });
 }
 
 function productColumns() {
@@ -81,6 +106,7 @@ function productColumns() {
     { key: 'price', label: t('products.colPrice'), sortable: true, numeric: true,
       render: function (row) { return esc(fmtMoney(row.price)); } },
     { key: 'status', label: t('products.colStatus'), sortable: true, render: statusCell },
+    { key: 'actions', label: '', render: productRowActions },
   ];
 }
 
@@ -490,5 +516,33 @@ export async function saveProduct() {
        الزر القديم ما بقاش في الـ DOM، نلقاوه من جديد بدل ما نتّكلو على المرجع */
     var btnAfter = document.querySelector('[data-act="save-product"]');
     if (btnAfter) { btnAfter.classList.remove('is-busy'); btnAfter.disabled = false; }
+  }
+}
+
+/*
+ * الحذف نهائي (الرابط، المخزون، السجلّ) — علاش التأكيد يقول بالضبط
+ * واش يروح بدل "متأكد؟" عامّة.
+ *
+ * السيرفر يردّ الحذف على منتج عندو طلبات ويرجّع سبب مكتوب — نعرضوه
+ * كيما هو بدل ما نعاودو نفس الفحص هنا: فحص واحد في بلاصة وحدة ما
+ * يقدرش يختلف مع الآخر.
+ */
+export async function deleteProduct(id) {
+  var product = state.products.filter(function (p) { return p.id === id; })[0];
+  var confirmed = await confirmDialog({
+    title: t('products.deleteConfirmTitle', { name: (product && product.name) || t('products.untitled') }),
+    body: t('products.deleteConfirmBody'),
+    confirmLabel: t('common.delete'),
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  try {
+    await api('products.delete', { id: id });
+    state.products = (await api('products.list')).products;
+    renderProductList();
+    toast(t('products.deleted'));
+  } catch (error) {
+    toast(error.message, true);
   }
 }

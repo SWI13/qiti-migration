@@ -16,6 +16,10 @@ export var CATEGORIES_EN = {
   'categories.color': 'Colour',
   'categories.sort': 'Sort order',
   'categories.saved': 'Saved.',
+  'categories.deleted': 'Deleted.',
+  'categories.deleteConfirmTitle': 'Delete "{name}"?',
+  'categories.deleteConfirmBody': 'Its /c/ link will 404 for anyone who visits it.',
+  'categories.deleteConfirmBodyUsed': '{n} products move to "no category" — they are not deleted. The /c/ link will 404 for anyone who visits it.',
   'categories.productCount': '{n} products',
 
   /* الجاهزين */

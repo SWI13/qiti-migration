@@ -42,8 +42,13 @@ export var PRODUCT_FIELD_GROUPS = [
     { key: 'type', label: 'products.type', type: 'select', options: PRODUCT_TYPES },
     { key: 'categoryId', label: 'products.category', type: 'select', optionsFrom: 'categories' },
     lines('tags', 'products.tags', 'products.tagsHint'),
+    /* Draft لازمها تكون هنا: المنتج اللي يتصنع من تيليغرام يجي 'draft'،
+       وبلا خيار يمثّلها الـ select ما يوري حتى حاجة مختارة — وأوّل حفظ
+       يقلبها لـ active بالسكات ويطلّع للمتجر منتج بلا صور. */
     { key: 'status', label: 'products.status', type: 'select', options: [
-      { value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' } ] },
+      { value: 'active', label: 'Active' },
+      { value: 'draft', label: 'Draft — not in the store yet' },
+      { value: 'archived', label: 'Archived' } ] },
     bool('featured', 'products.featured'),
   ] },
   { key: 'shipping', title: 'products.groupShipping', fields: [

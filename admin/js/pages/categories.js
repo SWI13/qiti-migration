@@ -12,7 +12,7 @@ import { esc, toast } from '../dom.js';
 import { t } from '../i18n.js';
 import { shell } from '../ui/shell.js';
 import { stateBlock } from '../ui/state-block.js';
-import { mountModal } from '../ui/dialog.js';
+import { mountModal, confirmDialog } from '../ui/dialog.js';
 import { validate, showErrors, clearErrors } from '../ui/form.js';
 
 var root = document.getElementById('adminRoot');
@@ -65,6 +65,12 @@ function categoryCard(category) {
       '<div class="cat-card__actions">' +
         '<button class="btn btn--outline btn--xs" data-act="edit-category" data-id="' + esc(category.id) + '">' +
           esc(t('common.edit')) +
+        '</button>' +
+        /* عدد المنتجات يمشي مع الـ id: رسالة التأكيد تقول بالضبط شحال
+           منتج غادي يبقى بلا فئة، بدل تحذير عام ما يقول والو */
+        '<button class="btn btn--danger btn--xs" data-act="del-category"' +
+          ' data-id="' + esc(category.id) + '" data-count="' + count + '">' +
+          esc(t('common.delete')) +
         '</button>' +
       '</div>' +
     '</div>';
@@ -196,6 +202,37 @@ export function categoryModal(category) {
       saveBtn.classList.remove('is-busy');
     }
   });
+}
+
+/*
+ * حذف فئة — المنتجات تبقى، غير تولّي بلا فئة.
+ *
+ * التأكيد يحسب المنتجات ويقولها بالرقم: "3 منتجات يبقاو بلا فئة"
+ * تخلّي التاجر يقرّر بمعلومة، و"متأكد؟" ما تعطي والو.
+ */
+export async function deleteCategory(id, count) {
+  var category = state.categories.filter(function (c) { return c.id === id; })[0];
+  var confirmed = await confirmDialog({
+    title: t('categories.deleteConfirmTitle', { name: (category && category.name) || '' }),
+    body: count > 0
+      ? t('categories.deleteConfirmBodyUsed', { n: count })
+      : t('categories.deleteConfirmBody'),
+    confirmLabel: t('common.delete'),
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  try {
+    var res = await api('categories.delete', { id: id });
+    state.categories = res.categories;
+    /* المنتجات في الحالة مازال حاملة categoryId القديم — البطاقات
+       تحسب منها، فبلا تحديث العدّاد يبقى يعدّ فئة ما بقاتش */
+    state.products = (await api('products.list')).products;
+    renderCategories();
+    toast(t('categories.deleted'));
+  } catch (error) {
+    toast(error.message, true);
+  }
 }
 
 /* ── الفئات الجاهزة ─────────────────────────────────────────────── */

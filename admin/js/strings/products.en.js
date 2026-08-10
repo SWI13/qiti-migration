@@ -90,6 +90,12 @@ export var PRODUCTS_EN = {
   'products.optionValuesHint': 'One per line: S / M / L',
   'products.addOption': '+ Add option',
   'products.saved': 'Saved.',
+  'products.untitled': 'Untitled',
+  'products.filterDraft': 'Draft',
+  'products.rowMenuLabel': 'More actions for {name}',
+  'products.deleted': 'Deleted.',
+  'products.deleteConfirmTitle': 'Delete "{name}"?',
+  'products.deleteConfirmBody': 'The product, its stock and its /p/ link go for good. A product that already has orders cannot be deleted — archive it instead so your reports keep their names.',
 
   /* ── فاريانتات ── */
   'variants.title': 'Variants',

@@ -13,8 +13,8 @@
 import { requireAdmin, unauthorized } from '../lib/auth.mjs';
 import {
   listCampaigns, getCampaign, saveCampaign, duplicateCampaign, deleteCampaign,
-  listProducts, getProduct, saveProduct,
-  listCategories, saveCategory, availableSlug,
+  listProducts, getProduct, saveProduct, deleteProduct,
+  listCategories, saveCategory, deleteCategory, availableSlug,
   setVariantStock, listStockFor,
 } from '../lib/catalog.mjs';
 import { CATEGORY_PRESETS } from '../lib/category-presets.mjs';
@@ -78,8 +78,41 @@ const ACTIONS = {
 
   'products.save': async (body) => ok({ product: await saveProduct(body.product ?? body) }),
 
+  /*
+   * الحذف ممنوع على منتج عندو تاريخ.
+   *
+   * علاش: الطلب يخزّن `productId` برك، والاسم يتقرا من الكاتالوغ وقت
+   * ما يتبني التقرير. تمسح المنتج = كل طلباته القدام يولّيو بلا اسم
+   * في "أفضل المنتجات" وفي المداخيل حسب الفئة. الرقم يبقى صحيح بصح
+   * ما تعرفش تاع واش — وهذا يخسّر التقرير معناه.
+   *
+   * البديل موجود وما يخسّر والو: الأرشفة تحيّدو من المتجر وتخلّي
+   * الأرقام كاملة. الحذف يبقى للّي تصنع بالغلط ومازال ما باعش.
+   */
+  'products.delete': async (body) => {
+    const product = await getProduct(body.id);
+    if (!product) return bad('Product not found.');
+
+    const orders = await listOrders();
+    const used = orders.filter((order) => order.productId === product.id).length;
+    if (used) {
+      return bad(`This product has ${used} order${used === 1 ? '' : 's'} in the history. `
+        + 'Deleting it would leave those orders nameless in your reports — archive it instead: '
+        + 'it leaves the store and keeps its numbers.');
+    }
+
+    return ok({ deleted: await deleteProduct(product.id) });
+  },
+
   'categories.list': async () => ok({ categories: await listCategories() }),
   'categories.save': async (body) => ok({ category: await saveCategory(body.category ?? body) }),
+
+  /* المنتجات ما تتمسحش — يولّيو بلا فئة (شوف deleteCategory). نرجّعو
+     القائمة الطرية باش اللوحة ما تعاودش تطلبها. */
+  'categories.delete': async (body) => ok({
+    deleted: await deleteCategory(body.id),
+    categories: await listCategories(),
+  }),
 
   /* التصنيفة الجاهزة تسكن في lib/ — واللوحة ما تقدرش تقراها مباشرة
      (lib/ ما يتنشرش، شوف scripts/build.mjs)، فتمرّ من هنا */
