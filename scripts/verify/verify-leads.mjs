@@ -10,8 +10,8 @@ import { readFile } from 'node:fs/promises';
 const lib = (p) => import(new URL(`../../lib/${p}`, import.meta.url).href);
 
 const {
-  completeness, dueForNotice, mergeLead, leadMessage, leadButtons,
-  LEAD_FIELDS, LEAD_TTL_SECONDS, NOTIFY_AFTER_SECONDS,
+  completeness, dueForNotice, mergeLead, leadMessage, leadButtons, orderClosesLead,
+  LEAD_FIELDS, LEAD_TTL_SECONDS, NOTIFY_AFTER_SECONDS, REOPEN_AFTER_MS,
 } = await lib('leads.mjs');
 const { buildReport } = await import(new URL('../../api/daily-report.mjs', import.meta.url).href);
 
@@ -62,6 +62,25 @@ ok('مشطوب — ما يتبعثش',
   dueForNotice(openLead({ updatedAt: ago(60), status: 'dismissed' }), NOW) === false);
 ok('updatedAt مهرّس ما يطيّحش', dueForNotice(openLead({ updatedAt: 'خرابيش' }), NOW) === false);
 ok('lead فارغ ما يطيّحش', dueForNotice(null, NOW) === false);
+
+/*
+ * الغلطة اللي طيّحت الميزة كاملة في الإنتاج: "الرقم عندو طلبات = كمّل".
+ * زبون شرا مرّة قبل عندو طلب للأبد — فكل lead جديد منّو كان يتشطب
+ * ساعة ما يتصنع: يختفي من اللوحة، وما يوصل عليه حتى إشعار.
+ */
+console.log('\n══ 2b. أشمن طلب يغلق الـ lead ══');
+const leadStarted = openLead({ createdAt: ago(10), updatedAt: ago(10) });
+ok('طلب جا بعد ما بدا الـ lead — يغلقو',
+  orderClosesLead({ id: 'a', createdAt: ago(2) }, leadStarted) === true);
+ok('طلب قديم من شهر — ما يغلقوش (زبون راجع)',
+  orderClosesLead({ id: 'b', createdAt: ago(60 * 24 * 30) }, leadStarted) === false);
+ok('طلب جا قبل الـ lead بدقيقة — ما يغلقوش',
+  orderClosesLead({ id: 'c', createdAt: ago(11) }, leadStarted) === false);
+ok('طلب في نفس اللحظة — يغلقو',
+  orderClosesLead({ id: 'd', createdAt: leadStarted.createdAt }, leadStarted) === true);
+ok('معطيات ناقصة ما تطيّحش',
+  orderClosesLead(null, leadStarted) === false && orderClosesLead({ id: 'e' }, null) === false);
+ok('إعادة الفتح بعد 5 دقايق', REOPEN_AFTER_MS === 5 * 60 * 1000);
 
 console.log('\n══ 3. الدمج ما يمسحش معلومة ══');
 const before = { phone: '0661445566', name: 'كريم', wilaya: 'وهران' };
