@@ -5,11 +5,13 @@
  * علاش هذا ممكن أصلاً: القرارات ("واش يستاهل إشعار؟"، "قداش عمّر؟")
  * مكتوبة كفنكشنات نقيّة في lib/leads.mjs، ماشي مخبّية جوّا نداء Redis.
  */
+import { readFile } from 'node:fs/promises';
+
 const lib = (p) => import(new URL(`../../lib/${p}`, import.meta.url).href);
 
 const {
   completeness, dueForNotice, mergeLead, leadMessage, leadButtons,
-  LEAD_FIELDS, LEAD_TTL_SECONDS,
+  LEAD_FIELDS, LEAD_TTL_SECONDS, NOTIFY_AFTER_SECONDS,
 } = await lib('leads.mjs');
 const { buildReport } = await import(new URL('../../api/daily-report.mjs', import.meta.url).href);
 
@@ -38,14 +40,28 @@ ok('الفورم كامل = 4', completeness({
 ok('الفراغات ما تتحسبش', completeness({ phone: '0661445566', name: '   ' }) === 1);
 ok('lead فارغ = 0', completeness({}) === 0 && completeness(null) === 0);
 
-/* الإشعار العادي يتبعث فوراً من api/lead.mjs — dueForNotice تخصّ الكنس
-   برك: شكون بقى بلا إشعار على خاطر تيليغرام طاح. */
-console.log('\n══ 2. شكون يستاهل محاولة ثانية (الكنس) ══');
-ok('مفتوح وما وصلوش إشعار — يعاود', dueForNotice(openLead()) === true);
-ok('وصلو إشعار — ما يعاودش', dueForNotice(openLead({ notifiedAt: ago(50) })) === false);
-ok('كمّل الطلب — ما يعاودش', dueForNotice(openLead({ status: 'converted' })) === false);
-ok('مشطوب — ما يعاودش', dueForNotice(openLead({ status: 'dismissed' })) === false);
-ok('lead فارغ ما يطيّحش', dueForNotice(null) === false);
+/* هذا هو الفرق بين "راه يعمّر الفورم" و"حبس" — الغلط فيه معناه إشعار
+   يوصل والزبون ما زال قدّام الشاشة غادي يأكّد. */
+console.log('\n══ 2. شكون حبس فعلاً ══');
+const IDLE_MIN = NOTIFY_AFTER_SECONDS / 60;
+ok('راه يكتب دروك — ما يتبعثش',
+  dueForNotice(openLead({ updatedAt: ago(0.5) }), NOW) === false);
+ok('عمّر حقل قبل دقيقة — ما زال يخدم، ما يتبعثش',
+  dueForNotice(openLead({ updatedAt: ago(1) }), NOW) === false);
+ok(`ساكت ${IDLE_MIN} دقيقة — يتبعث`,
+  dueForNotice(openLead({ updatedAt: ago(IDLE_MIN + 0.5) }), NOW) === true);
+ok('على الحدّ بالضبط — يتبعث',
+  dueForNotice(openLead({ updatedAt: ago(IDLE_MIN) }), NOW) === true);
+ok('خرج من الصفحة — يتبعث دروك بلا انتظار',
+  dueForNotice(openLead({ updatedAt: ago(0.1) }), NOW, { leaving: true }) === true);
+ok('خرج بصح كمّل الطلب — ما يتبعثش',
+  dueForNotice(openLead({ status: 'converted' }), NOW, { leaving: true }) === false);
+ok('تبعث من قبل — ما يتعاودش',
+  dueForNotice(openLead({ updatedAt: ago(60), notifiedAt: ago(50) }), NOW) === false);
+ok('مشطوب — ما يتبعثش',
+  dueForNotice(openLead({ updatedAt: ago(60), status: 'dismissed' }), NOW) === false);
+ok('updatedAt مهرّس ما يطيّحش', dueForNotice(openLead({ updatedAt: 'خرابيش' }), NOW) === false);
+ok('lead فارغ ما يطيّحش', dueForNotice(null, NOW) === false);
 
 console.log('\n══ 3. الدمج ما يمسحش معلومة ══');
 const before = { phone: '0661445566', name: 'كريم', wilaya: 'وهران' };
@@ -106,3 +122,9 @@ ok('بلا leads ما يزيد حتى سطر', !quiet.includes('ما كملوش'
 
 console.log('\n══ 7. الإعدادات ══');
 ok('TTL = 30 يوم', LEAD_TTL_SECONDS === 30 * 24 * 60 * 60);
+ok('السكوت دقيقتين', NOTIFY_AFTER_SECONDS === 120);
+/* الساعة في المتصفّح لازم توافق الحاجز في السيرفر، وإلا الصفحة تبعث
+   إشارة "سكت" والسيرفر يرفضها وما يوصل حتى إشعار */
+const mainJs = await readFile(new URL('../../assets/js/main.js', import.meta.url), 'utf8');
+ok('ساعة الصفحة توافق حاجز السيرفر',
+  mainJs.includes(`var LEAD_IDLE_MS = ${NOTIFY_AFTER_SECONDS * 1000};`));

@@ -7,9 +7,12 @@
  *
  * ── واش هذا المسار **ما يديروش** ─────────────────────────────────────
  *
- *  • ما يصنعش رسالة جديدة في كل مرّة. أوّل نداء يبعث الإشعار، واللي
- *    من بعدو يبدّلو في بلاصتو (notifyLead في lib/leads.mjs) — وإلا
- *    الزبون الواحد يعمّر أربع حقول ويعطيك أربع رسائل.
+ *  • ما يبعثش تيليغرام على كل حفظ. أوّل رسالة تستنّى إشارة `idle`
+ *    (سكت دقيقتين) ولا `leaving` (خرج من الصفحة) — الزبون اللي راه
+ *    يعمّر الفورم عادي ماشي "ما كملش".
+ *  • ما يصنعش رسالة جديدة في كل مرّة. بعد أوّل وحدة، الحفظ يبدّلها
+ *    في بلاصتها (notifyLead في lib/leads.mjs) — وإلا أربع حقول
+ *    يعطيو أربع رسائل على نفس الزبون.
  *  • ما يحسبش سومة ولا ينقص مخزون. الـ lead ماشي طلب، وما يلزموش
  *    يشبهلو — البلاصة الوحيدة اللي تصنع طلب هي order.mjs.
  *  • ما يرجّعش معلومة على الـ lead للمتصفّح. الجواب ديما { ok: true }،
@@ -17,7 +20,9 @@
  *    الأرقام من برّا.
  */
 import { normalizeDzPhone, getBlockEntry } from '../lib/store.mjs';
-import { saveLead, forgetLead, sweepLeads, notifyLead, dismissLead } from '../lib/leads.mjs';
+import {
+  saveLead, forgetLead, sweepLeads, notifyLead, dismissLead, NOTIFY_AFTER_SECONDS,
+} from '../lib/leads.mjs';
 import { sanitizeAttribution, channelKey, channelLabel } from '../lib/attribution.mjs';
 import { getProduct } from '../lib/catalog.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -93,22 +98,39 @@ async function handler(request) {
   });
 
   /*
-   * الإشعار: يتبعث دروك كيما الطلب، ومن بعد نفس الرسالة تتبدّل كل ما
-   * يعمّر حقل جديد (شوف notifyLead في lib/leads.mjs).
+   * الإشعار — أوّل رسالة تستنّى إشارة، واللي من بعدها تبديل فوري.
    *
-   * ⚠️ لازم `await` هنا: في Vercel، أي خدمة تبقى بعد ما يترجع الجواب
-   * تتقتل مع الفنكشن — و`message_id` يضيع، فالتبديل الجاي يبعث رسالة
-   * جديدة بدل ما يبدّل. النداء تاع تيليغرام قصير، والطلب هذا يجي من
-   * جافاسكريبت في الخلفية أصلاً، ماشي من نقرة الزبون.
+   * الصفحة تبعث `idle:true` كي يسكت الزبون NOTIFY_AFTER_SECONDS،
+   * و`leaving:true` كي يخرج من الصفحة. بلا وحدة من هذو، الحفظ يصرا
+   * بلا ما يتحرّك تيليغرام — الزبون اللي راه يعمّر الفورم عادي ما
+   * يستاهلش رسالة "ما كملش".
+   *
+   * كي تكون الرسالة تبعثت خلاص (`messageId`)، كل حفظ يبدّلها فوراً:
+   * ساعتها راك تشوف واحد معروف يزيد حقول، ماشي إشعار جديد.
+   *
+   * ⚠️ لازم `await`: في Vercel، أي خدمة تبقى بعد الجواب تتقتل —
+   * و`message_id` يضيع، فالتبديل الجاي يبعث رسالة جديدة بدل ما يبدّل.
    */
   if (lead && lead.status === 'open') {
-    /* رقم حظرتيه بيدك ما يستاهلش إشعار — حظرتيه لسبب */
-    const blocked = await getBlockEntry(phone).catch(() => null);
-    if (blocked) {
-      await dismissLead(phone).catch(() => {});
-    } else {
-      await notifyLead(lead).catch((err) =>
-        console.error('Lead notice failed:', err.message, '| phone:', phone));
+    const alreadySent = Boolean(lead.messageId);
+    const wantsNotice = payload.idle === true || payload.leaving === true;
+    /*
+     * حاجز من جهة السيرفر: ما نثقوش في ساعة المتصفّح. الـ lead لازم
+     * يكون عندو عمر حقيقي قبل أوّل إشعار — إلا إذا خرج من الصفحة،
+     * وهذاك حكم نهائي بلا علاقة بالوقت.
+     */
+    const ageMs = Date.now() - new Date(lead.createdAt ?? Date.now()).getTime();
+    const oldEnough = payload.leaving === true || ageMs >= NOTIFY_AFTER_SECONDS * 1000;
+
+    if (alreadySent || (wantsNotice && oldEnough)) {
+      /* رقم حظرتيه بيدك ما يستاهلش إشعار — حظرتيه لسبب */
+      const blocked = await getBlockEntry(phone).catch(() => null);
+      if (blocked) {
+        await dismissLead(phone).catch(() => {});
+      } else {
+        await notifyLead(lead).catch((err) =>
+          console.error('Lead notice failed:', err.message, '| phone:', phone));
+      }
     }
   }
 

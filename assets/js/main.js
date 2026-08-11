@@ -416,13 +416,24 @@
      *   • كي يسكّر الصفحة فجأة، sendBeacon يبعث آخر نسخة — هي بالضبط
      *     اللحظة اللي كنّا نخسّرو فيها الزبون قبل.
      *
-     * الإشعار ما يتبعثش من هنا: السيرفر يستنّى 10 دقايق سكوت قبل ما
-     * يعلّمك (شوف lib/leads.mjs) — وإلا يجيك تيليغرام على واحد راه
-     * قدّامك في الفورم غادي يكمّل.
+     * ── وقتاش يوصل الإشعار ─────────────────────────────────────────
+     * الحفظ وحدو ما يحرّكش تيليغرام. الرسالة تتبعث غير كي نبعثو إشارة:
+     *
+     *   idle    — سكت LEAD_IDLE_MS بلا ما يمسّ حتى حقل
+     *   leaving — خرج من الصفحة (سكّرها ولا بدّل تطبيق)
+     *
+     * علاش الصفحة هي السّاعة وماشي السيرفر: الفنكشنات serverless ما
+     * تقدرش تستنّى، وكرون كل دقيقة ما يتقبلش في خطّة Hobby. المتصفّح
+     * راهو محلول قدّام الزبون — هو أصدق مكان يقيس منّو السكوت.
+     *
+     * الزبون العادي ياخذ دقيقتين-ثلاثة باش يعمّر (يقرا، يسأل على
+     * العنوان، يعاود يشوف السومة) — وهذا ماشي "ما كملش".
      */
     var LEAD_ENDPOINT = '/api/lead';
     var LEAD_DEBOUNCE_MS = 900;
+    var LEAD_IDLE_MS = 120000;   /* دقيقتين — نفس NOTIFY_AFTER_SECONDS في السيرفر */
     var leadTimer = null;
+    var leadIdleTimer = null;
     var leadLastSent = '';       /* آخر نسخة تبعثت — نقارنو بيها بلا ما نعاودو */
     var leadLastPhone = null;    /* الرقم القديم، باش السيرفر يمسح lead الغلط */
     var leadDone = false;        /* الطلب كمّل — ما بقاش يلزم التقاط */
@@ -448,9 +459,14 @@
       };
     }
 
-    /* useBeacon: كي الصفحة راهي تسكّر، fetch عادي يتلغى مع الصفحة */
-    function sendLead(useBeacon) {
+    /*
+     * opts.beacon  — الصفحة راهي تسكّر، fetch عادي يتلغى معاها
+     * opts.idle    — سكت دقيقتين: السيرفر يقدر يبعث الإشعار
+     * opts.leaving — خرج من الصفحة: السيرفر يبعث بلا ما يحسب الوقت
+     */
+    function sendLead(opts) {
       if (leadDone || form.hasAttribute('data-preview')) return;
+      opts = opts || {};
 
       var snapshot = leadSnapshot();
       if (!snapshot) return;
@@ -459,13 +475,18 @@
       var fingerprint = JSON.stringify(snapshot, function (key, value) {
         return key === 'previousPhone' ? undefined : value;
       });
-      if (fingerprint === leadLastSent) return;
+      /* الإشارات تعدّي حتى لو والو ما تبدّل — هي روحها الخبر */
+      var signalling = Boolean(opts.idle || opts.leaving);
+      if (!signalling && fingerprint === leadLastSent) return;
+
+      snapshot.idle = Boolean(opts.idle);
+      snapshot.leaving = Boolean(opts.leaving);
 
       var body = JSON.stringify(snapshot);
       leadLastSent = fingerprint;
       leadLastPhone = snapshot.phone;
 
-      if (useBeacon && navigator.sendBeacon) {
+      if (opts.beacon && navigator.sendBeacon) {
         navigator.sendBeacon(LEAD_ENDPOINT, new Blob([body], { type: 'application/json' }));
         return;
       }
@@ -482,27 +503,42 @@
       });
     }
 
+    /* كل حركة في الفورم تصفّر السّاعة — الدقيقتين تتحسبو من آخر لمسة */
+    function restartIdleClock() {
+      clearTimeout(leadIdleTimer);
+      if (leadDone) return;
+      leadIdleTimer = setTimeout(function () {
+        sendLead({ idle: true });
+      }, LEAD_IDLE_MS);
+    }
+
     function scheduleLead() {
       if (leadDone) return;
       clearTimeout(leadTimer);
-      leadTimer = setTimeout(function () { sendLead(false); }, LEAD_DEBOUNCE_MS);
+      leadTimer = setTimeout(function () { sendLead({}); }, LEAD_DEBOUNCE_MS);
+      restartIdleClock();
     }
 
     form.addEventListener('input', scheduleLead);
     form.addEventListener('change', scheduleLead);
-    /* الخروج من خانة الرقم = قرار، ماشي كتابة — نبعثو دروك بلا انتظار */
+    /* الخروج من خانة الرقم = قرار، ماشي كتابة — نحفظو دروك بلا انتظار.
+       الحفظ برك: الإشعار ما زال يستنّى السكوت ولا الخروج. */
     document.getElementById('fPhone').addEventListener('blur', function () {
       clearTimeout(leadTimer);
-      sendLead(false);
+      sendLead({});
+      restartIdleClock();
     });
 
     /*
      * pagehide يشمل السكّر، الرجوع لور، وتبديل التطبيق في الموبايل.
      * visibilitychange يزيدها في iOS اللي ما يرميش pagehide ديما.
+     *
+     * ⚠️ تبديل تطبيق ماشي ديما "مشا" — يقدر يروح يشوف العنوان ويرجع.
+     * ما يضرّش: إذا رجع وكمّل، رسالة الـ lead روحها تولّي "كمّل الطلب".
      */
-    window.addEventListener('pagehide', function () { sendLead(true); });
+    window.addEventListener('pagehide', function () { sendLead({ beacon: true, leaving: true }); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') sendLead(true);
+      if (document.visibilityState === 'hidden') sendLead({ beacon: true, leaving: true });
     });
 
     var submitBtn = document.getElementById('submitBtn');
@@ -580,6 +616,7 @@
              الالتقاط باش beacon تاع السكّر ما يعاودش يبعثو */
           leadDone = true;
           clearTimeout(leadTimer);
+          clearTimeout(leadIdleTimer);
 
           orderDoneMsg.textContent =
             'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
