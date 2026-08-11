@@ -110,6 +110,12 @@ export async function route() {
     if (state.view === 'orders') {
       if (!state.products.length) state.products = (await api('products.list')).products;
       state.orders = (await api('orders.list')).orders;
+      /* الطلبات اللي ما كملوش — تبان في نفس اللائحة بحالة "lead".
+         مفصولين على state.orders باش حسابات الفلوس ما تعدّهمش. فشل
+         جلبهم ما يمنعش عرض الطلبات. */
+      state.leads = await api('leads.list')
+        .then(function (res) { return res.leads; })
+        .catch(function () { return []; });
       /* البادج تتحسب مرّة وحدة في boot() — القائمة الطرية اللي بين يدينا
          دروك أصدق منها، فنعاودو نحسبوها بلا طلب زايد */
       state.pendingOrders = state.orders.filter(function (order) { return order.status === 'pending'; }).length;

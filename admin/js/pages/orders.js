@@ -21,6 +21,7 @@ var PAGE_SIZE = 20;
 
 var STATUS_OPTIONS = [
   { value: 'all', label: 'orders.filterAll' },
+  { value: 'lead', label: 'orders.statusLead' },
   { value: 'pending', label: 'orders.statusPending' },
   { value: 'accepted', label: 'orders.statusAccepted' },
   { value: 'delivered', label: 'orders.statusDelivered' },
@@ -31,6 +32,7 @@ var STATUS_OPTIONS = [
 /* accepted+delivered/returned مخبّيين تحت status:'accepted' في التخزين —
    نبنيو "بكيت" واحد يجمع status وdeliveryStatus باش الفلتر يبقى بسيط سطر واحد */
 function bucketOf(order) {
+  if (order.isLead) return 'lead';
   if (order.status === 'accepted' && order.deliveryStatus) return order.deliveryStatus;
   return order.status;
 }
@@ -38,10 +40,49 @@ function bucketOf(order) {
 function statusBadge(order) {
   var bucket = bucketOf(order);
   var labels = {
+    lead: 'orders.statusLead',
     pending: 'orders.statusPending', accepted: 'orders.statusAccepted',
     denied: 'orders.statusDenied', delivered: 'orders.statusDelivered', returned: 'orders.statusReturned',
   };
   return '<span class="badge badge--order-' + esc(bucket) + '">' + esc(t(labels[bucket] || bucket)) + '</span>';
+}
+
+/*
+ * الـ lead يتلبّس شكل الطلب باش يدخل في نفس الجدول (نفس الأعمدة، نفس
+ * الترتيب، نفس البحث) — بلا ما نكتبو جدول ثاني كامل.
+ *
+ * ⚠️ `total` هنا هو اللي كان في السلّة، ماشي فلوس. علاش الصفّ يبان
+ * بحالة "Lead" وعلاش التفاصيل تقولها صراحةً: رقم في عمود المجموع بلا
+ * تفسير يتقرا كأنّو مدخول، ومنو يتبنى قرار غالط.
+ *
+ * المحوّلين (converted) ما يبانوش: راهم طلبات حقيقية في اللائحة خلاص،
+ * وتكرارهم يخلّي نفس الزبون مرّتين. والمشطوبين قرّرتي فيهم.
+ */
+function leadRows() {
+  return (state.leads || [])
+    .filter(function (lead) { return lead.status === 'open'; })
+    .map(function (lead) {
+      return {
+        id: 'lead:' + lead.phone,
+        isLead: true,
+        lead: lead,
+        status: 'lead',
+        name: lead.name || '',
+        phone: lead.phone,
+        wilaya: lead.wilaya || '',
+        commune: lead.commune || '',
+        total: lead.cartTotal || 0,
+        qty: lead.qty || 1,
+        shipping: lead.shipping,
+        productId: lead.productId,
+        /* آخر حركة، ماشي أوّل وحدة — الترتيب لازم يوري اللي راه سخون دروك */
+        createdAt: lead.updatedAt || lead.createdAt,
+      };
+    });
+}
+
+function allRows() {
+  return state.orders.concat(leadRows());
 }
 
 function matchesFilter(order) {
@@ -78,7 +119,7 @@ function sortRows(rows) {
 }
 
 function visibleOrders() {
-  return sortRows(state.orders.filter(matchesFilter));
+  return sortRows(allRows().filter(matchesFilter));
 }
 
 /* اسم الزبون يولّي زر — يفتح تفاصيل الطلب. زر حقيقي (ماشي role="button"
@@ -105,7 +146,7 @@ function orderColumns() {
 /* الفلتر يعيش على مستوى الموديول ويعيش بعد التنقّل — فحتى أوّل رندر
    يقدر يلقى القائمة خاوية بسبب بحث قديم، ماشي بسبب غياب الطلبات */
 function emptyOpts() {
-  var filtered = state.orders.length > 0;
+  var filtered = allRows().length > 0;
   return {
     variant: 'empty',
     title: filtered ? t('orders.emptyFilteredTitle') : t('orders.emptyTitle'),
@@ -198,8 +239,8 @@ export function renderOrderList() {
     }
     var link = event.target.closest('[data-act="view-order"]');
     if (link) {
-      var order = state.orders.filter(function (o) { return o.id === link.getAttribute('data-id'); })[0];
-      if (order) orderDetail(order);
+      var row = allRows().filter(function (o) { return o.id === link.getAttribute('data-id'); })[0];
+      if (row) orderDetail(row);
     }
   });
 }
@@ -212,6 +253,7 @@ function row(label, value) {
 }
 
 function orderDetail(order) {
+  if (order.isLead) return leadDetail(order.lead, order);
   var product = state.products.filter(function (p) { return p.id === order.productId; })[0];
   var variantLabel = order.variant && order.variant.options && Object.keys(order.variant.options).length
     ? Object.values(order.variant.options).join(' / ') : '';
@@ -273,6 +315,63 @@ function orderDetail(order) {
   overlay.className = 'modal-overlay';
   overlay.innerHTML = '<div class="modal">' +
     '<h3>' + esc(t('orders.detailTitle')) + '</h3>' +
+    body +
+    '<div class="modal__foot"><button class="btn btn--outline btn--xs" data-close>' + esc(t('common.back')) + '</button></div>' +
+  '</div>';
+
+  mountModal(overlay);
+}
+
+/* ── تفاصيل "ما كملش" ─────────────────────────────────────────────
+ *
+ * نافذة مستقلّة، ماشي نافذة الطلب بحقول فارغة. نصف الحقول ثمّة ما
+ * عندهاش معنى هنا (قرار، توصيل، سومة الوحدة)، و`dl` معمّرة بـ "—"
+ * تخلّي القارئ يخمّم واش تخرّب بدل ما يقرا الحقيقة: هذا واحد عمّر
+ * رقمو وحبس.
+ */
+function leadDetail(lead, listRow) {
+  var product = state.products.filter(function (p) { return p.id === lead.productId; })[0];
+  var filled = ['name', 'phone', 'wilaya', 'commune'].filter(function (field) {
+    return String(lead[field] || '').trim();
+  }).length;
+
+  var body =
+    '<div class="order-detail">' +
+      '<div class="hint">' + esc(t('orders.leadHint')) + '</div>' +
+      '<div class="order-detail__cols">' +
+        '<div>' +
+          '<h4>' + esc(t('orders.customer')) + '</h4>' +
+          '<dl>' +
+            row(t('orders.customer'), lead.name ? esc(lead.name) : '—') +
+            row(t('orders.phone'), esc(lead.phone)) +
+            row(t('orders.location'), lead.wilaya
+              ? esc(lead.wilaya) + (lead.commune ? ', ' + esc(lead.commune) : '')
+              : '—') +
+            row(t('orders.leadFilled'), filled + ' / 4') +
+          '</dl>' +
+        '</div>' +
+        '<div>' +
+          '<h4>' + esc(t('orders.product')) + '</h4>' +
+          '<dl>' +
+            row(t('orders.product'), esc((product && product.name) || lead.productName || '—')) +
+            row(t('orders.quantity'), Number(lead.qty || 1)) +
+            row(t('orders.leadCart'), lead.cartTotal ? esc(fmtMoney(lead.cartTotal)) : '—') +
+            row(t('orders.channel'), esc(lead.channelLabel || lead.channel || '')) +
+            row(t('orders.placedAt'), esc(fmtDateTime(lead.createdAt))) +
+            row(t('orders.leadLastSeen'), esc(fmtDateTime(listRow.createdAt))) +
+            (lead.contactedAt
+              ? row(t('orders.leadCalled'), esc(fmtDateTime(lead.contactedAt)) +
+                  (lead.contactedBy ? ' · ' + esc(lead.contactedBy) : ''))
+              : '') +
+          '</dl>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal">' +
+    '<h3>' + esc(t('orders.leadTitle')) + '</h3>' +
     body +
     '<div class="modal__foot"><button class="btn btn--outline btn--xs" data-close>' + esc(t('common.back')) + '</button></div>' +
   '</div>';

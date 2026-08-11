@@ -7,16 +7,17 @@
  *
  * ── واش هذا المسار **ما يديروش** ─────────────────────────────────────
  *
- *  • ما يبعثش تيليغرام في نفس اللحظة. الزبون راه يكتب دروك — الإشعار
- *    يتبعث بعد سكوت 10 دقايق (شوف sweepLeads في lib/leads.mjs).
+ *  • ما يصنعش رسالة جديدة في كل مرّة. أوّل نداء يبعث الإشعار، واللي
+ *    من بعدو يبدّلو في بلاصتو (notifyLead في lib/leads.mjs) — وإلا
+ *    الزبون الواحد يعمّر أربع حقول ويعطيك أربع رسائل.
  *  • ما يحسبش سومة ولا ينقص مخزون. الـ lead ماشي طلب، وما يلزموش
  *    يشبهلو — البلاصة الوحيدة اللي تصنع طلب هي order.mjs.
  *  • ما يرجّعش معلومة على الـ lead للمتصفّح. الجواب ديما { ok: true }،
  *    حتى كي الرقم محظور: أي جواب مختلف يولّي هذا المسار أداة تفحص بيها
  *    الأرقام من برّا.
  */
-import { normalizeDzPhone } from '../lib/store.mjs';
-import { saveLead, forgetLead, sweepLeads } from '../lib/leads.mjs';
+import { normalizeDzPhone, getBlockEntry } from '../lib/store.mjs';
+import { saveLead, forgetLead, sweepLeads, notifyLead, dismissLead } from '../lib/leads.mjs';
 import { sanitizeAttribution, channelKey, channelLabel } from '../lib/attribution.mjs';
 import { getProduct } from '../lib/catalog.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -92,12 +93,26 @@ async function handler(request) {
   });
 
   /*
-   * نركبو الكنس على هاذ النداء: كل زائر جديد يخدم كـ "ساعة" للـ leads
-   * اللي حبسو قبلو. علاش ما كانش cron خاص — شوف التعليق في lib/leads.mjs.
+   * الإشعار: يتبعث دروك كيما الطلب، ومن بعد نفس الرسالة تتبدّل كل ما
+   * يعمّر حقل جديد (شوف notifyLead في lib/leads.mjs).
    *
-   * ما ننتظروهش (ولا نرجعو خطأ منّو): الزبون راه يكتب في الفورم، وما
-   * يستاهلش يستنّى نداء تيليغرام باش يكمّل حرف.
+   * ⚠️ لازم `await` هنا: في Vercel، أي خدمة تبقى بعد ما يترجع الجواب
+   * تتقتل مع الفنكشن — و`message_id` يضيع، فالتبديل الجاي يبعث رسالة
+   * جديدة بدل ما يبدّل. النداء تاع تيليغرام قصير، والطلب هذا يجي من
+   * جافاسكريبت في الخلفية أصلاً، ماشي من نقرة الزبون.
    */
+  if (lead && lead.status === 'open') {
+    /* رقم حظرتيه بيدك ما يستاهلش إشعار — حظرتيه لسبب */
+    const blocked = await getBlockEntry(phone).catch(() => null);
+    if (blocked) {
+      await dismissLead(phone).catch(() => {});
+    } else {
+      await notifyLead(lead).catch((err) =>
+        console.error('Lead notice failed:', err.message, '| phone:', phone));
+    }
+  }
+
+  /* شبكة أمان لـ leads قدام فشل إشعارهم — ما ننتظروهاش */
   sweepLeads().catch(() => {});
 
   if (lead) {

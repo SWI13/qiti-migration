@@ -128,6 +128,9 @@
    يبانو بلون برتقالي قدّ بعضهم بالضبط. */
 .badge--draft           { background: var(--st-info-soft);    color: var(--st-info); }
 .badge--order-pending   { background: var(--st-neutral-soft); color: var(--st-neutral); }
+/* lead = ماشي طلب بعد. الإطار المقطّع يقول هذا بلا ما تقرا الكلمة —
+   صفّ يبان كيما الطلبات بالضبط يتحسب طلب في العين. */
+.badge--order-lead      { background: var(--st-warn-soft);    color: var(--st-warn); border: 1px dashed currentColor; }
 .badge--order-accepted  { background: var(--st-info-soft);    color: var(--st-info); }
 .badge--order-delivered { background: var(--st-success);      color: var(--st-on-solid); }
 .badge--order-returned  { background: var(--st-danger-soft);  color: var(--st-danger); }

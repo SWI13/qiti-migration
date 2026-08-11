@@ -56,7 +56,8 @@ import {
   saveProductDraft, getProductDraft, forgetProductDraft,
 } from '../lib/store.mjs';
 import {
-  listOpenLeads, getLead, markLeadContacted, dismissLead, completeness, leadMessage, LEAD_FIELDS,
+  listOpenLeads, getLead, markLeadContacted, dismissLead, updateLead,
+  completeness, leadMessage, LEAD_FIELDS,
 } from '../lib/leads.mjs';
 import { parseProductIntent } from '../lib/product-intent.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf, toE164Dz, dzTime } from '../lib/message.mjs';
@@ -224,10 +225,14 @@ async function handleLeadAction(query, phone, action, who, answer) {
   /* نعاودو نبنيو الرسالة من السجلّ، ما ناخذوش نص تيليغرام: هو يجي بلا
      تنسيق (الـ HTML يتحيّد)، فالبناء من المصدر يخلّي الشكل ثابت — نفس
      المنطق تاع رسائل الطلبات. */
+  const text = `${leadMessage(updated)}\n\n${stamp}`;
+  /* نخزّنو النص باش notifyLead ما يعاودش يبدّل بلا داعي من بعد */
+  await updateLead(phone, { lastText: text }).catch(() => {});
+
   await telegram('editMessageText', {
     chat_id: message.chat.id,
     message_id: message.message_id,
-    text: `${leadMessage(updated)}\n\n${stamp}`,
+    text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
     /* بعد "عيّطتلو" يبقى زر واتساب برك؛ بعد "شطبو" ما يبقى حتى زر */

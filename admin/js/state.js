@@ -13,6 +13,7 @@ export var state = {
   categories: [],
   media: [],
   orders: [],
+  leads: [],          /* طلبات ما كملوش — تبان مع الطلبات، مفصولة عن الحسابات */
   pendingOrders: 0,   /* عدّاد بلا قرار — بادج "Orders" في الشريط الجانبي */
   dashboard: null,      /* آخر ملخّص جا من dashboard.summary */
   dashboardDays: 30,    /* نافذة الأيام المختارة */

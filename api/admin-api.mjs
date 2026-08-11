@@ -20,6 +20,7 @@ import {
 import { CATEGORY_PRESETS } from '../lib/category-presets.mjs';
 import { listMedia, deleteMedia } from '../lib/media.mjs';
 import { listOrders, listPendingOrders } from '../lib/store.mjs';
+import { listLeads } from '../lib/leads.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { dashboardSummary } from '../lib/analytics.mjs';
@@ -166,6 +167,15 @@ const ACTIONS = {
   'orders.list': async () => ok({ orders: await listOrders() }),
   /* بادج الشريط الجانبي — خفيفة، بلا ما تجيب الأرشيف كامل */
   'orders.pendingCount': async () => ok({ count: (await listPendingOrders()).length }),
+
+  /*
+   * الطلبات اللي ما كملوش — يبانو في نفس صفحة الطلبات بحالة "lead".
+   *
+   * ⚠️ ماشي في `orders.list`: خلطهم مع الطلبات في نفس اللائحة يخلّي
+   * كل حساب مبني على state.orders (المداخيل، لوحة القيادة) يعدّ ناس
+   * ما شراوش. مفصولين هنا، والصفحة وحدها هي اللي تدمجهم للعرض.
+   */
+  'leads.list': async () => ok({ leads: await listLeads() }),
 
   /* لوحة القيادة — كل أرقام الصفحة في طلب واحد. ستّة أكشنات صغار
      معناها ستّة رحلات على شبكة ضعيفة باش نعرضو شاشة وحدة. */

@@ -18,7 +18,7 @@
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
 import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith, SHIPPING } from '../lib/message.mjs';
-import { markLeadConverted, sweepLeads } from '../lib/leads.mjs';
+import { convertLead, sweepLeads } from '../lib/leads.mjs';
 import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
@@ -254,14 +254,16 @@ async function handler(request) {
   }
 
   /*
-   * الزبون كان مسجّل كـ "ما كملش" وها هو كمّل — نعلّمو باش ما تعيّطلوش
-   * على طلب راه واصلك، ونربطو بالطلب باش تعرف من بعد قداش من lead
-   * ولّى فلوس. ما نستنّاوهش وما يوقّف والو إذا طاح.
+   * الزبون كان مسجّل كـ "ما كملش" وها هو كمّل — رسالة الـ lead روحها
+   * تولّي "✅ كمّل الطلب"، وأزرار المكالمة تطيح منها. بلا هذا، تلقى
+   * في الگروب رسالة تقولّك عيّطلو، وتحتها بسطر رسالة الطلب تاعو.
+   *
+   * ⚠️ بالـ await: خدمة تبقى بعد الجواب تتقتل في Vercel.
    */
-  markLeadConverted(record.phone, record.id).catch((err) =>
+  await convertLead(record.phone, record.id).catch((err) =>
     console.error('Lead conversion failed:', err.message, '| phone:', record.phone));
 
-  /* كل طلب يخدم كـ "ساعة" للـ leads اللي حبسو — شوف lib/leads.mjs */
+  /* شبكة أمان لـ leads فشل إشعارهم — شوف lib/leads.mjs */
   sweepLeads().catch(() => {});
 
   /*

@@ -9,7 +9,7 @@ const lib = (p) => import(new URL(`../../lib/${p}`, import.meta.url).href);
 
 const {
   completeness, dueForNotice, mergeLead, leadMessage, leadButtons,
-  IDLE_MINUTES, LEAD_FIELDS, LEAD_TTL_SECONDS,
+  LEAD_FIELDS, LEAD_TTL_SECONDS,
 } = await lib('leads.mjs');
 const { buildReport } = await import(new URL('../../api/daily-report.mjs', import.meta.url).href);
 
@@ -38,20 +38,14 @@ ok('الفورم كامل = 4', completeness({
 ok('الفراغات ما تتحسبش', completeness({ phone: '0661445566', name: '   ' }) === 1);
 ok('lead فارغ = 0', completeness({}) === 0 && completeness(null) === 0);
 
-console.log('\n══ 2. شكون يستاهل إشعار ══');
-ok('واحد راه يكتب دروك — ما يتبعثش',
-  dueForNotice(openLead({ updatedAt: ago(2) }), NOW) === false);
-ok(`ساكت من ${IDLE_MINUTES} دقيقة — يتبعث`,
-  dueForNotice(openLead({ updatedAt: ago(IDLE_MINUTES + 1) }), NOW) === true);
-ok('على الحدّ بالضبط — يتبعث',
-  dueForNotice(openLead({ updatedAt: ago(IDLE_MINUTES) }), NOW) === true);
-ok('تبعث من قبل — ما يتعاودش',
-  dueForNotice(openLead({ updatedAt: ago(60), notifiedAt: ago(50) }), NOW) === false);
-ok('كمّل الطلب — ما يتبعثش',
-  dueForNotice(openLead({ updatedAt: ago(60), status: 'converted' }), NOW) === false);
-ok('مشطوب — ما يتبعثش',
-  dueForNotice(openLead({ updatedAt: ago(60), status: 'dismissed' }), NOW) === false);
-ok('updatedAt مهرّس ما يطيّحش', dueForNotice(openLead({ updatedAt: 'خرابيش' }), NOW) === false);
+/* الإشعار العادي يتبعث فوراً من api/lead.mjs — dueForNotice تخصّ الكنس
+   برك: شكون بقى بلا إشعار على خاطر تيليغرام طاح. */
+console.log('\n══ 2. شكون يستاهل محاولة ثانية (الكنس) ══');
+ok('مفتوح وما وصلوش إشعار — يعاود', dueForNotice(openLead()) === true);
+ok('وصلو إشعار — ما يعاودش', dueForNotice(openLead({ notifiedAt: ago(50) })) === false);
+ok('كمّل الطلب — ما يعاودش', dueForNotice(openLead({ status: 'converted' })) === false);
+ok('مشطوب — ما يعاودش', dueForNotice(openLead({ status: 'dismissed' })) === false);
+ok('lead فارغ ما يطيّحش', dueForNotice(null) === false);
 
 console.log('\n══ 3. الدمج ما يمسحش معلومة ══');
 const before = { phone: '0661445566', name: 'كريم', wilaya: 'وهران' };
@@ -66,7 +60,7 @@ console.log('\n══ 4. الرسالة ══');
 const msg = leadMessage(openLead({ wilaya: 'وهران', commune: 'السانيا', cartTotal: 4500 }));
 ok('الرقم بصيغة دولية باش تنقر عليه وتعيّط', msg.includes('+213661445566'));
 ok('يوري قداش عمّر', msg.includes(`4 من ${LEAD_FIELDS.length}`));
-ok('يوري السلّة', msg.includes('4,500 دج'));
+ok('يوري السلّة وبلي ما تأكّدتش', msg.includes('4,500 دج') && msg.includes('ما تأكّدش'));
 ok('يقول صراحةً بلي ما كملش', msg.includes('ما كملش'));
 /* الفرق مع رسالة الطلب مقصود — نقرة "قبول" على واحد ما طلب = طلبية وهمية */
 ok('ما فيهاش لغة قبول/رفض', !msg.includes('قبول الطلب') && !msg.includes('رفض الطلب'));
@@ -77,6 +71,15 @@ ok('الاسم يتهرب (ما يهرّسش الرسالة)',
 
 const noName = leadMessage(openLead({ name: '' }));
 ok('بلا اسم ما تطيحش', noName.includes('+213661445566') && !noName.includes('undefined'));
+
+/* نفس الرسالة تتبدّل في بلاصتها كي يكمّل — ماشي رسالة جديدة */
+const done = leadMessage(openLead({ status: 'converted', orderId: '260811-ab12x', cartTotal: 4500 }));
+ok('كي يكمّل، الرسالة تولّي "كمّل الطلب"', done.includes('كمّل الطلب'));
+ok('كي يكمّل، تحمل id تاع الطلب', done.includes('260811-ab12x'));
+ok('كي يكمّل، ما تبقاش تقول عيّطلو', !done.includes('عيّطلو دروك'));
+
+const called = leadMessage(openLead({ contactedAt: ago(5), contactedBy: 'كريم' }));
+ok('كي تعيّط، الرسالة توري شكون عيّط', called.includes('تعيّطلو') && called.includes('كريم'));
 
 console.log('\n══ 5. الأزرار ══');
 const buttons = leadButtons(openLead());
@@ -103,4 +106,3 @@ ok('بلا leads ما يزيد حتى سطر', !quiet.includes('ما كملوش'
 
 console.log('\n══ 7. الإعدادات ══');
 ok('TTL = 30 يوم', LEAD_TTL_SECONDS === 30 * 24 * 60 * 60);
-ok('السكوت 10 دقايق', IDLE_MINUTES === 10);
