@@ -122,7 +122,16 @@ ok('crimson accent applied', tojiPage.includes('--accent:#E11D48'));
 ok('size + colour pickers rendered', (tojiPage.match(/role="radiogroup"/g) || []).length === 2);
 ok('8 variants in pricing payload', JSON.parse(tojiPage.match(/id="qiti-pricing">(.*?)<\/script>/s)[1].replace(/\\u003c/g, '<')).variants.length === 8);
 ok('no "how it works" for clothing', !tojiPage.includes('step__num'));
-ok('clothing default order puts form above the fold', DEFAULT_SECTIONS.clothing.indexOf('order') < DEFAULT_SECTIONS.pet.indexOf('order'));
+/*
+ * القرار السريع (طوق، حوايج) = الفورم في الثلاثة الأوائل. القرار البطيء
+ * (auto, tech) يبيع قبل ما يطلب، فالفورم يجي بعد المواصفات — هذا مقصود.
+ *
+ * قبل، هذا الاختبار كان يقارن clothing مع pet (اللي كان أنزل)؛ ولّى بلا
+ * معنى كي رفعنا الزوج لنفس البلاصة. القاعدة الحقيقية هي البلاصة المطلقة.
+ */
+ok('fast-decision types put the form in the first 3 sections',
+  ['pet', 'clothing'].every((type) => DEFAULT_SECTIONS[type].indexOf('order') <= 2));
+ok('every product type has an order section', Object.values(DEFAULT_SECTIONS).every((list) => list.includes('order')));
 
 /* ── 3. الحقن عبر معطيات الحملة ───────────────────────────────────── */
 console.log('\n══ 3. الأمان ══');

@@ -18,6 +18,7 @@
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
 import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith, SHIPPING } from '../lib/message.mjs';
+import { markLeadConverted, sweepLeads } from '../lib/leads.mjs';
 import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
@@ -251,6 +252,17 @@ async function handler(request) {
   } catch (err) {
     console.error('Failed to persist order:', err.message, '| order:', JSON.stringify(record));
   }
+
+  /*
+   * الزبون كان مسجّل كـ "ما كملش" وها هو كمّل — نعلّمو باش ما تعيّطلوش
+   * على طلب راه واصلك، ونربطو بالطلب باش تعرف من بعد قداش من lead
+   * ولّى فلوس. ما نستنّاوهش وما يوقّف والو إذا طاح.
+   */
+  markLeadConverted(record.phone, record.id).catch((err) =>
+    console.error('Lead conversion failed:', err.message, '| phone:', record.phone));
+
+  /* كل طلب يخدم كـ "ساعة" للـ leads اللي حبسو — شوف lib/leads.mjs */
+  sweepLeads().catch(() => {});
 
   /*
    * إشعارك انت هو الحرج — إذا فشل، الطلب يضيع، فنرجعو خطأ للزبون باش يعاود.

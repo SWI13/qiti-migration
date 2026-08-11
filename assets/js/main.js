@@ -75,17 +75,48 @@
     if (!stored) root.dataset.theme = e.matches ? 'dark' : 'light';
   });
 
-  /* ── ظل شريط التنقّل + ظهور زر "اطلب الان" العائم عند التمرير ─── */
+  /* ── ظل شريط التنقّل + زر "اطلب الان" العائم ───────────────────────
+     الزر يبان كي ينزل الزائر بالسكرول (فوق، الـ hero عندو زوج أزرار
+     أصلاً)، **ويختفي كي يقرب قسم الطلب**.
+
+     علاش يختفي: كي يكون الفورم قدّامو، الزر العائم ما بقاش يخدم —
+     يغطّي الحقول في الموبايل، وكي يكليكي فيه بالغلط يرجّعو للفورم
+     اللي راه فيه أصلاً. زر يعاود يوديك لبلاصتك = زر خاسر. */
   var nav = document.getElementById('nav');
   var floatingCta = document.querySelector('.floating-cta');
+  var orderZone = document.getElementById('order') || document.getElementById('orderForm');
   var floatThreshold = window.innerHeight * 0.6;
+  var orderNear = false;          /* واش قسم الطلب قريب ولا بايّن */
+
   window.addEventListener('resize', function () {
     floatThreshold = window.innerHeight * 0.6;
   }, { passive: true });
 
+  function updateFloatingCta() {
+    if (!floatingCta) return;
+    floatingCta.classList.toggle('is-visible', window.scrollY > floatThreshold && !orderNear);
+  }
+
+  /*
+   * نعتبروه "قريب" حتى قبل ما يوصل: نكبّرو صندوق المراقبة بـ 25% من طول
+   * الشاشة تحت، باش الزر يختفي قبل ما الفورم يلحق تحت الإبهام، ماشي في
+   * نفس اللحظة.
+   */
+  if (orderZone && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      orderNear = entries[0].isIntersecting;
+      updateFloatingCta();
+    }, { rootMargin: '0px 0px 25% 0px' }).observe(orderZone);
+  }
+
   var onScroll = function () {
     nav.classList.toggle('is-stuck', window.scrollY > 12);
-    if (floatingCta) floatingCta.classList.toggle('is-visible', window.scrollY > floatThreshold);
+    /* متصفّح قديم بلا IntersectionObserver — نحسبوها بالمسطرة */
+    if (orderZone && !('IntersectionObserver' in window)) {
+      var box = orderZone.getBoundingClientRect();
+      orderNear = box.top < window.innerHeight * 1.25 && box.bottom > 0;
+    }
+    updateFloatingCta();
   };
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -259,6 +290,7 @@
       });
     }
 
+    var cartTotal = 0;
     var qtyInput = document.getElementById('fQty');
     var qtyButtons = document.querySelectorAll('.qty__btn');
     var shipInputs = form.querySelectorAll('input[name="shipping"]');
@@ -315,6 +347,8 @@
       sumProduct.textContent = dz(productCost);
       sumShip.textContent = dz(shipCost);
       sumTotal.textContent = dz(productCost + shipCost);
+      /* نخبّيوها باش الـ lead يعرف واش كان في السلّة كي حبس */
+      cartTotal = productCost + shipCost;
 
       form.querySelectorAll('.ship__price').forEach(function (el) {
         el.textContent = dz(SHIPPING[el.dataset.price]);
@@ -368,6 +402,107 @@
       input.addEventListener('input', function () {
         if (input.closest('.field').classList.contains('has-error')) validateField(id);
       });
+    });
+
+    /* ── التقاط الطلب قبل ما يكمّل ─────────────────────────────────
+     *
+     * الطلب ما يوجد حتى ينقر "أكّد". الواحد يكتب اسمو ورقمو، يتلهّى،
+     * ويسكّر — ومن ناحيتنا ما صرا والو. هنا نبعثو اللي عمّرو ساعة ما
+     * الرقم يولّي صحيح، وكل ما يتبدّل حقل من بعدها.
+     *
+     * ثلاث حاجات تخلّي هذا ما يزعجش:
+     *   • نستنّاو سكوت 900 ملّي قبل ما نبعثو — ماشي على كل حرف.
+     *   • ما نبعثوش إذا والو ما تبدّل من آخر مرّة.
+     *   • كي يسكّر الصفحة فجأة، sendBeacon يبعث آخر نسخة — هي بالضبط
+     *     اللحظة اللي كنّا نخسّرو فيها الزبون قبل.
+     *
+     * الإشعار ما يتبعثش من هنا: السيرفر يستنّى 10 دقايق سكوت قبل ما
+     * يعلّمك (شوف lib/leads.mjs) — وإلا يجيك تيليغرام على واحد راه
+     * قدّامك في الفورم غادي يكمّل.
+     */
+    var LEAD_ENDPOINT = '/api/lead';
+    var LEAD_DEBOUNCE_MS = 900;
+    var leadTimer = null;
+    var leadLastSent = '';       /* آخر نسخة تبعثت — نقارنو بيها بلا ما نعاودو */
+    var leadLastPhone = null;    /* الرقم القديم، باش السيرفر يمسح lead الغلط */
+    var leadDone = false;        /* الطلب كمّل — ما بقاش يلزم التقاط */
+
+    function leadSnapshot() {
+      var phone = document.getElementById('fPhone').value.replace(/[^0-9]/g, '');
+      if (!/^0[5-7][0-9]{8}$/.test(phone)) return null;   /* ما زال يكتب */
+
+      return {
+        name: document.getElementById('fName').value.trim(),
+        phone: phone,
+        previousPhone: leadLastPhone,
+        wilaya: document.getElementById('fWilaya').value,
+        commune: document.getElementById('fCommune').value.trim(),
+        shipping: currentShipping(),
+        qty: qtyInput.value,
+        cartTotal: cartTotal,
+        website: document.getElementById('fWebsite').value,
+        attribution: attribution,
+        productId: PRICING.productId,
+        campaignId: (form.querySelector('input[name="campaignId"]') || {}).value || null,
+        options: selectedOptions()
+      };
+    }
+
+    /* useBeacon: كي الصفحة راهي تسكّر، fetch عادي يتلغى مع الصفحة */
+    function sendLead(useBeacon) {
+      if (leadDone || form.hasAttribute('data-preview')) return;
+
+      var snapshot = leadSnapshot();
+      if (!snapshot) return;
+
+      /* نقارنو بلا previousPhone — هو معلومة تخصّ البعث، ماشي المحتوى */
+      var fingerprint = JSON.stringify(snapshot, function (key, value) {
+        return key === 'previousPhone' ? undefined : value;
+      });
+      if (fingerprint === leadLastSent) return;
+
+      var body = JSON.stringify(snapshot);
+      leadLastSent = fingerprint;
+      leadLastPhone = snapshot.phone;
+
+      if (useBeacon && navigator.sendBeacon) {
+        navigator.sendBeacon(LEAD_ENDPOINT, new Blob([body], { type: 'application/json' }));
+        return;
+      }
+
+      fetch(LEAD_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: body,
+        keepalive: true
+      }).catch(function () {
+        /* الالتقاط ثانوي — إذا فشل، الفورم يكمّل خدمتو عادي.
+           نصفّرو باش المحاولة الجاية تعاود تبعث نفس النسخة. */
+        leadLastSent = '';
+      });
+    }
+
+    function scheduleLead() {
+      if (leadDone) return;
+      clearTimeout(leadTimer);
+      leadTimer = setTimeout(function () { sendLead(false); }, LEAD_DEBOUNCE_MS);
+    }
+
+    form.addEventListener('input', scheduleLead);
+    form.addEventListener('change', scheduleLead);
+    /* الخروج من خانة الرقم = قرار، ماشي كتابة — نبعثو دروك بلا انتظار */
+    document.getElementById('fPhone').addEventListener('blur', function () {
+      clearTimeout(leadTimer);
+      sendLead(false);
+    });
+
+    /*
+     * pagehide يشمل السكّر، الرجوع لور، وتبديل التطبيق في الموبايل.
+     * visibilitychange يزيدها في iOS اللي ما يرميش pagehide ديما.
+     */
+    window.addEventListener('pagehide', function () { sendLead(true); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') sendLead(true);
     });
 
     var submitBtn = document.getElementById('submitBtn');
@@ -441,6 +576,11 @@
           });
         })
         .then(function () {
+          /* كمّل — السيرفر علّم الـ lead `converted` وحدو، وحنا نحبسو
+             الالتقاط باش beacon تاع السكّر ما يعاودش يبعثو */
+          leadDone = true;
+          clearTimeout(leadTimer);
+
           orderDoneMsg.textContent =
             'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
             '. راح يتّصل بيك فريقنا في أقرب وقت باش يأكّد الطلب.';

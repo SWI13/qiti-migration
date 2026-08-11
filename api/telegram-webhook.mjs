@@ -55,8 +55,11 @@ import {
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
   saveProductDraft, getProductDraft, forgetProductDraft,
 } from '../lib/store.mjs';
+import {
+  listOpenLeads, getLead, markLeadContacted, dismissLead, completeness, leadMessage, LEAD_FIELDS,
+} from '../lib/leads.mjs';
 import { parseProductIntent } from '../lib/product-intent.mjs';
-import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf } from '../lib/message.mjs';
+import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf, toE164Dz, dzTime } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
@@ -195,6 +198,88 @@ async function handlePublishProduct(query, productId, answer) {
   }
 }
 
+/* ── أزرار "طلب ما كملش" ──────────────────────────────────────────
+ *
+ * زوج أفعال برك، وبقصد: هذا ماشي طلب، فما كاينش "قبول" ولا "رفض" —
+ * كاين "عيّطتلو" (تخلّي أثر: شكون ووقتاش) و"شطبو" (يخرج من اللائحة).
+ *
+ * الرسالة تتبدّل في بلاصتها بدل ما نبعثو وحدة جديدة — باش الگروب ما
+ * يتعمّرش برسائل على نفس الزبون.
+ */
+async function handleLeadAction(query, phone, action, who, answer) {
+  const message = query.message;
+  const lead = await getLead(phone).catch(() => null);
+  if (!lead) return answer('هذا الـ lead ما بقاش موجود.');
+
+  const updated = action === 'ldc'
+    ? await markLeadContacted(phone, who).catch(() => null)
+    : await dismissLead(phone).catch(() => null);
+
+  if (!updated) return answer('ما قدرتش نسجّل، عاود حاول.');
+
+  const stamp = action === 'ldc'
+    ? `📞 <b>عيّطلو ${esc(who)}</b> · ${dzTime(new Date())}`
+    : `🗑️ <b>شطبو ${esc(who)}</b> · ${dzTime(new Date())}`;
+
+  /* نعاودو نبنيو الرسالة من السجلّ، ما ناخذوش نص تيليغرام: هو يجي بلا
+     تنسيق (الـ HTML يتحيّد)، فالبناء من المصدر يخلّي الشكل ثابت — نفس
+     المنطق تاع رسائل الطلبات. */
+  await telegram('editMessageText', {
+    chat_id: message.chat.id,
+    message_id: message.message_id,
+    text: `${leadMessage(updated)}\n\n${stamp}`,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    /* بعد "عيّطتلو" يبقى زر واتساب برك؛ بعد "شطبو" ما يبقى حتى زر */
+    ...(action === 'ldc'
+      ? {
+          reply_markup: {
+            inline_keyboard: [[{
+              text: '💬 راسلو واتساب',
+              url: `https://wa.me/${toE164Dz(phone).replace('+', '')}`,
+            }]],
+          },
+        }
+      : {}),
+  }).catch((error) => console.error('Lead message edit failed:', error.message));
+
+  return answer(action === 'ldc' ? 'تسجّل ✅' : 'تشطب 🗑️');
+}
+
+/** لائحة /leads — الطلبات اللي ما كملوش، الأحدث أوّل */
+async function buildLeadsMessage() {
+  const open = await listOpenLeads();
+
+  if (!open.length) {
+    return [
+      '<b>🔔 طلبات ما كملوش</b>',
+      '',
+      'ما كان حتى واحد ✅',
+      '',
+      '<i>كل واحد يكتب رقمو صحيح ويحبس يتسجّل هنا أوتوماتيكياً.</i>',
+    ].join('\n');
+  }
+
+  const lines = [`<b>🔔 طلبات ما كملوش — ${open.length}</b>`, ''];
+
+  for (const lead of open) {
+    const name = lead.name ? esc(lead.name) : 'بلا اسم';
+    const place = lead.wilaya ? ` — ${esc(lead.wilaya)}` : '';
+    const called = lead.contactedAt ? ' 📞 تعيّط' : '';
+    lines.push(
+      `• <b>${name}</b>${place} — ${completeness(lead)}/${LEAD_FIELDS.length} حقول${called}`,
+      `  ${esc(toE164Dz(lead.phone))} · ${elapsedLabel(lead.updatedAt ?? lead.createdAt)}`,
+    );
+  }
+
+  const worth = open.reduce((sum, lead) => sum + (lead.cartTotal ?? 0), 0);
+  if (worth > 0) {
+    lines.push('', '➖➖➖➖➖➖➖➖', `💵 اللي كان في السلال: <b>${dz(worth)}</b>`);
+  }
+
+  return lines.join('\n');
+}
+
 /* ── نقرة زر ─────────────────────────────────────────────────────── */
 async function handleCallback(query) {
   const message = query.message;
@@ -224,6 +309,15 @@ async function handleCallback(query) {
   if (action === 'rm') {
     if (!message) return;
     return handleDeleteProduct(query, orderId, answer);
+  }
+
+  /*
+   * أزرار الـ leads — `orderId` هنا هو رقم التيليفون، ماشي id تاع طلب
+   * (المفتاح تاع الـ lead هو الرقم — شوف lib/leads.mjs).
+   */
+  if (action === 'ldc' || action === 'ldx') {
+    if (!message) return;
+    return handleLeadAction(query, orderId, action, who, answer);
   }
 
   const isDecision = action === 'ok' || action === 'no';
@@ -471,6 +565,9 @@ async function buildStateMessage() {
  * /help, /start     — لائحة الأوامر كاملة
  * /state, /status   — كل الطلبات المعلّقة دروك (بلا قرار / بلا نتيجة
  *                      توصيل / رجعت بصح ما وصلاتش للمحل) + المخزون
+ * /leads            — ناس عمّرو رقم صحيح وما نقروش على "أكّد الطلب"،
+ *                      مع قداش عمّرو وقداش هزّ الوقت — أزرار "عيّطتلو"
+ *                      و"شطبو" في كل إشعار
  * /newproduct الاسم | السومة | الكمية | الفئة | سومة الشراء
  *                   — يصنع منتج (مسودّة) + فئتو إذا ما كانتش + مخزونو،
  *                      ويعطي زر "🚀 انشر"
@@ -906,6 +1003,7 @@ async function handleCommand(message) {
       '',
       '<b>الطلبات</b>',
       '/state — كل الطلبات اللي مازال ما كملوش',
+      '/leads — ناس عمّرو رقمهم وما كمّلوش الفورم',
       '',
       '<b>الكاتالوغ</b>',
       'اكتب عادي: <i>«عندي 9 طوق تتبّع، زيد المنتج والفئة»</i>',
@@ -949,6 +1047,15 @@ async function handleCommand(message) {
     } catch (error) {
       console.error('/state failed:', error.message);
       return reply('⚠️ ما قدرتش نجيب الحالة، عاود حاول.');
+    }
+  }
+
+  if (command === '/leads') {
+    try {
+      return reply(await buildLeadsMessage());
+    } catch (error) {
+      console.error('/leads failed:', error.message);
+      return reply('⚠️ ما قدرتش نجيب اللائحة، عاود حاول.');
     }
   }
 

@@ -12,6 +12,7 @@
  */
 import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock, getCosts } from '../lib/store.mjs';
 import { dz, esc, profitFor, goodsTotal } from '../lib/message.mjs';
+import { listOpenLeads, sweepLeads } from '../lib/leads.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -42,7 +43,7 @@ async function sendTelegram(text) {
  * الحقيقية هي غير الطلبات اللي "توصّلت" فعلاً (deliveryStatus === 'delivered').
  * علاش المداخيل تتحسب من `delivered` وماشي من `accepted`.
  */
-export function buildReport(day, orders, awaiting = [], awaitingReturn = [], stock = null, costs = null) {
+export function buildReport(day, orders, awaiting = [], awaitingReturn = [], stock = null, costs = null, openLeads = []) {
   const lines = [`<b>📊 تقرير ${day}</b>`, ''];
 
   if (!orders.length) {
@@ -117,6 +118,23 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     }
   }
 
+  /*
+   * ناس عمّرو رقمهم وما كمّلوش. يبانو هنا على خاطر هذا هو الوقت اللي
+   * تقعد فيه تشوف نهارك — واللائحة هذي هي أرخص فلوس تقدر تجيبها غدوة:
+   * الزبون كان راه يشري، وما يحتاج غير مكالمة.
+   */
+  if (openLeads.length) {
+    const worth = openLeads.reduce((sum, lead) => sum + (lead.cartTotal ?? 0), 0);
+    lines.push('', `<b>🔔 طلبات ما كملوش (${openLeads.length}${worth ? ` — ${dz(worth)}` : ''}):</b>`);
+    /* نوقفو على 10: التقرير لازم يتقرا في تيليغرام، و/leads توريهم كامل */
+    for (const lead of openLeads.slice(0, 10)) {
+      const name = lead.name ? esc(lead.name) : 'بلا اسم';
+      const place = lead.wilaya ? ` — ${esc(lead.wilaya)}` : '';
+      lines.push(`• ${name}${place} — ${esc(lead.phone)}${lead.contactedAt ? ' 📞' : ''}`);
+    }
+    if (openLeads.length > 10) lines.push(`… و${openLeads.length - 10} آخرين — /leads`);
+  }
+
   if (stock) {
     const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
     lines.push('', `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
@@ -135,11 +153,19 @@ async function handler(request) {
   const dayJustEnded = algiersDate(new Date(Date.now() - 60 * 60 * 1000));
 
   try {
+    /*
+     * الكنس قبل التقرير: أي lead حبس ولا وصلو إشعار (نهار بلا حركة =
+     * ما نادى حتى واحد الكنس) يوصل دروك، وياخذ notifiedAt — باش ما
+     * يبانش في التقرير كأنّو ما تعالجش وهو راه تبعث توّ.
+     */
+    await sweepLeads().catch(() => {});
+
     const orders = await listOrdersForDay(dayJustEnded);
-    const [awaiting, awaitingReturn, stock, costs] = await Promise.all([
+    const [awaiting, awaitingReturn, stock, costs, openLeads] = await Promise.all([
       listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(), getCosts(),
+      listOpenLeads().catch(() => []),
     ]);
-    const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock, costs);
+    const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock, costs, openLeads);
     await sendTelegram(report);
     console.log(`Daily report sent for ${dayJustEnded}: ${orders.length} orders`);
     return new Response(JSON.stringify({ ok: true, day: dayJustEnded, orders: orders.length }), {
