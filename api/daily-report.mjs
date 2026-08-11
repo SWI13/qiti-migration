@@ -47,7 +47,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
   const lines = [`<b>📊 تقرير ${day}</b>`, ''];
 
   if (!orders.length) {
-    lines.push('ما كان حتى طلب اليوم.');
+    lines.push('لم يصل أي طلب اليوم.');
   } else {
     const accepted = orders.filter((o) => o.status === 'accepted');
     const denied = orders.filter((o) => o.status === 'denied');
@@ -74,27 +74,27 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
       `✅ مقبولة: <b>${accepted.length}</b>`,
       `❌ مرفوضة: <b>${denied.length}</b>`,
     );
-    if (pending.length) lines.push(`⏳ ما زال بلا قرار: <b>${pending.length}</b>`);
+    if (pending.length) lines.push(`⏳ بانتظار قرار: <b>${pending.length}</b>`);
 
     lines.push(
       '',
-      `📦 توصّلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
-      `↩️ رجعت: <b>${returnedOrders.length}</b>${returnedNotReceived.length ? ` (${returnedNotReceived.length} لسّا ما وصلاتش للمحل)` : ''}`,
+      `📦 وصلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
+      `↩️ أُرجعت: <b>${returnedOrders.length}</b>${returnedNotReceived.length ? ` (${returnedNotReceived.length} لم تصل بعد إلى المحل)` : ''}`,
     );
-    if (stillShipping.length) lines.push(`🚚 في الطريق (بلا نتيجة بعد): <b>${stillShipping.length}</b>`);
+    if (stillShipping.length) lines.push(`🚚 في الطريق (بدون نتيجة بعد): <b>${stillShipping.length}</b>`);
 
-    lines.push('', `💰 مداخيل فعلية (طلبات توصّلت): <b>${dz(revenue)}</b>`);
+    lines.push('', `💰 إيرادات فعلية (طلبات وصلت): <b>${dz(revenue)}</b>`);
     if (profit !== null) lines.push(`💵 الربح الصافي التقديري: <b>${dz(profit)}</b>`);
 
     if (denied.length) {
       lines.push('', '<b>أسباب الرفض:</b>');
       for (const order of denied) {
-        lines.push(`• ${esc(order.name)} — ${esc(order.reason || 'بلا سبب')}`);
+        lines.push(`• ${esc(order.name)} — ${esc(order.reason || 'بدون سبب')}`);
       }
     }
 
     if (pending.length) {
-      lines.push('', '<b>طلبات تستنّى قرار:</b>');
+      lines.push('', '<b>طلبات بانتظار قرار:</b>');
       for (const order of pending) {
         lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)}`);
       }
@@ -112,7 +112,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
   /* رجعت مع المُوصّل بصح لسّا ما وصلاتش فيزيائياً للمحل — المخزون ما تزادش بعد */
   const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
   if (awaitingReturn.length) {
-    lines.push('', `<b>📥 رجعات تستنّى توصل للمحل (${awaitingReturn.length}${returnQty ? ` — ${returnQty} طوق` : ''}):</b>`);
+    lines.push('', `<b>📥 مُرجَعات بانتظار الوصول إلى المحل (${awaitingReturn.length}${returnQty ? ` — ${returnQty} طوق` : ''}):</b>`);
     for (const order of awaitingReturn) {
       lines.push(`• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} — ${esc(order.day ?? '')}`);
     }
@@ -125,10 +125,10 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
    */
   if (openLeads.length) {
     const worth = openLeads.reduce((sum, lead) => sum + (lead.cartTotal ?? 0), 0);
-    lines.push('', `<b>🔔 طلبات ما كملوش (${openLeads.length}${worth ? ` — ${dz(worth)}` : ''}):</b>`);
+    lines.push('', `<b>🔔 طلبات غير مكتملة (${openLeads.length}${worth ? ` — ${dz(worth)}` : ''}):</b>`);
     /* نوقفو على 10: التقرير لازم يتقرا في تيليغرام، و/leads توريهم كامل */
     for (const lead of openLeads.slice(0, 10)) {
-      const name = lead.name ? esc(lead.name) : 'بلا اسم';
+      const name = lead.name ? esc(lead.name) : 'بدون اسم';
       const place = lead.wilaya ? ` — ${esc(lead.wilaya)}` : '';
       lines.push(`• ${name}${place} — ${esc(lead.phone)}${lead.contactedAt ? ' 📞' : ''}`);
     }
@@ -139,7 +139,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
     lines.push('', `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
     if (returnQty) {
-      lines.push(`🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> طوق — يولّي <b>${stock.qty + returnQty}</b> كي توصل كاملة`);
+      lines.push(`🔁 مُرجَعات معلّقة (لم تُضف بعد): <b>${returnQty}</b> طوق — تصبح <b>${stock.qty + returnQty}</b> عند وصولها كاملة`);
     }
   }
 

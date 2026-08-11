@@ -3,7 +3,7 @@
  *
  * نفس حيلة daily-report.mjs: الـ cron تاع Netlify يخدم بـ UTC، والجزائر
  * UTC+1 بلا توقيت صيفي. 00:00 عندنا يوم الإثنين = 23:00 UTC يوم **الأحد**
- * (النهار اللي قبل — UTC لسّا ما دخلش الإثنين). فـ day-of-week في الجدول
+ * (اليوم اللي قبل — UTC لم تصل بعد ما دخلش الإثنين). فـ day-of-week في الجدول
  * لازم يكون "الأحد" وماشي "الإثنين"، وإلا التقرير يتبعث بيوم كامل متأخّر.
  * الأحد = `0` في جدول cron الكلاسيكي (0=الأحد … 6=السبت)، علاش `0 23 * * 0`.
  *
@@ -44,13 +44,13 @@ async function sendTelegram(text) {
 
 /*
  * نفس منطق daily-report.mjs: "مقبول" ماشي فلوس حقيقية (تقدر ترجع مع
- * المُوصّل)، فالمداخيل تتحسب من `delivered` وماشي من `accepted`.
+ * المُوصّل)، فالإيرادات تتحسب من `delivered` وماشي من `accepted`.
  */
 export function buildWeeklyReport(weekStart, weekEnd, orders) {
   const lines = [`<b>📈 تقرير الأسبوع (${weekStart} → ${weekEnd})</b>`, ''];
 
   if (!orders.length) {
-    lines.push('ما كان حتى طلب هاد الأسبوع.');
+    lines.push('لم يكن حتى طلب هاد الأسبوع.');
     return lines.join('\n');
   }
 
@@ -68,14 +68,14 @@ export function buildWeeklyReport(weekStart, weekEnd, orders) {
     `✅ مقبولة: <b>${accepted.length}</b>`,
     `❌ مرفوضة: <b>${denied.length}</b>`,
   );
-  if (pending.length) lines.push(`⏳ ما زال بلا قرار (أقدم من أسبوع): <b>${pending.length}</b>`);
+  if (pending.length) lines.push(`⏳ ما زال بانتظار قرار (أقدم من أسبوع): <b>${pending.length}</b>`);
 
   lines.push(
     '',
-    `📦 توصّلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
-    `↩️ رجعت: <b>${returnedOrders.length}</b>`,
+    `📦 وصلت: <b>${delivered.length}</b>${units ? ` (${units} طوق)` : ''}`,
+    `↩️ أُرجعت: <b>${returnedOrders.length}</b>`,
     '',
-    `💰 مداخيل فعلية (طلبات توصّلت): <b>${dz(revenue)}</b>`,
+    `💰 إيرادات فعلية (طلبات وصلت): <b>${dz(revenue)}</b>`,
   );
 
   if (delivered.length) {

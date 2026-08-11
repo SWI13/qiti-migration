@@ -138,7 +138,7 @@ async function handleClearConfirmation(query, confirmed) {
       chat_id: message.chat.id, message_id: message.message_id,
       text: '❌ تراجعت — ما تبدّل حتى حاجة.',
     }).catch(() => {});
-    return answer('تراجعت ✅');
+    return answer('تمّ التراجع ✅');
   }
 
   try {
@@ -153,7 +153,7 @@ async function handleClearConfirmation(query, confirmed) {
     return answer('تمسح كلش 🗑️');
   } catch (error) {
     console.error('/clear failed:', error.message);
-    return answer('صار خطأ، عاود حاول.');
+    return answer('حدث خطأ، أعد المحاولة.');
   }
 }
 
@@ -167,13 +167,13 @@ async function handleClearConfirmation(query, confirmed) {
 async function handlePublishProduct(query, productId, answer) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
-    return answer('ما عندكش الصلاحية.');
+    return answer('ليست لديك الصلاحية.');
   }
 
   try {
     const product = await getProduct(productId);
     if (!product) return answer('المنتج ماشي موجود.');
-    if (product.status === 'active') return answer('راهو منشور من قبل.');
+    if (product.status === 'active') return answer('منشور مسبقاً.');
 
     const published = await saveProduct({ ...product, status: 'active' });
     const site = siteUrl();
@@ -192,14 +192,14 @@ async function handlePublishProduct(query, productId, answer) {
       disable_web_page_preview: true,
     }).catch((error) => console.error('Publish repaint failed:', error.message));
 
-    return answer('تنشر في المتجر 🚀');
+    return answer('نُشر في المتجر 🚀');
   } catch (error) {
     console.error('Publish failed:', error.message, '| product:', productId);
-    return answer('صار خطأ، عاود حاول.');
+    return answer('حدث خطأ، أعد المحاولة.');
   }
 }
 
-/* ── أزرار "طلب ما كملش" ──────────────────────────────────────────
+/* ── أزرار "طلب غير مكتمل" ──────────────────────────────────────────
  *
  * زوج أفعال برك، وبقصد: هذا ماشي طلب، فما كاينش "قبول" ولا "رفض" —
  * كاين "عيّطتلو" (تخلّي أثر: شكون ووقتاش) و"شطبو" (يخرج من اللائحة).
@@ -210,17 +210,17 @@ async function handlePublishProduct(query, productId, answer) {
 async function handleLeadAction(query, phone, action, who, answer) {
   const message = query.message;
   const lead = await getLead(phone).catch(() => null);
-  if (!lead) return answer('هذا الـ lead ما بقاش موجود.');
+  if (!lead) return answer('هذا السجل لم يعد موجوداً.');
 
   const updated = action === 'ldc'
     ? await markLeadContacted(phone, who).catch(() => null)
     : await dismissLead(phone).catch(() => null);
 
-  if (!updated) return answer('ما قدرتش نسجّل، عاود حاول.');
+  if (!updated) return answer('تعذّر التسجيل، أعد المحاولة.');
 
   const stamp = action === 'ldc'
-    ? `📞 <b>عيّطلو ${esc(who)}</b> · ${dzTime(new Date())}`
-    : `🗑️ <b>شطبو ${esc(who)}</b> · ${dzTime(new Date())}`;
+    ? `📞 <b>اتصل به ${esc(who)}</b> · ${dzTime(new Date())}`
+    : `🗑️ <b>حذفه ${esc(who)}</b> · ${dzTime(new Date())}`;
 
   /* نعاودو نبنيو الرسالة من السجلّ، ما ناخذوش نص تيليغرام: هو يجي بلا
      تنسيق (الـ HTML يتحيّد)، فالبناء من المصدر يخلّي الشكل ثابت — نفس
@@ -240,7 +240,7 @@ async function handleLeadAction(query, phone, action, who, answer) {
       ? {
           reply_markup: {
             inline_keyboard: [[{
-              text: '💬 راسلو واتساب',
+              text: '💬 مراسلته على واتساب',
               url: `https://wa.me/${toE164Dz(phone).replace('+', '')}`,
             }]],
           },
@@ -248,7 +248,7 @@ async function handleLeadAction(query, phone, action, who, answer) {
       : {}),
   }).catch((error) => console.error('Lead message edit failed:', error.message));
 
-  return answer(action === 'ldc' ? 'تسجّل ✅' : 'تشطب 🗑️');
+  return answer(action === 'ldc' ? 'تمّ التسجيل ✅' : 'تمّ الحذف 🗑️');
 }
 
 /** لائحة /leads — الطلبات اللي ما كملوش، الأحدث أوّل */
@@ -257,20 +257,20 @@ async function buildLeadsMessage() {
 
   if (!open.length) {
     return [
-      '<b>🔔 طلبات ما كملوش</b>',
+      '<b>🔔 طلبات غير مكتملة</b>',
       '',
-      'ما كان حتى واحد ✅',
+      'لا يوجد أي واحد ✅',
       '',
-      '<i>كل واحد يكتب رقمو صحيح ويحبس يتسجّل هنا أوتوماتيكياً.</i>',
+      '<i>كل من يُدخل رقماً صحيحاً ثم يتوقف يُسجَّل هنا تلقائياً.</i>',
     ].join('\n');
   }
 
-  const lines = [`<b>🔔 طلبات ما كملوش — ${open.length}</b>`, ''];
+  const lines = [`<b>🔔 طلبات غير مكتملة — ${open.length}</b>`, ''];
 
   for (const lead of open) {
-    const name = lead.name ? esc(lead.name) : 'بلا اسم';
+    const name = lead.name ? esc(lead.name) : 'بدون اسم';
     const place = lead.wilaya ? ` — ${esc(lead.wilaya)}` : '';
-    const called = lead.contactedAt ? ' 📞 تعيّط' : '';
+    const called = lead.contactedAt ? ' 📞 تمّ الاتصال' : '';
     lines.push(
       `• <b>${name}</b>${place} — ${completeness(lead)}/${LEAD_FIELDS.length} حقول${called}`,
       `  ${esc(toE164Dz(lead.phone))} · ${elapsedLabel(lead.updatedAt ?? lead.createdAt)}`,
@@ -279,7 +279,7 @@ async function buildLeadsMessage() {
 
   const worth = open.reduce((sum, lead) => sum + (lead.cartTotal ?? 0), 0);
   if (worth > 0) {
-    lines.push('', '➖➖➖➖➖➖➖➖', `💵 اللي كان في السلال: <b>${dz(worth)}</b>`);
+    lines.push('', '➖➖➖➖➖➖➖➖', `💵 مجموع السلات: <b>${dz(worth)}</b>`);
   }
 
   return lines.join('\n');
@@ -336,22 +336,22 @@ async function handleCallback(query) {
   /* قبول/رفض تقرّر من قبل — ما نعاودوش، ونقولو لللي نقر */
   if (isDecision && order && order.status !== 'pending') {
     const label = order.status === 'accepted' ? 'مقبول' : 'مرفوض';
-    return answer(`الطلب راهو ${label} من قبل — ${order.actor ?? ''}`);
+    return answer(`الطلب ${label} مسبقاً — ${order.actor ?? ''}`);
   }
 
   /* زر التوصيل/الرجوع يحتاج طلب مقبول وبلا نتيجة توصيل مسبقة */
   if (isDeliveryOutcome && order) {
-    if (order.status !== 'accepted') return answer('الطلب لازال ماشي مقبول.');
+    if (order.status !== 'accepted') return answer('الطلب لم يُقبل بعد.');
     if (order.deliveryStatus) {
-      const label = order.deliveryStatus === 'delivered' ? 'توصّل' : 'رجعت';
-      return answer(`الطلب راهو ${label} من قبل — ${order.deliveryActor ?? ''}`);
+      const label = order.deliveryStatus === 'delivered' ? 'وصل' : 'أُرجع';
+      return answer(`الطلب ${label} مسبقاً — ${order.deliveryActor ?? ''}`);
     }
   }
 
   /* زر "استلمت الرجعة" يحتاج طلب "رجعت" وبلا استلام مسجّل من قبل */
   if (isReturnReceipt && order) {
-    if (order.deliveryStatus !== 'returned') return answer('الطلب ماشي مسجّل "رجعت".');
-    if (order.returnReceivedAt) return answer(`استلمتها من قبل — ${order.returnReceivedActor ?? ''}`);
+    if (order.deliveryStatus !== 'returned') return answer('الطلب غير مسجّل كـ "رجعت".');
+    if (order.returnReceivedAt) return answer(`استُلمت مسبقاً — ${order.returnReceivedActor ?? ''}`);
   }
 
   /*
@@ -359,18 +359,18 @@ async function handleCallback(query) {
    * وأزرار القبول/الرفض تبقى، غير زر التأكيد يختفي.
    */
   if (action === 'cnf') {
-    if (order && order.confirmedAt) return answer(`تأكد من قبل — ${order.confirmedBy ?? ''}`);
+    if (order && order.confirmedAt) return answer(`تمّ التأكيد مسبقاً — ${order.confirmedBy ?? ''}`);
     try {
       const updated = await updateOrder(orderId, {
         confirmedAt: new Date().toISOString(), confirmedBy: who,
       });
-      if (!updated) return answer('الطلب ماشي موجود.');
+      if (!updated) return answer('الطلب غير موجود.');
       await repaintOrder(message.chat.id, updated);
     } catch (error) {
       console.error('Confirm failed:', error.message, '| order:', orderId);
-      return answer('صار خطأ، عاود حاول.');
+      return answer('حدث خطأ، أعد المحاولة.');
     }
-    return answer('تسجّل التأكيد 📞');
+    return answer('سُجِّل التأكيد 📞');
   }
 
   if (action === 'ok') {
@@ -379,7 +379,7 @@ async function handleCallback(query) {
       const needed = order.qty ?? 1;
       const stockBefore = await getStockForOrder(order).catch(() => null);
       if (stockBefore && stockBefore.qty < needed) {
-        return answer(`🚫 المخزون ما يكفيش — باقي ${stockBefore.qty}، الطلب يحتاج ${needed}. زوّدو بـ /restock.`);
+        return answer(`🚫 المخزون غير كافٍ — المتبقّي ${stockBefore.qty}، والطلب يحتاج ${needed}. أضف كمية بـ /restock.`);
       }
     }
 
@@ -401,7 +401,7 @@ async function handleCallback(query) {
     } catch (error) {
       console.error('Accept failed:', error.message, '| order:', orderId);
     }
-    return answer('تقبّل الطلب ✅');
+    return answer('قُبِل الطلب ✅');
   }
 
   if (action === 'del' || action === 'ret') {
@@ -421,7 +421,7 @@ async function handleCallback(query) {
         deliveryStatus, deliveryActor: who, deliveryDecidedAt: new Date().toISOString(),
         ...(costs ? { costSnapshot: costSnapshotOf(costs, product) } : {}),
       });
-      if (!updated) return answer('الطلب ماشي موجود.');
+      if (!updated) return answer('الطلب غير موجود.');
 
       /*
        * "رجعت" ما تزيدش المخزون هنا — هذا غير يعني المُوصّل قالها رجعت،
@@ -441,9 +441,9 @@ async function handleCallback(query) {
       }
     } catch (error) {
       console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
-      return answer('صار خطأ، عاود حاول.');
+      return answer('حدث خطأ، أعد المحاولة.');
     }
-    return answer(deliveryStatus === 'delivered' ? 'تسجّل: توصّل 📦' : 'تسجّل: رجعت مع المُوصّل ↩️');
+    return answer(deliveryStatus === 'delivered' ? 'سُجِّل: وصل 📦' : 'سُجِّل: أُرجع مع الموصّل ↩️');
   }
 
   if (action === 'rcv') {
@@ -451,7 +451,7 @@ async function handleCallback(query) {
       const updated = await updateOrder(orderId, {
         returnReceivedAt: new Date().toISOString(), returnReceivedActor: who,
       });
-      if (!updated) return answer('الطلب ماشي موجود.');
+      if (!updated) return answer('الطلب غير موجود.');
 
       await repaintOrder(message.chat.id, updated);
 
@@ -460,9 +460,9 @@ async function handleCallback(query) {
         console.error('Restock after receiving return failed:', error.message, '| order:', orderId));
     } catch (error) {
       console.error('Return-receipt update failed:', error.message, '| order:', orderId);
-      return answer('صار خطأ، عاود حاول.');
+      return answer('حدث خطأ، أعد المحاولة.');
     }
-    return answer('تزادت للمخزون 📥');
+    return answer('أُضيفت للمخزون 📥');
   }
 
   /*
@@ -473,8 +473,8 @@ async function handleCallback(query) {
     const prompt = await telegram('sendMessage', {
       chat_id: message.chat.id,
       reply_to_message_id: message.message_id,
-      text: '❌ علاش رفضتي الطلب؟ اكتب السبب في ردّ على هذي الرسالة.',
-      reply_markup: { force_reply: true, input_field_placeholder: 'مثال: الزبون ما جاوبش' },
+      text: '❌ لماذا رفضت الطلب؟ اكتب السبب في ردّ على هذه الرسالة.',
+      reply_markup: { force_reply: true, input_field_placeholder: 'مثال: الزبون لم يُجب' },
     });
     if (orderId) await rememberReplyPrompt(message.chat.id, prompt.message_id, orderId);
   } catch (error) {
@@ -512,7 +512,7 @@ async function handleReply(message) {
     console.error('Failed to record deny reason:', error.message, '| order:', orderId);
     await telegram('sendMessage', {
       chat_id: message.chat.id,
-      text: `⚠️ ما قدرناش نسجّلو سبب الرفض: ${esc(error.message)}`,
+      text: `⚠️ تعذّر تسجيل سبب الرفض: ${esc(error.message)}`,
     }).catch(() => {});
   }
 }
@@ -535,28 +535,28 @@ async function buildStateMessage() {
     `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} (${elapsedLabel(order.createdAt)})${isOld(order) ? ' ⚠️' : ''}`;
   const section = (emoji, title, list) => {
     const lines = [`${emoji} <b>${title} — ${list.length} طلب</b>`];
-    lines.push(...(list.length ? list.map(line) : ['لا شيء هنا، صافي ✅']));
+    lines.push(...(list.length ? list.map(line) : ['لا شيء هنا ✅']));
     return lines;
   };
 
   const lines = ['<b>📋 حالة الطلبات</b>', ''];
 
-  lines.push(...section('⏳', 'بلا قرار (قبول/رفض)', pending));
+  lines.push(...section('⏳', 'بانتظار قرار (قبول/رفض)', pending));
   lines.push('', ...section('🚚', 'مقبولة، في الطريق', awaitingDelivery));
-  lines.push('', ...section('↩️', 'رجعات لسّا ما وصلاتش للمحل', awaitingReturn));
+  lines.push('', ...section('↩️', 'مُرجَعات لم تصل بعد إلى المحل', awaitingReturn));
 
   const pendingCash = [...pending, ...awaitingDelivery].reduce((sum, o) => sum + (o.total ?? 0), 0);
   const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-  const stockWarn = stock.qty <= stock.threshold ? ' ⚠️ قليل' : '';
+  const stockWarn = stock.qty <= stock.threshold ? ' ⚠️ منخفض' : '';
 
   lines.push(
     '',
     '➖➖➖➖➖➖➖➖',
-    `💵 فلوس تستنّى قرار نهائي (بلا قرار + في الطريق): <b>${dz(pendingCash)}</b>`,
+    `💵 مبالغ بانتظار نتيجة نهائية (بانتظار قرار + في الطريق): <b>${dz(pendingCash)}</b>`,
     `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${stockWarn}`,
   );
   if (returnQty) {
-    lines.push(`🔁 رجعات ما تزادتش للمخزون بعد: <b>${returnQty}</b> طوق (يولّي ${stock.qty + returnQty} كي توصل كاملة)`);
+    lines.push(`🔁 مُرجَعات لم تُضف للمخزون بعد: <b>${returnQty}</b> طوق (تصبح ${stock.qty + returnQty} عند وصولها كاملة)`);
   }
 
   return lines.join('\n');
@@ -619,7 +619,7 @@ async function stockTargets() {
         sku: variant.sku,
         label: Object.keys(variant.options || {}).length
           ? Object.values(variant.options).join(' / ')
-          : 'وحيد',
+          : 'مفرد',
         stock,
       });
     }
@@ -713,16 +713,16 @@ async function handleNewProduct(message, argText, reply) {
     return reply([
       '🆕 <b>منتج جديد</b>',
       '',
-      '<code>/newproduct الاسم | السومة | الكمية | الفئة | سومة الشراء</code>',
+      '<code>/newproduct الاسم | السعر | الكمية | الفئة | سعر الشراء</code>',
       '',
       'مثال:',
       '<code>/newproduct Qiti Tracking Collar | 3900 | 9 | tracking | 1800</code>',
       '',
-      'الاسم برك إجباري. الباقي تقدر تخلّيه فارغ ولا تحيّدو:',
+      'الاسم وحده إجباري. الباقي يمكن تركه فارغاً أو حذفه:',
       '<code>/newproduct طوق تتبّع | 3900 | 9</code>',
       '',
-      'الفئة: اكتب اسمها ولا سلاقها. ما كتبتهاش؟ نخمّنوها من اسم المنتج،',
-      'وإذا ما كانتش موجودة نصنعوها. شوف الجاهزين بـ /categories.',
+      'الفئة: اكتب اسمها أو رابطها. لم تكتبها؟ نستنتجها من اسم المنتج،',
+      'وإن لم تكن موجودة أنشأناها. اطّلع على الجاهزة بـ /categories.',
     ].join('\n'));
   }
 
@@ -773,25 +773,25 @@ async function createAndAnnounce(chatId, fields, reply) {
     });
   } catch (error) {
     console.error('Product creation failed:', error.message);
-    return reply(`⚠️ ما تصنعش المنتج: ${esc(error.message)}`);
+    return reply(`⚠️ تعذّر إنشاء المنتج: ${esc(error.message)}`);
   }
 
   const site = siteUrl();
   const lines = [
-    '✅ <b>تصنع المنتج</b> (مسودّة)',
+    '✅ <b>أُنشئ المنتج</b> (مسودّة)',
     '',
     `📦 <b>${esc(product.name)}</b>`,
-    `السومة: <b>${price ? dz(price) : '— ما تكتبتش'}</b>`,
+    `السعر: <b>${price ? dz(price) : '— غير محدّد'}</b>`,
     `المخزون: <b>${qty}</b>`,
   ];
-  if (unitCost) lines.push(`سومة الشراء: <b>${dz(unitCost)}</b> (الربح للوحدة: ${dz(price - unitCost)})`);
+  if (unitCost) lines.push(`سعر الشراء: <b>${dz(unitCost)}</b> (الربح للوحدة: ${dz(price - unitCost)})`);
   lines.push(category
-    ? `الفئة: <b>${esc(category.name)}</b>${categoryCreated ? ' — تصنعت دروك 🆕' : ''}`
-    : 'الفئة: — بلا فئة');
+    ? `الفئة: <b>${esc(category.name)}</b>${categoryCreated ? ' — أُنشئت الآن 🆕' : ''}`
+    : 'الفئة: — بدون فئة');
 
-  lines.push('', 'ما زال مسودّة: ما يبانش في المتجر حتى تنشرو.');
-  if (!price) lines.push('⚠️ بلا سومة — زيدها قبل النشر.');
-  if (site) lines.push('', `✏️ كمّلو (صور، وصف): ${site}/admin#/products/${product.id}`);
+  lines.push('', 'ما زال مسودّة: لن يظهر في المتجر حتى تنشره.');
+  if (!price) lines.push('⚠️ بدون سعر — أضفه قبل النشر.');
+  if (site) lines.push('', `✏️ أكمله (صور، وصف): ${site}/admin#/products/${product.id}`);
 
   return telegram('sendMessage', {
     chat_id: chatId,
@@ -803,7 +803,7 @@ async function createAndAnnounce(chatId, fields, reply) {
     reply_markup: {
       inline_keyboard: [[
         { text: '🚀 انشر في المتجر', callback_data: `pub:${product.id}` },
-        { text: '🗑️ امسحو', callback_data: `rm:${product.id}` },
+        { text: '🗑️ حذف', callback_data: `rm:${product.id}` },
       ]],
     },
   }).catch((error) => console.error('Product reply failed:', error.message));
@@ -820,31 +820,31 @@ async function createAndAnnounce(chatId, fields, reply) {
 async function handleDeleteProduct(query, productId, answer) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
-    return answer('ما عندكش الصلاحية.');
+    return answer('ليست لديك الصلاحية.');
   }
 
   try {
     const product = await getProduct(productId);
-    if (!product) return answer('المنتج ماشي موجود — يمكن تمسح من قبل.');
+    if (!product) return answer('المنتج غير موجود — ربما حُذف مسبقاً.');
 
     const orders = await listOrders();
     const used = orders.filter((order) => order.productId === product.id).length;
     if (used) {
-      return answer(`عندو ${used} طلب في التاريخ — ما يتمسحش. أرشفو من اللوحة.`);
+      return answer(`له ${used} طلب في السجل — لا يمكن حذفه. أرشفه من اللوحة.`);
     }
 
     await deleteProduct(product.id);
     await telegram('editMessageText', {
       chat_id: query.message.chat.id,
       message_id: query.message.message_id,
-      text: `🗑️ <b>تمسح</b> — ${esc(product.name)}\nما بقا حتى أثر: لا رابط، لا مخزون.`,
+      text: `🗑️ <b>حُذف</b> — ${esc(product.name)}\nلم يبقَ منه أثر: لا رابط، ولا مخزون.`,
       parse_mode: 'HTML',
     }).catch((error) => console.error('Delete repaint failed:', error.message));
 
-    return answer('تمسح 🗑️');
+    return answer('حُذف 🗑️');
   } catch (error) {
     console.error('Delete failed:', error.message, '| product:', productId);
-    return answer('صار خطأ، عاود حاول.');
+    return answer('حدث خطأ، أعد المحاولة.');
   }
 }
 
@@ -874,16 +874,16 @@ async function handleFreeText(message) {
   }
 
   const lines = [
-    '🤔 <b>فهمت هكذا:</b>',
+    '🤔 <b>هذا ما فهمته:</b>',
     '',
     `📦 الاسم: <b>${esc(parsed.name)}</b>`,
-    `💵 السومة: <b>${parsed.price ? dz(parsed.price) : '— ما فهمتهاش'}</b>${parsed.guessedPrice ? ' <i>(خمّنتها)</i>' : ''}`,
+    `💵 السعر: <b>${parsed.price ? dz(parsed.price) : '— لم أفهمه'}</b>${parsed.guessedPrice ? ' <i>(استنتجته)</i>' : ''}`,
     `📥 الكمية: <b>${parsed.qty ?? 0}</b>`,
   ];
-  if (parsed.cost) lines.push(`🧾 سومة الشراء: <b>${dz(parsed.cost)}</b>`);
-  lines.push(`🗂️ الفئة: <b>${parsed.category ? esc(parsed.category) : 'نخمّنوها من الاسم'}</b>`);
-  lines.push('', 'صحّ؟ نقر وندير المنتج + الفئة + المخزون.');
-  lines.push('غالط؟ نقر "لا" وعاود اكتبها، ولا استعمل <code>/newproduct</code>.');
+  if (parsed.cost) lines.push(`🧾 سعر الشراء: <b>${dz(parsed.cost)}</b>`);
+  lines.push(`🗂️ الفئة: <b>${parsed.category ? esc(parsed.category) : 'نستنتجها من الاسم'}</b>`);
+  lines.push('', 'صحيح؟ اضغط وننشئ المنتج + الفئة + المخزون.');
+  lines.push('خطأ؟ اضغط "لا" وأعد كتابتها، أو استعمل <code>/newproduct</code>.');
 
   return telegram('sendMessage', {
     chat_id: message.chat.id,
@@ -893,7 +893,7 @@ async function handleFreeText(message) {
     disable_web_page_preview: true,
     reply_markup: {
       inline_keyboard: [[
-        { text: '✅ ايه، زيدو', callback_data: `mk:${draftId}` },
+        { text: '✅ نعم، أضفه', callback_data: `mk:${draftId}` },
         { text: '❌ لا', callback_data: `mkx:${draftId}` },
       ]],
     },
@@ -904,11 +904,11 @@ async function handleFreeText(message) {
 async function handleDraftDecision(query, draftId, confirmed, answer) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(query.message.chat.id) !== String(ownerChatId)) {
-    return answer('ما عندكش الصلاحية.');
+    return answer('ليست لديك الصلاحية.');
   }
 
   const draft = await getProductDraft(draftId).catch(() => null);
-  if (!draft) return answer('المسودّة ما بقاتش — عاود اكتبها.');
+  if (!draft) return answer('المسودّة لم تعد موجودة — أعد كتابتها.');
 
   /* المسودّة تتمسح في الزوج حالات: نقرة ثانية على نفس الرسالة ما
      تصنعش منتج ثاني */
@@ -922,7 +922,7 @@ async function handleDraftDecision(query, draftId, confirmed, answer) {
     reply_markup: { inline_keyboard: [] },
   }).catch(() => {});
 
-  if (!confirmed) return answer('تراجعت ✅');
+  if (!confirmed) return answer('تمّ التراجع ✅');
 
   const reply = (text) =>
     telegram('sendMessage', {
@@ -930,7 +930,7 @@ async function handleDraftDecision(query, draftId, confirmed, answer) {
     }).catch((error) => console.error('Draft reply failed:', error.message));
 
   await createAndAnnounce(query.message.chat.id, draft, reply);
-  return answer('تصنع المنتج ✅');
+  return answer('أُنشئ المنتج ✅');
 }
 
 async function handleNewCategory(argText, reply) {
@@ -942,16 +942,16 @@ async function handleNewCategory(argText, reply) {
       '',
       '<code>/newcategory الاسم | الوصف القصير | 🐾</code>',
       '',
-      'اسم من الجاهزين يعمّر الوصف والإيموجي واللون وحدو:',
+      'اسم من القائمة الجاهزة يملأ الوصف والإيموجي واللون تلقائياً:',
       '<code>/newcategory tracking</code>',
       '',
-      'شوف الكل بـ /categories.',
+      'اطّلع على الكل بـ /categories.',
     ].join('\n'));
   }
 
   try {
     const { category, created } = await resolveCategory(rawName, '');
-    if (!created) return reply(`الفئة <b>${esc(category.name)}</b> راهي موجودة من قبل (/${esc(category.slug)}).`);
+    if (!created) return reply(`الفئة <b>${esc(category.name)}</b> موجودة مسبقاً (/${esc(category.slug)}).`);
 
     /* الوصف/الإيموجي اللي كتبهم التاجر يغلبو اللي جاو من الجاهزة */
     const patched = (rawTagline || rawEmoji)
@@ -962,17 +962,17 @@ async function handleNewCategory(argText, reply) {
       })
       : category;
 
-    return reply(`✅ تصنعت الفئة <b>${esc(patched.name)}</b> — /c/${esc(patched.slug)}`);
+    return reply(`✅ أُنشئت الفئة <b>${esc(patched.name)}</b> — /c/${esc(patched.slug)}`);
   } catch (error) {
     console.error('/newcategory failed:', error.message);
-    return reply(`⚠️ ما تصنعتش الفئة: ${esc(error.message)}`);
+    return reply(`⚠️ تعذّر إنشاء الفئة: ${esc(error.message)}`);
   }
 }
 
 async function handleListCategories(reply) {
   const categories = await listCategories().catch(() => []);
   if (!categories.length) {
-    return reply('ما كان حتى فئة.\nصنع وحدة: <code>/newcategory tracking</code>');
+    return reply('لا توجد أي فئة.\nأنشئ واحدة: <code>/newcategory tracking</code>');
   }
 
   const products = await listProducts().catch(() => []);
@@ -983,7 +983,7 @@ async function handleListCategories(reply) {
     const badge = category.emoji ? `${category.emoji} ` : '';
     lines.push(`${badge}<b>${esc(category.name)}</b> — /c/${esc(category.slug)} · ${countFor(category.id)} منتج`);
   }
-  lines.push('', 'زيد وحدة: <code>/newcategory الاسم</code>');
+  lines.push('', 'أضف واحدة: <code>/newcategory الاسم</code>');
   return reply(lines.join('\n'));
 }
 
@@ -1007,30 +1007,30 @@ async function handleCommand(message) {
       '🤖 <b>أوامر البوت</b>',
       '',
       '<b>الطلبات</b>',
-      '/state — كل الطلبات اللي مازال ما كملوش',
-      '/leads — ناس عمّرو رقمهم وما كمّلوش الفورم',
+      '/state — كل الطلبات التي لم تُغلق بعد',
+      '/leads — من أدخل رقمه ولم يُكمل الطلب',
       '',
-      '<b>الكاتالوغ</b>',
-      'اكتب عادي: <i>«عندي 9 طوق تتبّع، زيد المنتج والفئة»</i>',
-      'ونوريك واش فهمت قبل ما نزيد والو.',
-      '/newproduct — نفس الحاجة بصيغة مضبوطة',
+      '<b>الكتالوغ</b>',
+      'اكتب بشكل عادي: <i>«عندي 9 أطواق تتبّع، أضف المنتج والفئة»</i>',
+      'وسنعرض عليك ما فهمناه قبل إضافة أي شيء.',
+      '/newproduct — نفس الشيء بصيغة محدّدة',
       '/newcategory — فئة جديدة',
       '/categories — كل الفئات',
       '',
       '<b>المخزون</b>',
       '/stock — الكميات الحالية',
-      '/restock — زيد كمية بعد تزويد',
-      '/setstock — صحّح الكمية بالضبط',
+      '/restock — إضافة كمية بعد التموين',
+      '/setstock — تصحيح الكمية بالضبط',
       '',
-      '<b>الفلوس</b>',
-      '/cost — سومة الشراء، الإعلانات، الرجعة، التوصيل',
+      '<b>المال</b>',
+      '/cost — سعر الشراء، الإعلانات، الإرجاع، التوصيل',
       '',
       '<b>الزبائن</b>',
       '/block · /unblock · /blocked',
       '',
-      '/clear — ⚠️ يمسح كل الطلبات',
+      '/clear — ⚠️ يحذف كل الطلبات',
       '',
-      'اكتب الأمر بلا حاجة أخرى وهو يوريك كيفاش يتكتب.',
+      'اكتب الأمر وحده وسيشرح لك طريقة استعماله.',
     ].join('\n'));
   }
 
@@ -1051,7 +1051,7 @@ async function handleCommand(message) {
       return reply(await buildStateMessage());
     } catch (error) {
       console.error('/state failed:', error.message);
-      return reply('⚠️ ما قدرتش نجيب الحالة، عاود حاول.');
+      return reply('⚠️ تعذّر جلب الحالة، أعد المحاولة.');
     }
   }
 
@@ -1060,7 +1060,7 @@ async function handleCommand(message) {
       return reply(await buildLeadsMessage());
     } catch (error) {
       console.error('/leads failed:', error.message);
-      return reply('⚠️ ما قدرتش نجيب اللائحة، عاود حاول.');
+      return reply('⚠️ تعذّر جلب القائمة، أعد المحاولة.');
     }
   }
 
@@ -1071,11 +1071,11 @@ async function handleCommand(message) {
   if (command === '/clear') {
     return telegram('sendMessage', {
       chat_id: message.chat.id,
-      text: '⚠️ <b>متأكد؟</b>\nهذا يمسح <b>كل الطلبات</b> (التاريخ كامل) ويرجّع <b>المخزون لصفر</b>.\nما يترجعش لور!',
+      text: '⚠️ <b>متأكد؟</b>\nسيحذف <b>كل الطلبات</b> (السجل كامل) ويعيد <b>المخزون إلى الصفر</b>.\nلا يمكن التراجع!',
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [[
-          { text: '✅ ايه، امسح كلش', callback_data: 'clear-yes' },
+          { text: '✅ نعم، احذف الكل', callback_data: 'clear-yes' },
           { text: '❌ لا، تراجعت', callback_data: 'clear-no' },
         ]],
       },
@@ -1092,7 +1092,7 @@ async function handleCommand(message) {
     /*
      * العدّاد القديم يبان غير إذا فيه شي حاجة — الطلبات القديمة (والصفحة
      * الحالية) مازال يخدمو عليه، فما نخبّيوهش، بصح ما نعرضوهش فارغ
-     * كي يولّي كلش على المنتجات.
+     * كي تصبح كلش على المنتجات.
      */
     if (legacy.qty > 0 || !targets.length) {
       const warn = legacy.qty <= legacy.threshold ? ' ⚠️' : '';
@@ -1112,12 +1112,12 @@ async function handleCommand(message) {
     }
 
     if (targets.length) {
-      lines.push('', `زوّد: <code>/restock ${targets.length > 1 ? '&lt;رقم&gt; ' : ''}10</code>`);
+      lines.push('', `أضف: <code>/restock ${targets.length > 1 ? '&lt;رقم&gt; ' : ''}10</code>`);
     }
     if (returnQty) {
-      lines.push('', `🔁 رجعات معلّقة (لسّا ما تزادوش): <b>${returnQty}</b> — /state يوريك أشمن طلبات`);
+      lines.push('', `🔁 مُرجَعات معلّقة (لم تُضف بعد): <b>${returnQty}</b> — /state يعرض لك الطلبات المعنية`);
     }
-    return reply(lines.join('\n') || 'ما كاين حتى مخزون مسجّل.');
+    return reply(lines.join('\n') || 'لا يوجد أي مخزون مسجّل.');
   }
 
   if (command === '/restock' || command === '/setstock') {
@@ -1141,12 +1141,12 @@ async function handleCommand(message) {
       const index = parseInt(a, 10);
       target = targets.find((t) => t.index === index) ?? null;
       amountRaw = b;
-      if (!target) return reply(`ما لقيتش رقم <b>${esc(String(a))}</b>. شوف /stock للأرقام.`);
+      if (!target) return reply(`لم أجد الرقم <b>${esc(String(a))}</b>. راجع /stock للأرقام.`);
     } else if (targets.length === 1) {
       target = targets[0];
     } else {
-      return reply('عندك أكثر من فاريانت — لازم رقم.\n'
-        + `استعمل: <code>${command} &lt;رقم&gt; ${isSet ? 50 : 10}</code>\nشوف /stock للأرقام.`);
+      return reply('لديك أكثر من فاريانت — الرقم مطلوب.\n'
+        + `استعمل: <code>${command} &lt;رقم&gt; ${isSet ? 50 : 10}</code>\nراجع /stock للأرقام.`);
     }
 
     const n = parseInt(amountRaw, 10);
@@ -1173,35 +1173,35 @@ async function handleCommand(message) {
     if (!phone) return reply('استعمل: /block 0661445566 [السبب]');
     const reason = parts.slice(2).join(' ') || null;
     const entry = await blockPhone(phone, { reason, addedBy: displayName(message.from) });
-    return reply(`🚫 تحظر <b>${entry.phone}</b>${entry.reason ? `\nالسبب: ${esc(entry.reason)}` : ''}`);
+    return reply(`🚫 حُظر <b>${entry.phone}</b>${entry.reason ? `\nالسبب: ${esc(entry.reason)}` : ''}`);
   }
 
   if (command === '/unblock') {
     const phone = normalizeDzPhone(arg);
     if (!phone) return reply('استعمل: /unblock 0661445566');
     const removed = await unblockPhone(phone);
-    return reply(removed ? `✅ تحيّد الحظر على <b>${phone}</b>` : `الرقم <b>${phone}</b> ماشي محظور أصلاً.`);
+    return reply(removed ? `✅ رُفع الحظر عن <b>${phone}</b>` : `الرقم <b>${phone}</b> غير محظور أصلاً.`);
   }
 
   if (command === '/blocked') {
     const entries = await listBlocked();
-    if (!entries.length) return reply('ما كان حتى رقم محظور.');
+    if (!entries.length) return reply('لا يوجد أي رقم محظور.');
     const lines = [`🚫 <b>الأرقام المحظورة (${entries.length})</b>`, ''];
     for (const entry of entries) {
       lines.push(`• <b>${entry.phone}</b>${entry.reason ? ` — ${esc(entry.reason)}` : ''}`);
     }
-    lines.push('', 'حيّد واحد بـ: /unblock 0661445566');
+    lines.push('', 'ارفع الحظر بـ: /unblock 0661445566');
     return reply(lines.join('\n'));
   }
 
   if (command === '/cost') {
     const FIELDS = {
-      product: { key: 'productCost', label: 'سوما البضاعة' },
+      product: { key: 'productCost', label: 'سعر البضاعة' },
       ads: { key: 'adsCost', label: 'تكلفة الإعلانات' },
-      returns: { key: 'returnLoss', label: 'خسارة الرجعة' },
+      returns: { key: 'returnLoss', label: 'خسارة الإرجاع' },
       /* التوصيل: صفر بالتلقائي — الزبون يخلّصو في الدفع عند الاستلام.
          اللي يخلّصو بروحو يحطّ رقمو هنا ويدخل في حساب الربح. */
-      courier: { key: 'courierCost', label: 'تكلفة التوصيل (تخلّصها انت)' },
+      courier: { key: 'courierCost', label: 'تكلفة التوصيل (تدفعها أنت)' },
     };
 
     /* بلا فرعي: نعرضو التكاليف كاملة */
@@ -1210,24 +1210,24 @@ async function handleCommand(message) {
       const courier = costs.courierCost ?? 0;
       return reply([
         '💰 <b>تكاليف الربح</b>',
-        `سوما البضاعة (لكل وحدة): <b>${dz(costs.productCost)}</b>`,
+        `سعر البضاعة (لكل وحدة): <b>${dz(costs.productCost)}</b>`,
         `تكلفة الإعلانات (لكل طلب): <b>${dz(costs.adsCost)}</b>`,
-        `خسارة الرجعة (لكل طلب رجع): <b>${dz(costs.returnLoss)}</b>`,
-        `تكلفة التوصيل: <b>${dz(courier)}</b>${courier === 0 ? ' (الزبون يخلّص)' : ''}`,
+        `خسارة الإرجاع (لكل طلب مُرجَع): <b>${dz(costs.returnLoss)}</b>`,
+        `تكلفة التوصيل: <b>${dz(courier)}</b>${courier === 0 ? ' (يدفعها الزبون)' : ''}`,
         '',
-        '<b>الربح</b> = المجموع − سوما البضاعة×الكمية − الإعلانات − التوصيل',
+        '<b>الربح</b> = المجموع − سعر البضاعة×الكمية − الإعلانات − التوصيل',
         '',
-        'بدّل بـ: /cost product 1800 — /cost ads 300 — /cost returns 800 — /cost courier 0',
+        'غيّرها بـ: /cost product 1800 — /cost ads 300 — /cost returns 800 — /cost courier 0',
       ].join('\n'));
     }
 
     const field = FIELDS[arg];
     const n = parseInt(parts[2], 10);
     if (!field || !Number.isFinite(n) || n < 0) {
-      return reply('استعمل: /cost product 1800  ولا  /cost ads 300  ولا  /cost returns 800  ولا  /cost courier 0');
+      return reply('استعمل: /cost product 1800  أو  /cost ads 300  أو  /cost returns 800  أو  /cost courier 0');
     }
     const costs = await setCost(field.key, n);
-    return reply(`✅ تسجّل. ${field.label}: <b>${dz(costs[field.key])}</b>`);
+    return reply(`✅ سُجِّل. ${field.label}: <b>${dz(costs[field.key])}</b>`);
   }
 }
 

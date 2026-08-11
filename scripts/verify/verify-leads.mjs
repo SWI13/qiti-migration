@@ -95,8 +95,11 @@ console.log('\n══ 4. الرسالة ══');
 const msg = leadMessage(openLead({ wilaya: 'وهران', commune: 'السانيا', cartTotal: 4500 }));
 ok('الرقم بصيغة دولية باش تنقر عليه وتعيّط', msg.includes('+213661445566'));
 ok('يوري قداش عمّر', msg.includes(`4 من ${LEAD_FIELDS.length}`));
-ok('يوري السلّة وبلي ما تأكّدتش', msg.includes('4,500 دج') && msg.includes('ما تأكّدش'));
-ok('يقول صراحةً بلي ما كملش', msg.includes('ما كملش'));
+ok('يوري السلّة وبلي ما تأكّدتش', msg.includes('4,500 دج') && msg.includes('غير مؤكّدة'));
+ok('يقول صراحةً بلي ما كملش', msg.includes('غير مكتمل'));
+/* رسائل تيليغرام بالفصحى — الدارجة تبقى للصفحة اللي تبيع للزبون */
+ok('الرسالة بالفصحى، بلا دارجة',
+  !msg.includes('عيّط') && !msg.includes('ما كملش') && !msg.includes('بلا اسم'));
 /* الفرق مع رسالة الطلب مقصود — نقرة "قبول" على واحد ما طلب = طلبية وهمية */
 ok('ما فيهاش لغة قبول/رفض', !msg.includes('قبول الطلب') && !msg.includes('رفض الطلب'));
 
@@ -109,12 +112,12 @@ ok('بلا اسم ما تطيحش', noName.includes('+213661445566') && !noName.
 
 /* نفس الرسالة تتبدّل في بلاصتها كي يكمّل — ماشي رسالة جديدة */
 const done = leadMessage(openLead({ status: 'converted', orderId: '260811-ab12x', cartTotal: 4500 }));
-ok('كي يكمّل، الرسالة تولّي "كمّل الطلب"', done.includes('كمّل الطلب'));
+ok('كي يكمّل، الرسالة تولّي "أكمل الطلب"', done.includes('أكمل الطلب'));
 ok('كي يكمّل، تحمل id تاع الطلب', done.includes('260811-ab12x'));
-ok('كي يكمّل، ما تبقاش تقول عيّطلو', !done.includes('عيّطلو دروك'));
+ok('كي يكمّل، ما تبقاش تقول اتصل بيه', !done.includes('اتصل به الآن'));
 
 const called = leadMessage(openLead({ contactedAt: ago(5), contactedBy: 'كريم' }));
-ok('كي تعيّط، الرسالة توري شكون عيّط', called.includes('تعيّطلو') && called.includes('كريم'));
+ok('كي تعيّط، الرسالة توري شكون عيّط', called.includes('تمّ الاتصال به') && called.includes('كريم'));
 
 console.log('\n══ 5. الأزرار ══');
 const buttons = leadButtons(openLead());
@@ -132,12 +135,12 @@ console.log('\n══ 6. تقرير آخر النهار ══');
 const leads = Array.from({ length: 12 }, (_, i) =>
   openLead({ phone: `066144556${i % 10}`, name: `زبون ${i + 1}`, cartTotal: 1000 }));
 const report = buildReport('2026-08-11', [], [], [], null, null, leads);
-ok('يوري عدد اللي ما كملوش', report.includes('طلبات ما كملوش (12'));
+ok('يوري عدد اللي ما كملوش', report.includes('طلبات غير مكتملة (12'));
 ok('يجمع سومة السلال', report.includes('12,000 دج'));
 ok('يوقف على 10 ويقول قداش باقي', report.includes('و2 آخرين'));
 
 const quiet = buildReport('2026-08-11', [], [], [], null, null, []);
-ok('بلا leads ما يزيد حتى سطر', !quiet.includes('ما كملوش'));
+ok('بلا leads ما يزيد حتى سطر', !quiet.includes('غير مكتملة'));
 
 console.log('\n══ 7. الإعدادات ══');
 ok('TTL = 30 يوم', LEAD_TTL_SECONDS === 30 * 24 * 60 * 60);
