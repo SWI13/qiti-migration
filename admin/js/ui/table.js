@@ -1,18 +1,8 @@
-/* ==========================================================================
-   Qiti admin — جدول بيانات
-   راسم واحد لكل جدول في اللوحة (.data-table). يرجّع نص HTML — بلا
-   state، بلا مستمعين: رأس الترتيب يخرج بـ data-act/data-sort-key،
-   والمستمع المفوَّض الموجود في app.js هو اللي يلتقطو. نفس النمط تاع
-   باقي اللوحة: البناء يعطي string، والتفاعل يمرّ على data-act.
-
-   الموبايل: زحليق أفقي (شوف tokens.css على علاش ماشي صفوف مكدّسة).
-   ========================================================================== */
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
 import { icon } from './icon.js';
 import { stateBlock } from './state-block.js';
 
-/** صنف المحاذاة: numeric يعني رقم (يمين + أرقام بعرض واحد) */
 function alignClass(col) {
   if (col.align === 'end' || col.numeric) return ' is-num';
   if (col.align === 'center') return ' is-center';
@@ -28,7 +18,7 @@ function headCell(col, sort, onSortAct) {
   }
 
   var active = sort && sort.key === col.key;
-  var dir = active && sort.dir === 'asc' ? 'desc' : 'asc';   // الضغطة الجاية تقلب
+  var dir = active && sort.dir === 'asc' ? 'desc' : 'asc';
   var ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
   var iconName = active ? (sort.dir === 'asc' ? 'sort-asc' : 'sort-desc') : 'sort';
 
@@ -41,26 +31,6 @@ function headCell(col, sort, onSortAct) {
   '</th>';
 }
 
-/**
- * dataTable({ columns, rows, sort, onSortAct, empty, tall }) → HTML
- *
- *   columns: [{
- *     key,        اسم الخاصية في الصف (وهو ثاني مفتاح الترتيب)
- *     label,      عنوان العمود (نص جاهز، متُرجم من الطالب)
- *     align,      'start' (افتراضي) | 'end' | 'center'
- *     numeric,    true = محاذاة يمين + أرقام بعرض ثابت (يغني على align)
- *     sortable,   true = الرأس يولّي زر
- *     render(row, index)   يرجّع HTML الخلية. ⚠️ الطالب مسؤول على
- *                 التهريب (esc) جوّاها. بلا render، القيمة تتقرا من
- *                 row[key] وتتهرّب هنا.
- *   }]
- *   rows:      مصفوفة كائنات
- *   sort:      { key, dir: 'asc' | 'desc' } — الحالة الحالية برك، الترتيب
- *              الفعلي يديرو الطالب على rows قبل ما يعيّط
- *   onSortAct: قيمة data-act اللي تخرج على رؤوس الترتيب (مثلاً 'sort-products')
- *   empty:     خيارات stateBlock كي rows تكون خاوية
- *   tall:      true = الغلاف يحدّد طولو ويولّي الرأس ملزوق
- */
 export function dataTable(opts) {
   opts = opts || {};
   var columns = opts.columns || [];

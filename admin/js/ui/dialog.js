@@ -1,18 +1,6 @@
-/* ==========================================================================
-   Qiti admin — نافذة تأكيد
-   بديل confirm() الأصلي — بصح مع focus trap، Escape يسكّر، والفوكس
-   يرجع للعنصر اللي فتحها (وصولية حقيقية، ماشي زخرفة).
-   confirmDialog({ title, body, confirmLabel, danger }) → Promise<boolean>
-   ========================================================================== */
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
 
-/**
- * mountModal(overlay, onClose) → close()
- * النوافذ المبنية يدويًا (.modal-overlay في الطلبات/الفئات/اختيار صورة)
- * كانو تسكّرو بالضغط برك: بلا Escape، بلا حبس الفوكس، والفوكس ما يرجعش
- * لللي فتحها. هنا نلمّو نفس السلوك تاع confirmDialog في بلاصة وحدة.
- */
 export function mountModal(overlay, onClose) {
   var trigger = document.activeElement;
   var box = overlay.querySelector('.modal');
@@ -49,14 +37,8 @@ export function mountModal(overlay, onClose) {
     if (event.target === overlay || event.target.closest('[data-close]')) close();
   });
   document.addEventListener('keydown', onKeydown);
-  /* النافذة تعيش في document.body، وroute() ما يبدّل غير #adminRoot —
-     بلا هذا، تنقّل والنافذة محلولة يخلّيها معلّقة فوق الصفحة الجديدة
-     ومستمع الكيبورد تاعها مسجّل للأبد */
   window.addEventListener('hashchange', close);
 
-  /* الفوكس يروح للحقل الأوّل إذا كان — وإلا للصندوق روحو. ما نعطيوهش
-     لآخر زر: نافذة قراءة (تفاصيل الطلب) عندها زر وحيد تحت، وفوكسو
-     يزحلق النافذة لتحت ويخبّي اللي حلّها المستخدم باش يقراه. */
   var firstField = overlay.querySelector('input, select, textarea, [data-pick]');
   if (firstField) firstField.focus();
   else if (box) { box.setAttribute('tabindex', '-1'); box.focus(); }
@@ -78,9 +60,6 @@ export function confirmDialog(opts) {
         '<div class="dialog__body" id="dlgBody">' + esc(opts.body || '') + '</div>' +
         '<div class="dialog__foot">' +
           '<button type="button" class="btn btn--outline btn--xs" data-dlg="cancel">' + esc(t('common.cancel')) + '</button>' +
-          /* في نافذة تأكيد، الزر التخريبي هو الفعل الرئيسي — فيولّي
-             مصمت (ماشي حدود برك كيما في الصفوف): وزنو البصري لازم
-             يوافق خطورتو، وما يبقاش يبان ثانوي حدا "ألغي" */
           '<button type="button" class="btn btn--xs ' + (opts.danger ? 'btn--danger-solid' : 'btn--primary') + '" data-dlg="confirm">' +
             esc(opts.confirmLabel || t('common.confirm')) + '</button>' +
         '</div>' +

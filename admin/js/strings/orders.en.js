@@ -1,8 +1,3 @@
-/* ==========================================================================
-   Qiti admin — نصوص الطلبات
-   ⚠️ اللوحة تعرض برك. القبول/الرفض/التوصيل يبقاو من تيليغرام — أي نص
-   جديد هنا لازمو يبقى في لغة "شوف"، ماشي "قرّر".
-   ========================================================================== */
 
 export var ORDERS_EN = {
   'orders.title': 'Orders',
@@ -27,7 +22,6 @@ export var ORDERS_EN = {
   'orders.statusReturned': 'Returned',
   'orders.detailTitle': 'Order details',
   'orders.leadTitle': 'Unfinished order',
-  /* الشرح لازم يبان في التفاصيل: صفّ بلا مجموع مؤكّد يبان كأنّو طلب مكسور */
   'orders.leadHint': 'This customer filled in their phone but never confirmed the order. The cart total is what they were looking at, not money owed.',
   'orders.leadFilled': 'Fields filled',
   'orders.leadCart': 'Cart when they stopped',

@@ -1,13 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الاتصال بالخادم
-   كل الأكشنات تمرّ من هنا. 401 يعني الجلسة طاحت — نرجّعو لشاشة الدخول
-   بدل ما نبيّنو خطأ غامض على كل زر يضغطو المستخدم من بعد.
-
-   ملاحظة على الاستيراد الدائري: api.js يستدعي renderLogin من
-   pages/login.js عند 401، وpages/login.js يستدعي loginStep من هنا.
-   ES modules تدعم هذا بروابط حيّة طالما الاستعمال داخل دالة (وقت
-   التشغيل) ماشي في أعلى الملف (وقت التحميل) — وهو الحال هنا.
-   ========================================================================== */
 import { state } from './state.js';
 import { t } from './i18n.js';
 import { renderLogin } from './pages/login.js';
@@ -24,8 +14,6 @@ export async function api(action, payload) {
   if (response.status === 401) {
     state.authed = false;
     renderLogin();
-    /* العلامة تخلّي الطالب يفرّق بين "الجلسة طاحت، شاشة الدخول رَاهي
-       بانت" وبين خطأ حقيقي يستاهل رسالة — شوف boot() في app.js */
     var expired = new Error(t('login.sessionExpired'));
     expired.unauthorized = true;
     throw expired;

@@ -1,15 +1,4 @@
-/* ==========================================================================
-   Qiti admin — هياكل التحميل
-   بدل السطر الجامد "راهي تحمّل…"، نبيّنو شكل الصفحة اللي جاية (سكيلتون)
-   باش العين تحسّها أسرع حتى لو نفس الوقت الحقيقي. shimmer يتوقف تحت
-   prefers-reduced-motion (شوف css/components.css).
 
-   القاعدة: لكل شكل عرض في اللوحة (قائمة، محرّر، لوحة قيادة، جدول،
-   شبكة صور) سكيلتون يشبهو. سكيلتون ما يشبهش اللي جاي بعدو أسوأ من بلا
-   والو — العين تتعوّد على تخطيط وهمي وتعاود تبحث بلاصتها كي يبدّل.
-   ========================================================================== */
-
-/** يرجّع n خطوط بعروض متفاوتة — سطر واحد ثابت العرض يبان جدول ماشي نص */
 function lines(n) {
   var out = '';
   for (var i = 0; i < n; i++) {
@@ -18,7 +7,6 @@ function lines(n) {
   return out;
 }
 
-/** صفحة قائمة (حملات/منتجات/فئات) — عدّة سطور فارغة على شكل صف حقيقي */
 export function skeletonList(rows) {
   rows = rows || 5;
   var out = '';
@@ -26,7 +14,6 @@ export function skeletonList(rows) {
   return '<div class="admin-card"><div class="row-list">' + out + '</div></div>';
 }
 
-/** لوحة القيادة — صف بطاقات أرقام + بزوج رسوم */
 export function skeletonDashboard() {
   var kpis = '';
   for (var i = 0; i < 4; i++) kpis += '<div class="sk sk--card"></div>';
@@ -37,7 +24,6 @@ export function skeletonDashboard() {
     '</div>';
 }
 
-/** صفحة محرّر (حملة/منتج) — عمود فورم (كروت بخطوط) + عمود معاينة (كارت كبير) */
 export function skeletonEditor() {
   return '<div class="editor-split">' +
     '<div class="editor-form">' +
@@ -49,11 +35,6 @@ export function skeletonEditor() {
   '</div>';
 }
 
-/**
- * skeletonTable(rows, cols) — جدول (مخزون، فاريانتات، أي .data-table).
- * نبنيو <table> حقيقي ماشي divs باش عرض الأعمدة يجي من نفس الحساب اللي
- * يجي منّو في الجدول الحقيقي — وإلا الصفحة تقفز كي تتعمّر.
- */
 export function skeletonTable(rows, cols) {
   rows = rows || 4;
   cols = cols || 4;
@@ -71,7 +52,6 @@ export function skeletonTable(rows, cols) {
   '</div></div>';
 }
 
-/** skeletonGrid(items) — شبكة صور (صفحة الميديا، نافذة الاختيار) */
 export function skeletonGrid(items) {
   items = items || 8;
   var out = '';

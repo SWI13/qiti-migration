@@ -1,10 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الطلبات (قائمة + تفاصيل، قراءة برك)
-   القبول/الرفض/التوصيل يبقاو من تيليغرام (شوف api/
-   telegram-webhook.mjs) — هذيك الشاشة فيها منطق المخزون والإشعارات
-   والـ Meta events كامل. تكراره هنا يفتح باب لتصادم (مثلاً نقص مخزون
-   مرّتين). اللوحة تعرض برك، وتوجّه المشغّل لتيليغرام كي يحتاج يقرّر.
-   ========================================================================== */
 import { state } from '../state.js';
 import { esc } from '../dom.js';
 import { fmtMoney, fmtDateTime } from '../format.js';
@@ -29,8 +22,6 @@ var STATUS_OPTIONS = [
   { value: 'denied', label: 'orders.statusDenied' },
 ];
 
-/* accepted+delivered/returned مخبّيين تحت status:'accepted' في التخزين —
-   نبنيو "بكيت" واحد يجمع status وdeliveryStatus باش الفلتر يبقى بسيط سطر واحد */
 function bucketOf(order) {
   if (order.isLead) return 'lead';
   if (order.status === 'accepted' && order.deliveryStatus) return order.deliveryStatus;
@@ -47,17 +38,6 @@ function statusBadge(order) {
   return '<span class="badge badge--order-' + esc(bucket) + '">' + esc(t(labels[bucket] || bucket)) + '</span>';
 }
 
-/*
- * الـ lead يتلبّس شكل الطلب باش يدخل في نفس الجدول (نفس الأعمدة، نفس
- * الترتيب، نفس البحث) — بلا ما نكتبو جدول ثاني كامل.
- *
- * ⚠️ `total` هنا هو اللي كان في السلّة، ماشي فلوس. علاش الصفّ يبان
- * بحالة "Lead" وعلاش التفاصيل تقولها صراحةً: رقم في عمود المجموع بلا
- * تفسير يتقرا كأنّو مدخول، ومنو يتبنى قرار غالط.
- *
- * المحوّلين (converted) ما يبانوش: راهم طلبات حقيقية في اللائحة خلاص،
- * وتكرارهم يخلّي نفس الزبون مرّتين. والمشطوبين قرّرتي فيهم.
- */
 function leadRows() {
   return (state.leads || [])
     .filter(function (lead) { return lead.status === 'open'; })
@@ -75,7 +55,6 @@ function leadRows() {
         qty: lead.qty || 1,
         shipping: lead.shipping,
         productId: lead.productId,
-        /* آخر حركة، ماشي أوّل وحدة — الترتيب لازم يوري اللي راه سخون دروك */
         createdAt: lead.updatedAt || lead.createdAt,
       };
     });
@@ -96,9 +75,6 @@ function matchesFilter(order) {
   return true;
 }
 
-/* مفتاح الترتيب يقرا من الطلب مباشرة — status يترتّب على البكيت (بلا
-   قرار/موصّل مدموجين) باش "Denied" و"Returned" ما يبقاوش مخلوطين تحت
-   نفس الحرف اللي في state.status الخام */
 function sortValue(order, key) {
   if (key === 'total') return Number(order.total) || 0;
   if (key === 'name') return (order.name || '').toLowerCase();
@@ -122,8 +98,6 @@ function visibleOrders() {
   return sortRows(allRows().filter(matchesFilter));
 }
 
-/* اسم الزبون يولّي زر — يفتح تفاصيل الطلب. زر حقيقي (ماشي role="button"
-   يدوي) يعطينا الكيبورد (Enter/Space) مجّاناً بلا سطر JS زايد. */
 function customerCell(order) {
   return '<button type="button" class="dt-link" data-act="view-order" data-id="' + esc(order.id) + '">' +
       '<span class="dt-link__name">' + esc(order.name || '—') + '</span>' +
@@ -143,8 +117,6 @@ function orderColumns() {
   ];
 }
 
-/* الفلتر يعيش على مستوى الموديول ويعيش بعد التنقّل — فحتى أوّل رندر
-   يقدر يلقى القائمة خاوية بسبب بحث قديم، ماشي بسبب غياب الطلبات */
 function emptyOpts() {
   var filtered = allRows().length > 0;
   return {
@@ -170,9 +142,6 @@ function paginationHtml(total, totalPages) {
   '</div>';
 }
 
-/* قائمة بلا نهاية على شبكة ضعيفة = زحليق بلا نهاية. orders.list ما فيهش
-   فلتر سيرفر (شوف admin-api.mjs) — الفلترة/الترتيب من جهة اللوحة، وهنا
-   نقصّو النتيجة لصفحات 20 بلا ما نبدّلو الطلب من السيرفر */
 function listRegionHtml() {
   var all = visibleOrders();
   var totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
@@ -220,9 +189,6 @@ export function renderOrderList() {
     refresh();
   });
 
-  /* مستمع مفوَّض واحد على الكارت — يمسك رأس الترتيب (dataTable)، أزرار
-     الصفحات، وزر فتح التفاصيل. الكارت روحو ما يتبدّلش (innerHTML تاعو
-     برك اللي يتبدّل)، فالتسجيل مرّة وحدة يكفي. */
   card.addEventListener('click', function (event) {
     var sortBtn = event.target.closest('[data-act="orders-sort"]');
     if (sortBtn) {
@@ -244,8 +210,6 @@ export function renderOrderList() {
     }
   });
 }
-
-/* ── تفاصيل الطلب (نافذة، قراءة برك) ──────────────────────────────── */
 
 function row(label, value) {
   if (value == null || value === '') return '';
@@ -323,13 +287,6 @@ function orderDetail(order) {
   mountModal(overlay);
 }
 
-/* ── تفاصيل "ما كملش" ─────────────────────────────────────────────
- *
- * نافذة مستقلّة، ماشي نافذة الطلب بحقول فارغة. نصف الحقول ثمّة ما
- * عندهاش معنى هنا (قرار، توصيل، سومة الوحدة)، و`dl` معمّرة بـ "—"
- * تخلّي القارئ يخمّم واش تخرّب بدل ما يقرا الحقيقة: هذا واحد عمّر
- * رقمو وحبس.
- */
 function leadDetail(lead, listRow) {
   var product = state.products.filter(function (p) { return p.id === lead.productId; })[0];
   var filled = ['name', 'phone', 'wilaya', 'commune'].filter(function (field) {

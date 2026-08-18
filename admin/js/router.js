@@ -1,9 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الراوتينغ
-   الراوتينغ بالـ hash، بلا مكتبة. route() تقرا location.hash، تجيب
-   الداتا، وتنادي رندر الصفحة المناسبة. NAV مُصدّرة من ui/shell.js —
-   شوف الملاحظة هناك على علاش (تفادي حلقة استيراد).
-   ========================================================================== */
 import { state } from './state.js';
 import { api } from './api.js';
 import { t } from './i18n.js';
@@ -34,9 +28,6 @@ function loadingTitle() {
   return t(VIEW_TITLE[state.view] || 'nav.dashboard');
 }
 
-/* الصفحات اللي شريط الأزرار تاعها (فلتر الطلبات، "منتج جديد"…) يبان
-   من أوّل تحميل — بلا هذا العنصر البديل، الشريط يفقّز يبان بعد ما
-   يوصل الجواب ويزحلق الصفحة تحتو. */
 var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, orders: true, products: true, campaigns: true, categories: true };
 
 function loadingActions() {
@@ -44,9 +35,6 @@ function loadingActions() {
   return '<div class="sk sk--line" style="width:220px;height:38px;margin:0;border-radius:var(--r-md)"></div>';
 }
 
-/* الهيكل المؤقّت لازم يوافق شكل الصفحة اللي جاية: صفحة جدول تبان
-   بهيكل جدول، وشبكة الصور بشبكة. هيكل غالط يخلّي الصفحة تفقّز كي
-   يوصل الجواب — وهذا بالضبط اللي الهيكل موجود باش يمنعو. */
 function loadingBody() {
   if (state.view === 'dashboard') return skeletonDashboard();
   if (state.id) return skeletonEditor();
@@ -65,7 +53,6 @@ export async function route() {
   state.product = null;
   state.stock = [];
 
-  /* التنقّل يسكّر الدرج (شاشة صغيرة) — البقاء مفتوح بعد اختيار صفحة يبان غالط */
   root.classList.remove('is-nav-open');
 
   root.innerHTML = shell(loadingTitle(), loadingActions(), loadingBody());
@@ -110,22 +97,15 @@ export async function route() {
     if (state.view === 'orders') {
       if (!state.products.length) state.products = (await api('products.list')).products;
       state.orders = (await api('orders.list')).orders;
-      /* الطلبات اللي ما كملوش — تبان في نفس اللائحة بحالة "lead".
-         مفصولين على state.orders باش حسابات الفلوس ما تعدّهمش. فشل
-         جلبهم ما يمنعش عرض الطلبات. */
       state.leads = await api('leads.list')
         .then(function (res) { return res.leads; })
         .catch(function () { return []; });
-      /* البادج تتحسب مرّة وحدة في boot() — القائمة الطرية اللي بين يدينا
-         دروك أصدق منها، فنعاودو نحسبوها بلا طلب زايد */
       state.pendingOrders = state.orders.filter(function (order) { return order.status === 'pending'; }).length;
       renderOrderList();
       return;
     }
 
     if (state.view === 'categories') {
-      /* عدد المنتجات في كل بطاقة يحتاج القائمة — بلاه، الفئة تبان
-         فارغة وما تعرفش واش تستاهل تبقى ولا لا */
       if (!state.products.length) state.products = (await api('products.list')).products;
       state.categories = (await api('categories.list')).categories;
       renderCategories();

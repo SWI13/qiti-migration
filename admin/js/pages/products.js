@@ -1,6 +1,3 @@
-/* ==========================================================================
-   Qiti admin — المنتجات (قائمة + محرّر تبويبات + مخزون)
-   ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast, getPath } from '../dom.js';
@@ -17,11 +14,6 @@ import { confirmDialog } from '../ui/dialog.js';
 
 var root = document.getElementById('adminRoot');
 
-/* ── قائمة المنتجات ─────────────────────────────────────────────── */
-
-/* الفلتر يعيش على مستوى الموديول ويبقى بعد التنقّل — نفس نمط filter
-   في pages/orders.js — باش أوّل رندر ما يلقاش القائمة خاوية بسبب بحث
-   قديم، ماشي بسبب غياب المنتجات فعلاً. */
 var listFilter = { q: '', status: 'all' };
 var sort = { key: 'name', dir: 'asc' };
 
@@ -32,9 +24,6 @@ var STATUS_FILTER_OPTIONS = [
   { value: 'archived', label: 'products.filterArchived' },
 ];
 
-/* ثلاث حالات، ماشي زوج: 'draft' هي حالة المنتج اللي يتصنع من تيليغرام
-   (بلا صور ولا وصف). قبل، القائمة كانت تعتبر كل ما ماشي 'archived'
-   نشيط — فالمسودّة كانت تبان "Active" وهي ما توصلش للزبون. */
 var STATUS_TONE = { active: 'success', draft: 'warn', archived: 'neutral' };
 var STATUS_LABEL = {
   active: 'products.filterActive',
@@ -74,8 +63,6 @@ function sortProducts(list) {
   });
 }
 
-/* اسم المنتج هو الرابط للمحرّر — عمود كامل يتنقر أوسع من زر "بدّل"
-   صغير في الطرف، وتحتو الـ slug باش المستخدم يعرف الرابط الحقيقي */
 function nameCell(product) {
   return '<a class="dt-link" href="#/products/' + esc(product.id) + '">' +
       '<span class="dt-link__name"><bdi>' + esc(product.name || t('campaigns.untitled')) + '</bdi></span>' +
@@ -88,8 +75,6 @@ function statusCell(product) {
   return '<span class="badge badge--' + STATUS_TONE[status] + '">' + esc(t(STATUS_LABEL[status])) + '</span>';
 }
 
-/* التعديل بارز، والحذف تحت "⋯" — نفس منطق قائمة الحملات: فعل بلا
-   رجوع ما يتحطّش حدا فعل عادي تحت نفس الإبهام */
 function productRowActions(product) {
   return '<a class="btn btn--outline btn--xs" href="#/products/' + esc(product.id) + '">' + esc(t('common.edit')) + '</a> ' +
     menuHtml({
@@ -110,8 +95,6 @@ function productColumns() {
   ];
 }
 
-/* فارغ حقيقي (ولا منتج أصلاً) ماشي هو نفسو فارغ من الفلتر — الرسالة
-   لازمها تقول للمستخدم واش يدير: يبدا منتج، ولا يبدّل البحث/الفلتر. */
 function emptyOpts() {
   if (!state.products.length) {
     return {
@@ -156,8 +139,6 @@ export function renderProductList() {
     '<div class="admin-card admin-card--form" id="productsCard">' + listRegionHtml() + '</div>',
   );
 
-  /* البحث/الفلتر/الترتيب يعاودو يبنيو داخل الكارت برك — البار فوق ما
-     يتلمسش، وإلا حقل البحث يخسر الفوكس مع كل حرف يتكتب */
   var card = document.getElementById('productsCard');
   function refresh() { card.innerHTML = listRegionHtml(); }
 
@@ -170,7 +151,6 @@ export function renderProductList() {
     refresh();
   });
 
-  /* الكارت روحو ما يتبدّلش (غير innerHTML تاعو) — تسجيل مرّة وحدة يكفي */
   card.addEventListener('click', function (event) {
     var sortBtn = event.target.closest('[data-act="products-sort"]');
     if (!sortBtn) return;
@@ -179,13 +159,6 @@ export function renderProductList() {
   });
 }
 
-/* ── مخزون الفاريانتات ──────────────────────────────────────────── */
-
-/* .stock-table (components.css) هو المعيار — نفسو .data-table بصح
-   بأقلّ عرض وقاعدة خاصة لـ input[type=number]/td.stock-low. جدول
-   بـ render() مبني بـ dataTable() ما يقدرش يزيد class على <td> واحدة
-   (علامة "ناقص") ولا على <input> بلا ما يعقّد الوصفة لخدمة صف واحد —
-   هنا اليد أوضح من التجريد. */
 function stockTable() {
   if (!state.stock.length) return '';
   var rows = state.stock.map(function (entry) {
@@ -193,9 +166,6 @@ function stockTable() {
       return key + ': ' + entry.variant.options[key];
     }).join(' · ') || t('stock.single');
     var low = entry.stock.qty <= entry.stock.threshold;
-    /* الجدول هو التسمية البصرية (رأس العمود) — بصح قارئ الشاشة ما
-       يربطهاش بالـ <input> وحدو، فنزيدو aria-label صريح لكل خانة
-       (اسم العمود + الفاريانت) */
     return '<tr>' +
       '<td>' + esc(labels) + '</td>' +
       '<td class="' + (low ? 'stock-low' : '') + '">' +
@@ -215,7 +185,7 @@ function stockTable() {
 export async function saveStock(sku) {
   var btn = document.querySelector('[data-act="save-stock"][data-sku="' + sku + '"]');
   if (btn) {
-    if (btn.classList.contains('is-busy')) return;   // يمنع بعث مزدوج بضغطة ثانية بينما الطلب ماشي
+    if (btn.classList.contains('is-busy')) return;
     btn.classList.add('is-busy');
     btn.disabled = true;
   }
@@ -231,8 +201,6 @@ export async function saveStock(sku) {
 
     var entry = state.stock.filter(function (e) { return e.variant.sku === sku; })[0];
     if (entry) entry.stock = res.stock;
-    /* نحدّثو الخانة والعلامة الحمرا بلا ما نعاودو نبنيو الجدول كامل —
-       رندر كامل يطيّح فوكس/تعديلات جارية في صفوف أخرى */
     qtyInput.value = res.stock.qty;
     thresholdInput.value = res.stock.threshold;
     var qtyCell = qtyInput.closest('td');
@@ -246,10 +214,6 @@ export async function saveStock(sku) {
   }
 }
 
-/* ── جدول الفاريانتات (SKU/باركود/فرق السومة) ──────────────────────
-   منفصل عمدًا على جدول المخزون: هذا يتحفظ مع المنتج (زر الحفظ الرئيسي،
-   state.product.variants)، وجدول المخزون يتحفظ روحو بـ stock.set لكل
-   صف — خلطهم يخلّي حفظة توحل الثانية بالغلط. */
 function variantTable(product) {
   if (!product.variants || !product.variants.length) return '';
   var rows = product.variants.map(function (variant, index) {
@@ -272,11 +236,6 @@ function variantTable(product) {
     '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 
-/* ── هامش الربح (معاينة حيّة، ما يتخزّنش) ───────────────────────────
-   readout ما عندهاش data-path (شوف field-html.js) — onInput العام في
-   app.js ما يقدرش يكتبها فـ state.product أصلاً. هنا نبدّلوها يدويًا
-   كل ما price/unitCost يتبدّلو. priceDelta ما يدخلش الحساب — قصدًا،
-   الهامش على السومة الأصلية برك. */
 function marginText(product) {
   var price = Number(product.price) || 0;
   var cost = Number(product.unitCost) || 0;
@@ -292,18 +251,11 @@ document.addEventListener('input', function (event) {
   var out = document.querySelector('[data-readout="profitMargin"]');
   if (!out || !state.product) return;
 
-  /* onInput العام (app.js) يقدر يخدم قبلنا ولا بعدنا حسب ترتيب
-     التسجيل — فنقرا القيمة الطرية من الحقل روحو بدل ما نثقو فـ
-     state.product اللي يقدر يكون مازال ما تبدّلش */
   var price = path === 'price' ? Number(node.value) || 0 : Number(state.product.price) || 0;
   var cost = path === 'unitCost' ? Number(node.value) || 0 : Number(state.product.unitCost) || 0;
   out.textContent = marginText({ price: price, unitCost: cost });
 });
 
-/* ── محرّر المنتج (تبويبات) ─────────────────────────────────────── */
-
-/* ترتيب العرض + مطابقة كل مسار حقل نتحقّق منّو للتبويب اللي فيه — باش
-   showErrors() ورسالتو يوصلو لتبويب مفتوح ماشي مطوي وراه. */
 var TAB_ORDER = ['basic', 'pricing', 'inventory', 'variants', 'organize', 'shipping', 'seo'];
 var PATH_TAB = {
   name: 'basic', slug: 'basic',
@@ -314,16 +266,9 @@ function tabOf(path) {
   return PATH_TAB[path] || PATH_TAB[path.split('.')[0]] || 'basic';
 }
 
-/* التبويب المفتوح حاليًا — يعيش برّا الرندر باش زيد/حذف عنصر (نفس
-   المحرّر، نفس المنتج) ما يرجّعش المستخدم لأوّل تبويب بالغلط. */
 var activeTab = 'basic';
-/* آخر منتج (بالمرجع) رندرينا لو markClean — رندر بنفس المرجع معناه
-   تعديل داخلي (add-item/del-item/move عبر rerenderEditor في app.js)
-   ماشي فتح محرّر جديد، فما نديروش markClean عليه: هذا كان يمحي فعلاً
-   حالة "متغيّر" حقيقية (زيادة خيار هي تعديل يستاهل تحذير قبل ما يضيع). */
 var markedProduct = null;
 
-/** يحلّ وصفة حقل: يترجم label/hint، ويعمّر options ديناميكية (فئات) */
 function resolveDef(def, categoryOptions) {
   var out = Object.assign({}, def, { label: t(def.label) });
   if (def.hint) out.hint = t(def.hint);
@@ -397,9 +342,6 @@ export function renderProductEditor() {
       panel: groupHtmlByKey('seo', product, categoryOptions) },
   ];
 
-  /* مرجع جديد = محرّر جديد (فتح صفحة، ولا حفظ ناجح جاب نسخة طرية من
-     السيرفر) — نرجّعو لأوّل تبويب ونثبّتو نسخة "نظيفة" جديدة. نفس
-     المرجع (زيادة/حذف عنصر عبر rerenderEditor) يبقى بلا تبديل. */
   var freshSession = product !== markedProduct;
   if (freshSession) {
     activeTab = 'basic';
@@ -415,10 +357,6 @@ export function renderProductEditor() {
 
   bindTabs(root, function (key) { activeTab = key; });
 
-  /* النسخة النظيفة تتثبّت غير مع محرّر جديد. لو ثبّتناها في كل رندر،
-     "زيد خيار" (اللي يعاود يبني الفورم على نفس الكائن) يخلّي التبديل
-     اللي راه واقف يولّي "محفوظ" في عين الحارس — والمستخدم يخرج ويضيّعو
-     بلا سؤال. */
   if (freshSession) markClean(product, function () { return state.product; });
 }
 
@@ -427,8 +365,6 @@ export function addProductOption() {
   state.product.options.push({ name: '', values: [] });
   renderProductEditor();
 }
-
-/* ── الحفظ ──────────────────────────────────────────────────────── */
 
 var SAVE_RULES = {
   name: { required: true },
@@ -439,8 +375,6 @@ var SAVE_RULES = {
   defaultStockThreshold: { min: 0 },
 };
 
-/* بادج عدد الأخطاء على التبويبات المطوية — بلاه، خطأ في حقل تحت تبويب
-   ماشي مفتوح يبقى مخبّي كامل، والمستخدم يضغط "احفظ" عشرة مرّات بلا ما يفهم علاش يرفض. */
 function paintTabBadges(errors) {
   Array.prototype.forEach.call(root.querySelectorAll('.tabs__tab .tab-error-badge'), function (b) { b.remove(); });
   if (!errors) return;
@@ -461,7 +395,7 @@ function paintTabBadges(errors) {
 
 export async function saveProduct() {
   var btn = document.querySelector('[data-act="save-product"]');
-  if (btn && btn.classList.contains('is-busy')) return;   // يمنع بعث مزدوج
+  if (btn && btn.classList.contains('is-busy')) return;
 
   var result = validate(state.product, SAVE_RULES);
   if (!result.ok) {
@@ -470,14 +404,12 @@ export async function saveProduct() {
     })[0];
     if (firstTab) {
       var tabBtn = root.querySelector('[data-tab="' + firstTab + '"]');
-      /* نبدّلو التبويب قبل showErrors() — وإلا الحقل الأوّل يبقى جوّا
-         لوح مطوي (hidden) وما يقدرش ياخذ الفوكس */
       if (tabBtn && tabBtn.getAttribute('aria-selected') !== 'true') tabBtn.click();
     }
     var marked = showErrors(root, result.errors);
     paintTabBadges(result.errors);
     toast(t('validation.summary', { n: marked }), true);
-    return;   // بلا اتصال بالسيرفر — التحقّق طاح قبل ما نبعثو حتى بايت
+    return;
   }
 
   clearErrors(root);
@@ -487,14 +419,6 @@ export async function saveProduct() {
   try {
     var res = await api('products.save', { product: state.product });
 
-    /* الجواب يرجع أوّلاً في state.product، والنسخة النظيفة تتثبّت عليه
-       قبل أي تبديل في الـ hash. بلا هذا، منتج جديد يبقى بلا id في
-       الحالة والحارس يقارن ضدّ نسخة فارغة:
-         1. تنقّل بعد الحفظ يسأل "تحبّ تضيّع تبديلاتك؟" ورا توست نجاح،
-         2. وإذا المستخدم قال "بقّاني"، ضغطة حفظ ثانية تبني منتج
-            ثاني كامل (catalog.mjs يعطي id جديد كي ما يلقى حتى واحد)
-            وتعاود تزرع المخزون الابتدائي.
-       campaigns.js يدير نفس الترتيب لنفس السبب. */
     state.product = res.product;
     markClean(state.product, function () { return state.product; });
     markedProduct = state.product;
@@ -512,21 +436,11 @@ export async function saveProduct() {
   } catch (error) {
     toast(error.message, true);
   } finally {
-    /* renderProductEditor() يقدر يكون بنى فورم جديد كامل (حفظ ناجح) —
-       الزر القديم ما بقاش في الـ DOM، نلقاوه من جديد بدل ما نتّكلو على المرجع */
     var btnAfter = document.querySelector('[data-act="save-product"]');
     if (btnAfter) { btnAfter.classList.remove('is-busy'); btnAfter.disabled = false; }
   }
 }
 
-/*
- * الحذف نهائي (الرابط، المخزون، السجلّ) — علاش التأكيد يقول بالضبط
- * واش يروح بدل "متأكد؟" عامّة.
- *
- * السيرفر يردّ الحذف على منتج عندو طلبات ويرجّع سبب مكتوب — نعرضوه
- * كيما هو بدل ما نعاودو نفس الفحص هنا: فحص واحد في بلاصة وحدة ما
- * يقدرش يختلف مع الآخر.
- */
 export async function deleteProduct(id) {
   var product = state.products.filter(function (p) { return p.id === id; })[0];
   var confirmed = await confirmDialog({

@@ -1,22 +1,10 @@
-/* =============================================================
-   Qiti — تفاعلات صفحة الهبوط
-   جافاسكريبت عادي بلا أي مكتبة. إذا تعطّل الجافاسكريبت، المحتوى
-   يبقى بايّن ومقروء، غير الأنيميشن والفورم اللي ما يخدموش.
-   ============================================================= */
 (function () {
   'use strict';
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── مصدر الطلب: منين جا الزبون ─────────────────────────────────
-     الإعلان يزيد params في الرابط — `utm_*` تكتبهم انت في رابط الإعلان،
-     و`fbclid`/`ttclid` تزيدهم المنصّة روحها. نخزّنوهم كي يحلّ الصفحة،
-     ونبعثوهم مع الطلب، باش تعرف أشمن إعلان جابلك زبون خلّص فعلاً.
-
-     ⚠️ هذي المعلومة **ما تتعوّضش لور**: إذا الطلب تسجّل بلاها، عمرك ما
-     تعرف منين جا. علاش لازم تكون خدّامة قبل أوّل دينار تصرفو في الإعلانات. */
   var ATTRIBUTION_KEY = 'qiti-attribution';
-  var ATTRIBUTION_TTL_MS = 30 * 24 * 60 * 60 * 1000;   /* 30 يوم */
+  var ATTRIBUTION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   var ATTRIBUTION_PARAMS = [
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
     'fbclid', 'ttclid'
@@ -28,16 +16,13 @@
       if (!raw) return null;
       var saved = JSON.parse(raw);
       if (!saved || !saved.landedAt) return null;
-      /* إعلان قديم بزاف ما يستاهلش ينسب ليه الطلب */
       if (Date.now() - saved.landedAt > ATTRIBUTION_TTL_MS) return null;
       return saved;
     } catch (e) {
-      return null;   /* التصفّح الخاص يرمي خطأ على localStorage — ما يهمّش */
+      return null;
     }
   }
 
-  /* نقرة جديدة على إعلان تغلب القديمة (last click)، وإذا حلّ الصفحة
-     بلا params نخلّيو اللي مخزّن من الزيارة الأصلية. */
   function captureAttribution() {
     var params = new URLSearchParams(window.location.search);
     var found = {};
@@ -57,13 +42,6 @@
 
   var attribution = captureAttribution();
 
-  /* ── الشريط الثابت تحت ──────────────────────────────────────────
-     السومة وزرّ الطلب يبقاو في الشاشة حتى يبان الفورم. كي يبان،
-     الشريط يزيح: يغطّي الحقول اللي راه يعمّر فيهم، وما بقاش عندو
-     معنى — الزرّ الحقيقي قدّامو.
-
-     IntersectionObserver ماشي scroll: المتصفّح يحسبها وحدو بلا ما
-     نوقّفو الخيط في كل بيكسل يزحلق. */
   var stickyBar = document.getElementById('stickyBar');
   var orderCard = document.getElementById('order');
   if (stickyBar && orderCard && 'IntersectionObserver' in window) {
@@ -72,31 +50,20 @@
     }, { threshold: 0.12 }).observe(orderCard);
   }
 
-  /* ── المسافة في كارت الخريطة ────────────────────────────────────
-     الحركة تاع النقطة CSS. هنا غير الرقم: يتحرّك شوية باش الكارت
-     يبان حيّ ماشي صورة. كل 3 ثواني — أسرع من هذا يشدّ العين ويبعّدها
-     على السومة، وأبطأ ما يتلاحظش.
-
-     كي يكون الجهاز على "قلّل الحركة" ما نحرّكو والو. */
   var mapDist = document.getElementById('mapDist');
   if (mapDist && !reduceMotion) {
     var walked = 340;
     window.setInterval(function () {
-      /* مشية قطّة: خطوة صغيرة في أي جهة، وتبقى في مجال معقول */
       walked = Math.max(120, Math.min(480, walked + Math.round((Math.random() - 0.45) * 30)));
       mapDist.textContent = walked + ' م';
     }, 3000);
   }
 
-  /* ── نقاط الصور ─────────────────────────────────────────────────
-     السلايدر روحو CSS (scroll-snap). هنا غير النقطة اللي تتنوّر —
-     علامة إنّو كاين صور أخرى، وهي السبب اللي يخلّي الواحد يزحلق. */
   var shots = document.getElementById('shots');
   var dots = document.getElementById('dots');
   if (shots && dots && dots.children.length) {
     var syncDot = function () {
       var index = Math.round(shots.scrollLeft / shots.clientWidth);
-      /* في RTL المتصفّحات تعطي scrollLeft سالب — القيمة المطلقة تخدم في الزوج */
       index = Math.min(dots.children.length - 1, Math.abs(index));
       for (var i = 0; i < dots.children.length; i++) {
         dots.children[i].classList.toggle('is-on', i === index);
@@ -108,20 +75,6 @@
     }, { passive: true });
   }
 
-  /* ── فورم الطلب ────────────────────────────────────────────── */
-
-  /*
-   * التسعير يجي من السيرفر في وسم <script id="qiti-pricing"> اللي يكتبو
-   * قسم الطلب. قبل، السومة كانت مكتوبة باليد هنا **وفي** message.mjs —
-   * زوج بلايص لازم تبدّلهم مع بعض، وكي تنسى وحدة الزبون يشوف سومة
-   * والسيرفر يحسب وحدة أخرى.
-   *
-   * الصفحة القديمة (index.html) ما فيهاش هذا الوسم، فنرجعو للقيم
-   * الثابتة كي ما نلقاوهش — باش الموقع الحالي يبقى خدّام كيما هو.
-   *
-   * ⚠️ هذي القيم للعرض برك. السيرفر يعاود يحسب المجموع في order.mjs
-   * وما يثق حتى في رقم جاي من هنا.
-   */
   var PRICING = (function () {
     var fallback = { price: 3900, shipping: { home: 600, desk: 400 }, options: [], variants: [] };
     var el = document.getElementById('qiti-pricing');
@@ -136,24 +89,13 @@
         variants: parsed.variants || []
       };
     } catch (e) {
-      return fallback;   /* JSON مهرّس ما يوقّفش الفورم */
+      return fallback;
     }
   })();
 
   var PRODUCT_PRICE = PRICING.price;
   var SHIPPING = PRICING.shipping;
 
-  /*
-   * ── تسعيرة التوصيل حسب الولاية ────────────────────────────────────
-   *
-   * الجدول يجي من وسم JSON كتبو السيرفر (lib/shipping-rates.mjs):
-   * الصفحات المعروضة تكتبو مع الصفحة، والصفحة الستاتيك تاخذو محقون في
-   * scripts/build.mjs. ما نعاودوش نكتبو 58 ولاية هنا — نفس التحذير
-   * تاع WILAYAS تحت، وهذا الجدول يتبدّل أكثر منها بزاف.
-   *
-   * الوسم ناقص (صفحة قديمة) = نرجعو للتسعيرة الوحدة. الفورم يبقى
-   * خدّام بسومة معقولة بدل ما يوقف.
-   */
   var RATES = (function () {
     var fallback = { def: SHIPPING, byId: {}, table: null };
     var el = document.getElementById('qiti-shipping-rates');
@@ -164,18 +106,16 @@
       (parsed.table || []).forEach(function (row) { byId[row.id] = row; });
       return { def: parsed['default'] || SHIPPING, byId: byId, table: parsed.table || null };
     } catch (e) {
-      return fallback;   /* JSON مهرّس ما يوقّفش الفورم */
+      return fallback;
     }
   })();
 
-  /* desk = null معناها ما كاينش مكتب في هذي الولاية — نرجعو لسومة الدار */
   function rateFee(rate, mode) {
-    if (!rate || rate.home === null) return null;   /* ولاية بلا خدمة */
+    if (!rate || rate.home === null) return null;
     if (mode === 'desk') return rate.desk == null ? rate.home : rate.desk;
     return rate.home;
   }
 
-  /* الولايات — الصفحات الجديدة تعمّرهم في السيرفر، والقديمة هنا */
   var WILAYAS = [
     'أدرار', 'الشلف', 'الأغواط', 'أم البواقي', 'باتنة', 'بجاية', 'بسكرة', 'بشار',
     'البليدة', 'البويرة', 'تمنراست', 'تبسة', 'تلمسان', 'تيارت', 'تيزي وزو', 'الجزائر',
@@ -189,7 +129,6 @@
 
   var form = document.getElementById('orderForm');
   if (form) {
-    /* إذا السيرفر عمّرهم من قبل ما نعاودوش — وإلا يتضاعفو */
     var wilayaSelect = document.getElementById('fWilaya');
     if (wilayaSelect.options.length <= 1) {
       WILAYAS.forEach(function (name, i) {
@@ -198,8 +137,6 @@
         var served = !RATES.byId[i + 1] || RATES.byId[i + 1].home !== null;
         opt.textContent = (i + 1) + ' - ' + name + (served ? '' : ' — ما نوصلوش');
         opt.disabled = !served;
-        /* الرقم الرسمي — بيه نلقاو سطر التسعيرة بلا ما نقارنو أسماء
-           عربية حرف بحرف (صيغة وحدة تختلف = سومة غالطة) */
         opt.dataset.id = i + 1;
         wilayaSelect.appendChild(opt);
       });
@@ -220,15 +157,12 @@
 
     function dz(n) { return n.toLocaleString('en-US') + ' دج'; }
 
-    /* رقم الولاية المختارة، ولا 0 إذا مازال ما اختارش */
     function currentWilayaId() {
       if (!wilayaSelect.value) return 0;
       var opt = wilayaSelect.options[wilayaSelect.selectedIndex];
       return parseInt((opt && opt.dataset.id) || wilayaSelect.selectedIndex, 10) || 0;
     }
 
-    /* null = مازال ما اختار ولاية. السومة ما تتخمّنش — تبان "—" حتى
-       يختار، خير من رقم يتبدّل قدّامو من بعد. */
     function currentRate() {
       var id = currentWilayaId();
       if (!id) return null;
@@ -240,7 +174,6 @@
       return checked ? checked.value : 'home';
     }
 
-    /* المقاس واللون اللي اختار — فارغ في المنتجات بلا خيارات */
     function selectedOptions() {
       var chosen = {};
       form.querySelectorAll('input[data-option]:checked').forEach(function (el) {
@@ -249,11 +182,6 @@
       return chosen;
     }
 
-    /*
-     * الفاريانت اللي يوافق الاختيار. نقارنو بالقيم ماشي بالـ sku — نفس
-     * منطق matchVariant في catalog.mjs، باش السومة المعروضة تطابق اللي
-     * يحسبها السيرفر.
-     */
     function currentVariant() {
       if (!PRICING.options.length) return PRICING.variants[0] || null;
       var chosen = selectedOptions();
@@ -273,9 +201,6 @@
 
       var rate = currentRate();
 
-      /* ولاية بلا مكتب DHD: نعميو الخيار قبل ما نقراو الاختيار، وإلا
-         نحسبو بسومة مكتب ما كاينش. السيرفر يدير نفس الحاجة في
-         api/order.mjs — الصفحة ما تتحكمش وحدها في الفلوس. */
       var deskInput = form.querySelector('input[name="shipping"][value="desk"]');
       if (deskInput) {
         var deskOff = Boolean(rate) && rate.desk == null;
@@ -298,22 +223,16 @@
       sumProduct.textContent = dz(productCost);
       sumShip.textContent = shipCost === null ? '—' : dz(shipCost);
       var nextTotal = dz(productCost + (shipCost || 0));
-      /* وميض قصير كي يتبدّل الرقم — العين تلقاه بلا ما تقلّب عليه */
       if (sumTotal.textContent !== nextTotal && !reduceMotion) {
         sumTotal.classList.remove('flash');
-        void sumTotal.offsetWidth;   /* يعاود يشغّل الأنيميشن */
+        void sumTotal.offsetWidth;
         sumTotal.classList.add('flash');
       }
       sumTotal.textContent = nextTotal;
-      /* نخبّيوها باش الـ lead يعرف واش كان في السلّة كي حبس */
       cartTotal = productCost + (shipCost || 0);
 
       if (shipHint) shipHint.hidden = Boolean(rate);
 
-      /*
-       * "وقتاش يوصلني؟" هو السؤال اللي يوقف الطلبية أكثر من السومة.
-       * الجواب هنا، على ولايتو هو، في نفس اللحظة اللي يختارها.
-       */
       if (etaLine) {
         if (rate && rate.eta && shipCost !== null) {
           etaLine.textContent = 'يوصلك تقريباً في ' + rate.eta.min + '-' + rate.eta.max
@@ -345,15 +264,12 @@
       });
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
-    /* تبديل الولاية يبدّل سومة التوصيل — هذا هو بيت القصيد كامل */
     wilayaSelect.addEventListener('change', updateSummary);
-    /* تبديل المقاس/اللون يقدر يبدّل السومة (priceDelta) */
     form.querySelectorAll('input[data-option]').forEach(function (el) {
       el.addEventListener('change', updateSummary);
     });
     updateSummary();
 
-    /* التحقّق من الحقول */
     var validators = {
       fName: function (v) { return v.trim().length >= 3 ? '' : 'دخّل الاسم الكامل من فضلك.'; },
       fPhone: function (v) {
@@ -364,15 +280,8 @@
       fCommune: function (v) { return v.trim().length >= 2 ? '' : 'دخّل اسم البلدية.'; }
     };
 
-    /*
-     * التقدّم: يبدا من 25% (المنتج راهو مختار) ويكمّل مع كل حقل صحيح.
-     * الرقم اللي يبان هو **اللي باقي**، ماشي اللي تعمّر — "باقي حاجة
-     * وحدة" تدفع أكثر من "3 من 4".
-     */
     var PROG_FIELDS = ['fName', 'fPhone', 'fWilaya', 'fCommune'];
     function updateProgress() {
-      /* validators تتعرّف تحت — updateSummary ينادي هنا من أوّل تحميل،
-         قبل ما توصل. الحرس هذا يمنع خطأ في الثانية الأولى تاع الصفحة. */
       if (!progFill || !validators) return;
       var done = PROG_FIELDS.filter(function (id) {
         var input = document.getElementById(id);
@@ -393,7 +302,6 @@
       if (errEl) errEl.textContent = msg;
       if (field) {
         field.classList.toggle('has-error', Boolean(msg));
-        /* علامة خضرا كي يكون الحقل صحيح ومعمّر — تأكيد صغير في وقتو */
         field.classList.toggle('is-ok', !msg && Boolean(input.value));
       }
       updateProgress();
@@ -411,50 +319,23 @@
       input.addEventListener('blur', function () { validateField(id); });
       input.addEventListener('input', function () {
         if (input.closest('.field').classList.contains('has-error')) validateField(id);
-        /* الشريط يتحرّك مع الكتابة، ماشي غير كي يخرج من الحقل — تقدّم
-           يبان بعد ثانيتين ما يحسّوش الواحد بلّي راهو يتقدّم */
         updateProgress();
       });
       input.addEventListener('change', updateProgress);
     });
 
-    /* ── التقاط الطلب قبل ما يكمّل ─────────────────────────────────
-     *
-     * الطلب ما يوجد حتى ينقر "أكّد". الواحد يكتب اسمو ورقمو، يتلهّى،
-     * ويسكّر — ومن ناحيتنا ما صرا والو. هنا نبعثو اللي عمّرو ساعة ما
-     * الرقم يولّي صحيح، وكل ما يتبدّل حقل من بعدها.
-     *
-     * ثلاث حاجات تخلّي هذا ما يزعجش:
-     *   • نستنّاو سكوت 900 ملّي قبل ما نبعثو — ماشي على كل حرف.
-     *   • ما نبعثوش إذا والو ما تبدّل من آخر مرّة.
-     *   • كي يسكّر الصفحة فجأة، sendBeacon يبعث آخر نسخة — هي بالضبط
-     *     اللحظة اللي كنّا نخسّرو فيها الزبون قبل.
-     *
-     * ── وقتاش يوصل الإشعار ─────────────────────────────────────────
-     * الحفظ وحدو ما يحرّكش تيليغرام. الرسالة تتبعث غير كي نبعثو إشارة:
-     *
-     *   idle    — سكت LEAD_IDLE_MS بلا ما يمسّ حتى حقل
-     *   leaving — خرج من الصفحة (سكّرها ولا بدّل تطبيق)
-     *
-     * علاش الصفحة هي السّاعة وماشي السيرفر: الفنكشنات serverless ما
-     * تقدرش تستنّى، وكرون كل دقيقة ما يتقبلش في خطّة Hobby. المتصفّح
-     * راهو محلول قدّام الزبون — هو أصدق مكان يقيس منّو السكوت.
-     *
-     * الزبون العادي ياخذ دقيقتين-ثلاثة باش يعمّر (يقرا، يسأل على
-     * العنوان، يعاود يشوف السومة) — وهذا ماشي "ما كملش".
-     */
     var LEAD_ENDPOINT = '/api/lead';
     var LEAD_DEBOUNCE_MS = 900;
-    var LEAD_IDLE_MS = 120000;   /* دقيقتين — نفس NOTIFY_AFTER_SECONDS في السيرفر */
+    var LEAD_IDLE_MS = 120000;
     var leadTimer = null;
     var leadIdleTimer = null;
-    var leadLastSent = '';       /* آخر نسخة تبعثت — نقارنو بيها بلا ما نعاودو */
-    var leadLastPhone = null;    /* الرقم القديم، باش السيرفر يمسح lead الغلط */
-    var leadDone = false;        /* الطلب كمّل — ما بقاش يلزم التقاط */
+    var leadLastSent = '';
+    var leadLastPhone = null;
+    var leadDone = false;
 
     function leadSnapshot() {
       var phone = document.getElementById('fPhone').value.replace(/[^0-9]/g, '');
-      if (!/^0[5-7][0-9]{8}$/.test(phone)) return null;   /* ما زال يكتب */
+      if (!/^0[5-7][0-9]{8}$/.test(phone)) return null;
 
       return {
         name: document.getElementById('fName').value.trim(),
@@ -473,11 +354,6 @@
       };
     }
 
-    /*
-     * opts.beacon  — الصفحة راهي تسكّر، fetch عادي يتلغى معاها
-     * opts.idle    — سكت دقيقتين: السيرفر يقدر يبعث الإشعار
-     * opts.leaving — خرج من الصفحة: السيرفر يبعث بلا ما يحسب الوقت
-     */
     function sendLead(opts) {
       if (leadDone || form.hasAttribute('data-preview')) return;
       opts = opts || {};
@@ -485,11 +361,9 @@
       var snapshot = leadSnapshot();
       if (!snapshot) return;
 
-      /* نقارنو بلا previousPhone — هو معلومة تخصّ البعث، ماشي المحتوى */
       var fingerprint = JSON.stringify(snapshot, function (key, value) {
         return key === 'previousPhone' ? undefined : value;
       });
-      /* الإشارات تعدّي حتى لو والو ما تبدّل — هي روحها الخبر */
       var signalling = Boolean(opts.idle || opts.leaving);
       if (!signalling && fingerprint === leadLastSent) return;
 
@@ -511,13 +385,10 @@
         body: body,
         keepalive: true
       }).catch(function () {
-        /* الالتقاط ثانوي — إذا فشل، الفورم يكمّل خدمتو عادي.
-           نصفّرو باش المحاولة الجاية تعاود تبعث نفس النسخة. */
         leadLastSent = '';
       });
     }
 
-    /* كل حركة في الفورم تصفّر السّاعة — الدقيقتين تتحسبو من آخر لمسة */
     function restartIdleClock() {
       clearTimeout(leadIdleTimer);
       if (leadDone) return;
@@ -535,21 +406,12 @@
 
     form.addEventListener('input', scheduleLead);
     form.addEventListener('change', scheduleLead);
-    /* الخروج من خانة الرقم = قرار، ماشي كتابة — نحفظو دروك بلا انتظار.
-       الحفظ برك: الإشعار ما زال يستنّى السكوت ولا الخروج. */
     document.getElementById('fPhone').addEventListener('blur', function () {
       clearTimeout(leadTimer);
       sendLead({});
       restartIdleClock();
     });
 
-    /*
-     * pagehide يشمل السكّر، الرجوع لور، وتبديل التطبيق في الموبايل.
-     * visibilitychange يزيدها في iOS اللي ما يرميش pagehide ديما.
-     *
-     * ⚠️ تبديل تطبيق ماشي ديما "مشا" — يقدر يروح يشوف العنوان ويرجع.
-     * ما يضرّش: إذا رجع وكمّل، رسالة الـ lead روحها تولّي "كمّل الطلب".
-     */
     window.addEventListener('pagehide', function () { sendLead({ beacon: true, leaving: true }); });
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') sendLead({ beacon: true, leaving: true });
@@ -561,14 +423,11 @@
     var orderDoneMsg = document.getElementById('orderDoneMsg');
     var orderAgain = document.getElementById('orderAgain');
 
-    /* الفنكشن اللي تبعث إشعار واتساب — الكود تاعها في api/order.mjs */
     var ORDER_ENDPOINT = '/api/order';
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
 
-      /* معاينة اللوحة: الفورم يتعرض بالكامل باش تشوفو، بصح ما يبعث والو.
-         الزرّ راهو disabled تاني — هذا باش حتى Enter ما يفوّتش. */
       if (form.hasAttribute('data-preview')) {
         submitErr.textContent = 'هذي معاينة — الطلب ما يتبعثش من هنا.';
         return;
@@ -612,8 +471,6 @@
           qty: qtyInput.value,
           website: document.getElementById('fWebsite').value,
           attribution: attribution,
-          /* واش راه يتطلب — السيرفر يجيب السومة من عندو بهذا، ما ياخذش
-             حتى رقم من هنا */
           productId: PRICING.productId,
           campaignId: (form.querySelector('input[name="campaignId"]') || {}).value || null,
           options: selectedOptions()
@@ -626,17 +483,10 @@
           });
         })
         .then(function (data) {
-          /* كمّل — السيرفر علّم الـ lead `converted` وحدو، وحنا نحبسو
-             الالتقاط باش beacon تاع السكّر ما يعاودش يبعثو */
           leadDone = true;
           clearTimeout(leadTimer);
           clearTimeout(leadIdleTimer);
 
-          /*
-           * آخر لحظة هي اللي تتفكّر. رقم الطلب يعطي الزبون حاجة يشدّ
-           * فيها (ويذكرها كي يتّصل)، والجملة تقول بالضبط واش راح يصرا
-           * ومتى — استنى بلا ما تعرف واش تستنّى هو اللي يخلّق الشكّ.
-           */
           var orderDoneId = document.getElementById('orderDoneId');
           if (orderDoneId && data && data.id) {
             orderDoneId.textContent = 'رقم الطلب: ' + data.id;
@@ -671,7 +521,6 @@
     }
   }
 
-  /* ── سنة الفوتر ────────────────────────────────────────────── */
   var year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
 })();

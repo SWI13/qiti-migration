@@ -1,23 +1,6 @@
-/* ==========================================================================
-   Qiti admin — تبويبات
-   الاثنين مع بعض (القائمة + الألواح) في مناداة وحدة قصدًا: التبويب
-   الصحيح يحتاج id يربط الزر باللوح (aria-controls/aria-labelledby)، ولو
-   خلّينا الطالب يبني الألواح بيدو، الربط هذاك ينكسر أوّل مرّة واحد ينسى
-   سابقة الـ id. هنا نضمنوه.
-
-   نموذج الكيبورد (WAI-ARIA): سهم يمين/يسار يتنقّل بين التبويبات،
-   Home/End للأوّل/الأخير، وTab وحدو يخرج من القائمة لمحتوى اللوح —
-   ولهذا التبويب غير المختار عندو tabindex="-1".
-   ========================================================================== */
 import { esc } from '../dom.js';
 import { icon } from './icon.js';
 
-/**
- * tabsHtml({ id, tabs, active }) → HTML
- *   id:     سابقة فريدة في الصفحة (مثلاً 'prodTabs')
- *   tabs:   [{ key, label, icon, panel }] — panel هو HTML اللوح (اختياري)
- *   active: key تاع التبويب المفتوح؛ إذا ما كانش، الأوّل
- */
 export function tabsHtml(opts) {
   opts = opts || {};
   var id = opts.id || 'tabs';
@@ -47,8 +30,6 @@ export function tabsHtml(opts) {
       ' id="' + esc(id) + '-panel-' + esc(tab.key) + '"' +
       ' aria-labelledby="' + esc(id) + '-tab-' + esc(tab.key) + '"' +
       ' data-tab-panel="' + esc(tab.key) + '"' +
-      /* tabindex=0 على اللوح: إذا ما فيهش عنصر قابل للفوكس، اللي يخدم
-         بالكيبورد ما عندو وين يروح بعد التبويب */
       ' tabindex="0"' + (on ? '' : ' hidden') + '>' +
       (tab.panel || '') +
     '</div>';
@@ -60,7 +41,6 @@ export function tabsHtml(opts) {
   '</div>';
 }
 
-/** يبدّل الحالة على DOM موجود — يستعملها الضغط والسهم الزوج */
 function activate(root, key, focus) {
   var tabsEls = root.querySelectorAll('[data-tab]');
   Array.prototype.forEach.call(tabsEls, function (btn) {
@@ -74,13 +54,6 @@ function activate(root, key, focus) {
   });
 }
 
-/**
- * bindTabs(rootEl, onChange)
- * يوصّل كل .tabs اللي جوّا rootEl. onChange(key, tabsId) اختيارية —
- * تتنادى بعد ما التبديل يصير (يعني الـ DOM ولّى صحيح).
- * ⚠️ لازم تتنادى بعد كل رندر يعاود يبني الـ HTML (innerHTML يمسح
- * المستمعين) — نفس نمط bindThemeContrast في pages/campaigns.js.
- */
 export function bindTabs(rootEl, onChange) {
   if (!rootEl) return;
   Array.prototype.forEach.call(rootEl.querySelectorAll('.tabs'), function (root) {

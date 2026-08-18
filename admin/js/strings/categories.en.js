@@ -1,6 +1,3 @@
-/* ==========================================================================
-   Qiti admin — نصوص الفئات
-   ========================================================================== */
 
 export var CATEGORIES_EN = {
   'categories.title': 'Categories',
@@ -22,7 +19,6 @@ export var CATEGORIES_EN = {
   'categories.deleteConfirmBodyUsed': '{n} products move to "no category" — they are not deleted. The /c/ link will 404 for anyone who visits it.',
   'categories.productCount': '{n} products',
 
-  /* الجاهزين */
   'categories.fromPresets': 'Add from presets',
   'categories.presetsTitle': 'Ready-made categories',
   'categories.presetsBody': 'Pick the ones that fit your store. Name, tagline, emoji and colour come filled in — you can edit any of them after.',

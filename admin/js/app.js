@@ -1,11 +1,3 @@
-/* ==========================================================================
-   Qiti — تطبيق اللوحة الإدارية (نقطة الدخول)
-   صفحة وحدة، بلا build، بلا إطار. الراوتينغ بالـ hash (router.js)، وكل
-   الاتصالات تمرّ على فنكشن واحد (api.js) اللي يتأكّد من الجلسة قبل كل
-   أكشن. هذا الملف يجمع كل الموديولات ويوصّل المستمعين — نفس النمط
-   القديم (data-path/data-act مع مستمع واحد مفوَّض)، موزّع دروك على
-   ملفات.
-   ========================================================================== */
 import { state } from './state.js';
 import { api, loginStep } from './api.js';
 import { getPath, setPath, delPath, toast } from './dom.js';
@@ -26,26 +18,14 @@ import { pickMedia, deleteMedia } from './pages/media.js';
 
 var root = document.getElementById('adminRoot');
 
-/* ── الإقلاع ────────────────────────────────────────────────────── */
-
-/* function declaration (مهوب var) — باش تكون جاهزة فوراً وقت التحميل،
-   لازمة لـ pages/login.js اللي يستوردها من هنا (استيراد دائري متعمّد،
-   شوف الملاحظة في api.js) */
 export async function boot() {
   root.classList.toggle('is-nav-collapsed', localStorage.getItem('qiti-admin-collapsed') === '1');
 
   try {
-    /* أرخص طلب موجود — إذا رجع 401 فالمستمع في api.js يرمينا لشاشة الدخول */
     state.campaigns = (await api('campaigns.list')).campaigns;
     state.authed = true;
   } catch (error) {
-    /* 401 = شاشة الدخول رَاهي بانت من api.js، ما نزيدوش فوقها. أي خطأ
-       آخر (شبكة، بلوب طايح) لازم يبان — قبل، كان يخلّي صفحة بيضاء
-       فارغة بلا رسالة ولا زر إعادة محاولة. */
     if (error.unauthorized) return;
-    /* بلا shell: الجلسة ما تثبّتتش، فروابط الشريط الجانبي كامل ميتة
-       (route() يخرج فوراً على !authed) — شاشة وحدة بزر إعادة محاولة
-       أصدق من لوحة كاملة ما تخدم فيها حتى حاجة */
     root.innerHTML = '<div class="login-screen"><div class="login-card">' + stateBlock({
       variant: 'error',
       title: t('state.errorTitle'),
@@ -57,8 +37,6 @@ export async function boot() {
   }
 
   if (state.authed) {
-    /* عدّاد الطلبات بلا قرار — يبان كبادج فوق "Orders" في الشريط الجانبي.
-       فشلو ما يوقّفش الإقلاع، البادج غير يبقى 0. */
     try {
       state.pendingOrders = (await api('orders.pendingCount')).count;
     } catch (error) {
@@ -69,9 +47,6 @@ export async function boot() {
   await route();
 }
 
-/* ── المستمعات ──────────────────────────────────────────────────── */
-
-/* مستمع واحد للكتابة: يقرا data-path ويكتب في الحالة. */
 function onInput(event) {
   var node = event.target;
   var path = node.getAttribute && node.getAttribute('data-path');
@@ -92,7 +67,6 @@ function onInput(event) {
 
   setPath(target, path, value);
 
-  /* معاينة الصورة الصغيرة تتبدّل فوراً بلا ما نعاودو بناء الفورم */
   if (node.type === 'text' && node.parentElement && node.parentElement.classList.contains('image-field')) {
     var thumb = node.parentElement.querySelector('.image-field__thumb');
     if (thumb) thumb.src = value || '';
@@ -107,7 +81,6 @@ async function onClick(event) {
   var act = node.getAttribute('data-act');
   var target = state.draft || state.product;
 
-  /* ── الدرج (شاشة صغيرة) ── */
   if (act === 'toggle-nav') {
     var opened = root.classList.toggle('is-nav-open');
     node.setAttribute('aria-expanded', opened ? 'true' : 'false');
@@ -122,16 +95,12 @@ async function onClick(event) {
   if (act === 'toggle-nav-collapsed') {
     var collapsed = root.classList.toggle('is-nav-collapsed');
     localStorage.setItem('qiti-admin-collapsed', collapsed ? '1' : '0');
-    /* الاسم يقلب مع الحالة بلا ما نعاودو نبنيو الشاسي — شوف ui/shell.js */
     var label = t(collapsed ? 'nav.expand' : 'nav.collapse');
     node.setAttribute('aria-label', label);
     var labelText = node.querySelector('.sidebar-label');
     if (labelText) labelText.textContent = label;
     return;
   }
-  /* الثيم يتخزّن بنفس مفتاح المتجر (qiti-theme) — اختيار واحد للزوج.
-     ما نعاودوش نبنيو الشاسي: كل ألوان اللوحة tokens تقرا من
-     [data-theme] على <html>، فتبديل السمة يكفي. */
   if (act === 'toggle-theme') {
     var htmlEl = document.documentElement;
     var nextTheme = htmlEl.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -143,15 +112,12 @@ async function onClick(event) {
   if (act === 'retry-route') { await route(); return; }
   if (act === 'retry-boot') { await boot(); return; }
 
-  /* زر "حمّل صورة" في حالة الصفحة الفارغة تاع الميديا — يفتح نافذة
-     اختيار الملف الحقيقية بدل ما يكرّر منطق الرفع هنا */
   if (act === 'focus-media-upload') {
     var fileInput = document.getElementById('mediaFile');
     if (fileInput) fileInput.click();
     return;
   }
 
-  /* ── تنقّل وجلسة ── */
   if (act === 'logout') {
     await loginStep({ step: 'logout' }).catch(function () {});
     state.authed = false;
@@ -159,7 +125,6 @@ async function onClick(event) {
     return;
   }
 
-  /* ── قوائم داخل الفورم ── */
   if (act === 'add-item') {
     var path = node.getAttribute('data-path');
     var arr = getPath(target, path);
@@ -201,7 +166,6 @@ async function onClick(event) {
     return;
   }
 
-  /* ── أقسام الحملة ── */
   if (act === 'add-section') {
     var typeSelect = document.getElementById('addSectionType');
     var type = typeSelect ? typeSelect.value : '';
@@ -243,9 +207,6 @@ async function onClick(event) {
       var product = state.products.filter(function (p) { return p.id === state.draft.productId; })[0];
       var res = await api('sections.blank', { type: product ? product.type : 'life' });
       state.draft.sections = res.sections;
-      /* أقسام جديدة كامل — حالة الفتح القديمة ما عندها معنى، نعطيو
-         مصفوفة خاوية (كلشي مطوي). نعدّيو على rerenderEditor برك باش
-         التمرير يرجع لبلاصتو كيما في كل الأفعال الأخرى. */
       rerenderEditor([]);
     } catch (error) { toast(error.message, true); }
     return;
@@ -260,7 +221,6 @@ async function onClick(event) {
     return;
   }
 
-  /* ── حفظ ── */
   if (act === 'save-campaign') return saveCampaign(false);
   if (act === 'save-publish') return saveCampaign(true);
   if (act === 'save-product') return saveProduct();
@@ -275,7 +235,6 @@ async function onClick(event) {
     return;
   }
 
-  /* ── قوائم ── */
   if (act === 'publish') {
     try {
       await api('campaigns.publish', { id: node.getAttribute('data-id') });
@@ -326,10 +285,6 @@ async function onClick(event) {
   }
 }
 
-/*
- * زيد/حيّد عنصر يفرض إعادة بناء الفورم. بلا هذا، كل ضغطة على "زيد"
- * تطوي كل الأقسام وترجّع التمرير لفوق — والمستخدم يضيع بلاصتو.
- */
 function openSectionStates() {
   return Array.prototype.map.call(
     document.querySelectorAll('.section-block'),
@@ -337,9 +292,6 @@ function openSectionStates() {
   );
 }
 
-/* openOverride: تحريك/حذف قسم يبدّل الترتيب، فحالة الفتح المقروءة من
-   الـ DOM تولّي تشير للبلاصة الغالطة — الطالب يعطينا المصفوفة بعد ما
-   يطبّق عليها نفس التحريك. */
 function rerenderEditor(openOverride) {
   var pageScroll = window.scrollY;
   var open = openOverride || openSectionStates();
@@ -351,21 +303,13 @@ function rerenderEditor(openOverride) {
   Array.prototype.forEach.call(document.querySelectorAll('.section-block'), function (block, index) {
     if (open[index]) block.open = true;
   });
-  /* جوج المحرّرين يزحلقو مع الصفحة كاملة (.editor-form ما عندهاش
-     overflow) — فترجيع التمرير تاع النافذة يكفي للزوج */
   window.scrollTo(0, pageScroll);
 }
 
-/* ── حارس التنقّل (تبديلات ما تحفظوش) ───────────────────────────────
-   beforeunload في ui/form.js يمسك غير الخروج الحقيقي من الصفحة. التنقّل
-   جوّا اللوحة هو تبديل hash برك — ما يمرّش عليه. هنا نمسكوه: كي يكون
-   المحرّر متبدّل، نسألو قبل، وإذا رفض نرجّعو الـ hash لبلاصتو. */
 var lastHash = location.hash || '#/dashboard';
 var revertingHash = false;
 
 async function onHashChange() {
-  /* الرجوع البرمجي للـ hash القديم يطلق hashchange مرّة ثانية — بلا هاذ
-     العلم ندورو في حلقة سؤال/رجوع بلا نهاية */
   if (revertingHash) { revertingHash = false; return; }
 
   if (isDirty()) {
@@ -379,18 +323,11 @@ async function onHashChange() {
     }
   }
 
-  /* خرجنا من المحرّر — نسّي الحالة القديمة، وإلا الحارس يبقى يقارن
-     كائن ما بقاش معروض ويسأل في صفحة ما فيها والو */
   clearDirty();
   lastHash = location.hash;
   await route();
 }
 
-/* ── الإقلاع ────────────────────────────────────────────────────── */
-
-/* بلا اختيار مخزّن، اللوحة تتبع نظام التشغيل حتى وهي محلولة — التاجر
-   اللي يبدّل ويندوز لليلي في الليل يلقى اللوحة تبدّلت معاه. كي يختار
-   بيدو من الزر، الاختيار يتخزّن وهذا المستمع ما يغلبوش. */
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (event) {
   var stored = null;
   try { stored = localStorage.getItem('qiti-theme'); } catch (error) {}

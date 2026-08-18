@@ -1,11 +1,3 @@
-/* ==========================================================================
-   Qiti admin — نصوص المنتجات
-   يشمل variants.* وstock.*: الجداول تاعهم تعيش جوّا محرّر المنتج، ما
-   عندهاش صفحة وحدها.
-   ⚠️ المفاتيح هنا مربوطة بوصفات الحقول في js/product-fields.js (label
-   وhint فيها مفاتيح ماشي نصوص) — تبديل اسم مفتاح يخلّي الحقل يعرض
-   المفتاح روحو في الفورم.
-   ========================================================================== */
 
 export var PRODUCTS_EN = {
   'products.title': 'Products',
@@ -20,13 +12,11 @@ export var PRODUCTS_EN = {
   'products.filterArchived': 'Archived',
   'products.filterAriaLabel': 'Filter by status',
 
-  /* ── أعمدة الجدول ── */
   'products.colName': 'Product',
   'products.colType': 'Type',
   'products.colPrice': 'Price',
   'products.colStatus': 'Status',
 
-  /* ── تبويبات المحرّر ── */
   'products.tabBasic': 'Basic',
   'products.tabPricing': 'Pricing',
   'products.tabInventory': 'Inventory',
@@ -97,13 +87,11 @@ export var PRODUCTS_EN = {
   'products.deleteConfirmTitle': 'Delete "{name}"?',
   'products.deleteConfirmBody': 'The product, its stock and its /p/ link go for good. A product that already has orders cannot be deleted — archive it instead so your reports keep their names.',
 
-  /* ── فاريانتات ── */
   'variants.title': 'Variants',
   'variants.merchantSku': 'Merchant SKU',
   'variants.barcode': 'Barcode',
   'variants.priceDelta': 'Price difference (DZD)',
 
-  /* ── مخزون ── */
   'stock.title': 'Stock',
   'stock.variant': 'Variant',
   'stock.quantity': 'Quantity',

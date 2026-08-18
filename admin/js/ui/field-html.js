@@ -1,18 +1,7 @@
-/* ==========================================================================
-   Qiti admin — راسم حقل الفورم
-   دالة وحدة تاخذ "وصفة" حقل (شوف section-fields.js) وتعطي HTML — بلا
-   ما تعرف واش القسم اللي طالبها. list يستدعي روحو recursively للعناصر
-   جوّاه.
-   ========================================================================== */
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
 import { ICONS } from '../section-fields.js';
 
-/*
- * dir="auto" على النصوص اللي التاجر يكتبها (text/area/lines) — المتصفّح
- * يحدّد الاتجاه من أوّل حرف عندو اتجاه قوي، فالعربية تتعرض RTL حتى لو
- * الشاسي دروك LTR. number/icon/select/image ماشي محتوى حرّ، فبلاها.
- */
 export function fieldHtml(def, value, path) {
   var id = 'f_' + path.replace(/\./g, '_');
   var hint = def.hint ? '<div class="hint">' + esc(def.hint) + '</div>' : '';
@@ -55,9 +44,6 @@ export function fieldHtml(def, value, path) {
   }
 
   if (def.type === 'select') {
-    /* dir="auto" على كل <option>: التسمية تقدر تكون اسم منتج بالعربية
-       متبوع بسومة لاتينية، وبلا اتجاه صريح الترتيب يتقلب ويبان مخلوط.
-       <bdi> ما ينفعش — ما كاينش رندر للوسوم جوّا <option>. */
     return '<div class="field">' + label +
       '<select id="' + id + '" data-path="' + esc(path) + '">' +
         def.options.map(function (option) {
@@ -100,9 +86,6 @@ export function fieldHtml(def, value, path) {
   }
 
   if (def.type === 'readout') {
-    /* بلا data-path قصدًا: onInput العام في app.js يقرا data-path
-       ويكتب فـ state.product — هامش الربح لازم يبقى محسوب برك، حتى
-       ما يتخزّنش بالغلط لو المستخدم بدّل فيه بيدو من الـ inspector */
     return '<div class="field">' + label +
       '<output id="' + id + '" class="readout" data-readout="' + esc(def.key) + '">' + esc(value) + '</output>' +
       hint + '</div>';

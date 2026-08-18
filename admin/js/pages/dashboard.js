@@ -1,10 +1,3 @@
-/* ==========================================================================
-   Qiti admin — لوحة القيادة
-   ملخّص واحد (dashboard.summary) يعمّر كل الصفحة: KPIs + رسوم + جداول.
-   تبديل المدى (7/30/90) يعاود يجيب الملخّص ويعاود يبني الشاسي كامل —
-   نفس نمط route() (بلا تحديث جزئي)، بلا ما يلمس location.hash: هذا
-   تفضيل عرض، ماشي بلاصة.
-   ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
@@ -23,8 +16,6 @@ var RANGE_OPTIONS = [
   { value: 90, label: 'dashboard.range90' },
 ];
 
-/* نسبة التغيير ديار كل مرّة تكون عندها نقطة انطلاق (prev > 0) — على صفر
-   النسبة المئوية ما عندهاش معنى، أحسن نخبّيوها بدل رقم غالط (∞ ولا NaN) */
 function deltaHtml(current, prev) {
   if (!prev) return '';
   var pct = Math.round(((current - prev) / prev) * 100);
@@ -53,16 +44,10 @@ function kpiGrid(summary) {
     conversionSub += ' · ' + esc(t('dashboard.trackingSince', { date: fmtDay(k.trackingSince) }));
   }
 
-  /* مداخيل صفر مع طلبات في الطريق ماشي "ما كان والو" — معناها ما زال
-     حتى طلب ما توصّل. التلميح العام ("الموصّلة برك") ما يقولش هذا،
-     فالتاجر يشوف 0 ويحسب اللوحة خاسرة. هنا نقولوها بالضبط ونعطيوه
-     الخطوة اللي تبدّلها. */
   var revenueSub = (k.revenue === 0 && k.inTransit > 0)
     ? esc(t('dashboard.revenueWaiting', { n: k.inTransit }))
     : esc(t('dashboard.revenueHint'));
 
-  /* الربح يقدر يكون سالب (رجعات أكثر من توصيلات) — نلوّنوه باش الإشارة
-     تبان بلا ما تقرا الرقم كامل */
   var profitClass = k.profit < 0 ? ' kpi__value--down' : (k.profit > 0 ? ' kpi__value--up' : '');
   var profitValue = '<span class="kpi__value-inner' + profitClass + '">' + esc(fmtMoney(k.profit)) + '</span>';
 
@@ -176,8 +161,6 @@ function recentOrdersCard(summary) {
   return rowListCard(t('dashboard.recentOrders'), rows, viewAllLink('#/orders'));
 }
 
-/* busy: راهي تجيب مدى جديد — الاختيار يتعطّل باش المستخدم ما يبعثش
-   طلب ثاني فوق اللي مازال طاير */
 function rangeSelectHtml(busy) {
   return '<select id="dashboardRange" aria-label="' + esc(t('dashboard.rangeAriaLabel')) + '"' + (busy ? ' disabled' : '') + '>' +
     RANGE_OPTIONS.map(function (opt) {
@@ -215,9 +198,6 @@ export function renderDashboard() {
       state.dashboard = res.summary;
       renderDashboard();
     } catch (error) {
-      /* بلا رندر ثاني، الشاسي (skeleton) يبقى للأبد والقائمة الجديدة
-         بلا مستمع — الصفحة توقف ميتة حتى للتنقّل. نرجعو للمدى القديم
-         (اللي عندنا ملخّصو مازال صالح) بدل ما نبقاو معلّقين على خطأ */
       state.dashboardDays = daysBefore;
       toast(error.message, true);
       renderDashboard();

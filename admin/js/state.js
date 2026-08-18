@@ -1,8 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الحالة المركزية
-   كائن وحيد، مشترك بين كل الموديولات عبر الاستيراد. ما فيهش setters —
-   كل واحد يبدّل فيه مباشرة، نفس روح الكود الأصلي.
-   ========================================================================== */
 
 export var state = {
   authed: false,
@@ -13,12 +8,12 @@ export var state = {
   categories: [],
   media: [],
   orders: [],
-  leads: [],          /* طلبات ما كملوش — تبان مع الطلبات، مفصولة عن الحسابات */
-  pendingOrders: 0,   /* عدّاد بلا قرار — بادج "Orders" في الشريط الجانبي */
-  dashboard: null,      /* آخر ملخّص جا من dashboard.summary */
-  dashboardDays: 30,    /* نافذة الأيام المختارة */
-  draft: null,      /* الحملة اللي راهي تتعدّل */
-  product: null,    /* المنتج اللي راهو يتعدّل */
+  leads: [],
+  pendingOrders: 0,
+  dashboard: null,
+  dashboardDays: 30,
+  draft: null,
+  product: null,
   stock: [],
   viewport: 'mobile',
 };

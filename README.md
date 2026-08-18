@@ -126,4 +126,4 @@ The old Darija manual — every design decision, the full Telegram walkthrough, 
 git show e922fd4:README.ar.md > README.ar.md
 ```
 
-The code itself carries the same reasoning: most files open with a comment saying why they are shaped the way they are.
+The server side still carries the same reasoning: most files in `api/` and `lib/` open with a comment saying why they are shaped the way they are. The browser JavaScript (`assets/js/`, `admin/js/`) is comment-free on purpose — it is downloaded by every visitor.

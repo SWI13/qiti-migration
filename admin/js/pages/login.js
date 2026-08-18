@@ -1,8 +1,3 @@
-/* ==========================================================================
-   Qiti admin — شاشة الدخول
-   خطوتين: كلمة السر، ومن بعدها كود يوصل في تيليغرام. renderLogin
-   مُصدّرة (ماشي مستعملة من route() — الجلسة تتفحّص في boot()، شوف app.js).
-   ========================================================================== */
 import { state } from '../state.js';
 import { t } from '../i18n.js';
 import { loginStep } from '../api.js';
@@ -68,7 +63,6 @@ export function renderLogin() {
       }
     } catch (error) {
       err.textContent = error.message;
-      /* الكود الغالط يرجّعنا لكلمة السر — التحدّي يقدر يكون تحرق */
       if (challengeId) {
         challengeId = null;
         document.getElementById('pwField').hidden = false;

@@ -1,33 +1,18 @@
-/* ==========================================================================
-   Qiti admin — رسومات SVG يدوية (بلا مكتبة، بلا build step)
-   ثلاث دوال صافية: تاخذ أرقام وترجّع HTML string جاهز للحقن. بلا state،
-   بلا event listeners — لو الغلاف (dashboard.js) حاب تفاعل، يديره هو
-   فوق النتيجة. viewBox ثابت (600×180 للعمودي، ارتفاع متغيّر للأفقي)
-   باش preserveAspectRatio يقدر يكبّر وينقّص بلا ما يعوّج الخطوط.
-
-   ⚠️ حجم الخط هنا بوحدات viewBox ماشي بكسل حقيقي: البطاقة تعرض الرسم
-   في ~520px، يعني كل رقم يتقسم على 600/520 ≈ 1.15. font-size="10"
-   القديمة كانت تولّي 8.6px حقيقية — تحت الحدّ المقروء. الأرقام دروك
-   محسوبة على هاذ الأساس، وcss/pages.css يفرض أقلّ عرض 520px في
-   الموبايل ويخلّي الرسم يزحلق بدل ما يتقلّص للاقراءة.
-   ========================================================================== */
 import { esc } from '../dom.js';
 
 var W = 600;
 var H = 180;
 var PAD_TOP = 10;
-var PAD_BOTTOM = 24;   // مكان تسميات المحور السيني
+var PAD_BOTTOM = 24;
 var PAD_LEFT = 8;
 var PAD_RIGHT = 8;
 var PLOT_W = W - PAD_LEFT - PAD_RIGHT;
 var PLOT_H = H - PAD_TOP - PAD_BOTTOM;
 
-/** id فريد لكل gradient — تصادم اسمين فنفس الصفحة يخلّي وحدة تغلب البواقي كاملين */
 function uid(prefix) {
   return (prefix || 'qc') + Math.random().toString(36).slice(2, 8);
 }
 
-/** أول/وسط/آخر برك — الشاشة صغيرة (موبايل)، حشو 30 تسمية يخليها ما تتقراش */
 function axisIndexes(n) {
   if (n <= 1) return [0];
   if (n === 2) return [0, 1];
@@ -53,7 +38,6 @@ function xLabelsSvg(labels, xAt) {
   }).join('');
 }
 
-/** الغلاف المشترك: dir=ltr مثبّتة (محور الوقت ما يتقلبش حتى لو الأدمن صار RTL) */
 function wrapSvg(inner, viewBox, ariaLabel) {
   return '<div class="chart-wrap" style="direction:ltr">' +
     '<svg viewBox="' + viewBox + '" style="width:100%;height:auto" preserveAspectRatio="xMidYMid meet" role="img" aria-label="' + esc(ariaLabel || '') + '">' +
@@ -63,16 +47,10 @@ function wrapSvg(inner, viewBox, ariaLabel) {
   '</div>';
 }
 
-/** كلشي صفر أو مصفوفة خاوية → ماشي شارت، الطالب (caller) يبان له empty state روحو */
 function allZero(values) {
   return !values.length || values.every(function (v) { return v === 0; });
 }
 
-/**
- * areaChart({ series, labels, format, ariaLabel })
- * series: [{ values: number[], tone: 'accent' | 'muted' }] — أول عنصر فالمصفوفة
- * هو المقدّمة (فوق بصريًا)، وباش يغلب البواقي لازم يترسم آخر حاجة فالـ DOM.
- */
 export function areaChart(opts) {
   opts = opts || {};
   var series = opts.series || [];
@@ -88,8 +66,6 @@ export function areaChart(opts) {
 
   var allValues = [];
   series.forEach(function (s) { allValues = allValues.concat(s.values); });
-  /* القاعدة صفر إجبارياً — مساحة مملية على قاعدة متحرّكة تقرا كأنّ
-     الرقم طلع من والو، ونفس الصف فيه barChart بقاعدة صفر */
   var min = Math.min(0, Math.min.apply(null, allValues));
   var max = Math.max.apply(null, allValues);
 
@@ -101,8 +77,6 @@ export function areaChart(opts) {
 
   var defsHtml = '';
   var seriesHtml = '';
-  /* نلوّح من آخر سلسلة للأولى: أول عنصر (index 0) لازم يطلع آخر شي فالـ
-     DOM باش يترسم فوق البواقي بصريًا — هو المقدّمة، شوف توصيف الدالة */
   for (var si = series.length - 1; si >= 0; si--) {
     var s = series[si];
     var values = s.values || [];
@@ -135,10 +109,6 @@ export function areaChart(opts) {
   return wrapSvg(inner, '0 0 ' + W + ' ' + H, ariaLabel);
 }
 
-/**
- * barChart({ values, labels, format, ariaLabel })
- * سلسلة وحدة، أعمدة عمودية.
- */
 export function barChart(opts) {
   opts = opts || {};
   var values = opts.values || [];
@@ -150,12 +120,12 @@ export function barChart(opts) {
 
   var n = values.length;
   var max = Math.max.apply(null, values);
-  if (max <= 0) max = 1; // احتياط من القسمة على صفر (قيم سالبة كلها مثلاً)
+  if (max <= 0) max = 1;
 
   var slot = PLOT_W / n;
   var barW = Math.max(slot * 0.55, 3);
   function xCenter(i) { return PAD_LEFT + slot * i + slot / 2; }
-  function xAt(i) { return xCenter(i); } // باش xLabelsSvg تقدر تستعملها كيفكيف
+  function xAt(i) { return xCenter(i); }
 
   var barsHtml = values.map(function (v, i) {
     var h = Math.max(0, (v / max) * PLOT_H);
@@ -169,11 +139,6 @@ export function barChart(opts) {
   return wrapSvg(inner, '0 0 ' + W + ' ' + H, ariaLabel);
 }
 
-/**
- * hbarChart({ items, format, ariaLabel })
- * items: [{ label, value }] — لائحة مرتّبة (مثلاً المبيعات حسب الفئة)،
- * أعمدة أفقية. viewBox يطول مع عدد العناصر بدل ما يتزنق فـ 180px ثابتة.
- */
 export function hbarChart(opts) {
   opts = opts || {};
   var items = opts.items || [];

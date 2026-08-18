@@ -1,7 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الصور
-   صفحة الميديا + نافذة اختيار صورة (تُستدعى من أي حقل image في أي محرّر).
-   ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
@@ -62,15 +58,11 @@ export function renderMedia() {
       }
     }
 
-    /* رفعة وحدة نجحت تكفي باش نعاودو نجيبو القائمة — إذا الكل طاح، ما
-       ثمّة والو جديد يستاهل طلب شبكة زايد */
     if (succeeded > 0) {
       try {
         state.media = (await api('media.list')).media;
         renderMedia();
       } catch (error) {
-        /* الرفع نجح بصح جلب القائمة طاح — بلا هذا الحرس، الحقل يبقى
-           معطّل للأبد والمستخدم يحسب بلي الرفع مازال جاري */
         fileInput.disabled = false;
         fileInput.value = '';
         statusEl.textContent = t('media.uploadHint');
@@ -83,8 +75,6 @@ export function renderMedia() {
       statusEl.textContent = t('media.uploadHint');
     }
 
-    /* ملخّص واحد يقول بالضبط واش صار — توست "تمّ" وحدو كان يخبّي فشل
-       جزئي (بعض الصور تعدّاو، بعضهم لا) وكان يخلّي المستخدم يحسب يدويًا */
     if (!failed.length) {
       toast(t('media.uploadedCount', { n: succeeded }));
     } else if (succeeded > 0) {
@@ -104,10 +94,7 @@ async function uploadFile(file) {
   return data;
 }
 
-/* نافذة اختيار صورة — ترجع وعد بالرابط ولا null */
 export async function pickMedia() {
-  /* اللوحة تقدر تكون فتحات على محرّر مباشرةً بلا ما تعدّي على صفحة
-     الصور — فنجيبو القائمة هنا إذا مازال ما تحمّلتش */
   if (!state.media.length) {
     state.media = (await api('media.list')).media.filter(Boolean);
   }
@@ -136,7 +123,6 @@ export async function pickMedia() {
       if (item) done(item.getAttribute('data-pick'));
     });
 
-    /* role="button" ما يعطيش سلوك الكيبورد بروحو */
     overlay.addEventListener('keydown', function (event) {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       var item = event.target.closest('[data-pick]');

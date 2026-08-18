@@ -1,8 +1,3 @@
-/* ==========================================================================
-   Qiti admin — نصوص الحملات
-   يشمل theme.* (شكل الحملة): هو جزء من محرّر الحملة، ماشي إعداد عام
-   للوحة — فبلاصتو هنا مع باقي المحرّر.
-   ========================================================================== */
 
 export var CAMPAIGNS_EN = {
   'campaigns.title': 'Campaigns',
@@ -44,7 +39,6 @@ export var CAMPAIGNS_EN = {
   'campaigns.deleteConfirmTitle': 'Delete this campaign?',
   'campaigns.deleteConfirmBody': 'The link will 404 for anyone who visits it.',
 
-  /* ── قائمة الحملات: بحث/فلتر/جدول ── */
   'campaigns.searchPlaceholder': 'Search by name or slug…',
   'campaigns.filterAll': 'All statuses',
   'campaigns.filterAriaLabel': 'Filter by status',
@@ -55,7 +49,6 @@ export var CAMPAIGNS_EN = {
   'campaigns.colUpdated': 'Updated',
   'campaigns.rowMenuLabel': 'More actions for {name}',
 
-  /* ── محرّر الحملة: الخطوات ── */
   'campaigns.stepDetails': 'Details',
   'campaigns.stepDesign': 'Design',
   'campaigns.stepContent': 'Content',
@@ -66,7 +59,6 @@ export var CAMPAIGNS_EN = {
   'campaigns.productRequired': 'Pick a product before publishing.',
   'campaigns.addSectionLabel': 'Section type to add',
 
-  /* ── خطوة المراجعة ── */
   'campaigns.reviewTitle': 'Ready to publish?',
   'campaigns.reviewPublishHint': 'Use "Save & publish" above to make this page live.',
   'campaigns.reviewSummaryTitle': 'Summary',
@@ -75,7 +67,6 @@ export var CAMPAIGNS_EN = {
   'campaigns.reviewSectionsCount': '{enabled} of {total} enabled',
   'campaigns.reviewStatus': 'Status',
 
-  /* ── الشكل (ثيم الحملة) ── */
   'theme.title': 'Appearance',
   'theme.mode': 'Mode',
   'theme.font': 'Font',

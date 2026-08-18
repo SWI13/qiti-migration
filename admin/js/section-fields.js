@@ -1,16 +1,4 @@
-/* ==========================================================================
-   Qiti admin — وصفة حقول الأقسام
-   الفورم ما يتكتبش بيد حقل بحقل. كل قسم عندو "وصفة" حقول (SECTION_FIELDS)،
-   واللوحة تبني منها الـ HTML وحدها. زيد قسم جديد في الرندر؟ زيد وصفتو
-   هنا وخلاص — بلا ما تلمس أي كود واجهة آخر.
 
-   ⚠️ المفاتيح (المعامل الأول لكل field()/area()/num()/...) لازم تبقى
-   بالضبط كيما هي — scripts/check-admin-fields.mjs ونتلifylib/render/
-   sections/*.mjs يعتمدو عليها حرف بحرف. اللي يتبدّل هو التسمية (label)
-   برك — من العربية للإنجليزية، هي نص واجهة اللوحة، ماشي محتوى التاجر.
-   ========================================================================== */
-
-/* نفس قائمة sprite.mjs — الأيقونة اللي ماشي فيها ما تتعرضش أصلاً */
 export var ICONS = ['i-pin', 'i-zap', 'i-drop', 'i-phone', 'i-globe', 'i-heart', 'i-shield',
   'i-feather', 'i-radio', 'i-check', 'i-chevron', 'i-menu', 'i-x', 'i-sun', 'i-moon',
   'i-arrow-rtl', 'i-play', 'i-box', 'i-undo', 'i-link', 'i-cash', 'i-truck', 'i-store',
@@ -49,11 +37,6 @@ export var SECTION_LABELS = {
   order: 'Order form',
 };
 
-/* ── وصفات الحقول ───────────────────────────────────────────────── */
-
-/* اسمها field() ماشي t() — t() صارت i18n.js تاع شاسي اللوحة، وهذي
-   كانت راهي تصطدم معاها. المفاتيح ما تبدّلاتش، هي اللي يعتمد عليها
-   check-admin-fields.mjs. */
 export var field = function (key, label, hint) { return { key: key, label: label, type: 'text', hint: hint }; };
 export var area = function (key, label, hint) { return { key: key, label: label, type: 'area', hint: hint }; };
 export var num = function (key, label, hint) { return { key: key, label: label, type: 'number', hint: hint }; };
@@ -64,13 +47,8 @@ export var lines = function (key, label, hint) { return { key: key, label: label
 export var list = function (key, label, fields, hint) {
   return { key: key, label: label, type: 'list', fields: fields, hint: hint };
 };
-/* readout: عرض محسوب برك — بلا data-path (شوف field-html.js وproduct-fields.js) */
 export var readout = function (key, label, hint) { return { key: key, label: label, type: 'readout', hint: hint }; };
 
-/*
- * الحقول تتبع بالضبط واش يقراه كل قسم في lib/render/sections/.
- * حقل ماشي هنا = حقل الزبون ما يشوفوش عمرو. لو زدت حقل في قسم، زيدو هنا.
- */
 export var SECTION_FIELDS = {
   hero: [
     field('title', 'Headline'),

@@ -1,11 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الفئات (شبكة بطاقات + نافذة تعديل + جاهزين)
-   ⚠️ admin-api.mjs ما فيهش categories.delete — الحذف ماشي مدعوم من
-   السيرفر دروك، فالقائمة تعرض تعديل برك (شوف تقرير التسليم للتفاصيل).
-
-   الشكل: بطاقات ماشي صفوف. الفئة عندها لون وإيموجي — معلومة بصرية
-   ما تتقراش في سطر جدول، والتاجر يعرف فئتو بالشكل قبل ما يقرا الاسم.
-   ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
@@ -22,16 +14,11 @@ var CATEGORY_RULES = {
   slug: { required: true, slug: true },
 };
 
-/* لوحة ألوان الفئات — نفس الألوان اللي في lib/category-presets.mjs.
-   عشرة برك: قائمة أطول تخلّي الاختيار بالحدس، والفئات كامل تولّي
-   متشابهة في الشكل بدل ما تتفرّق. */
 var COLORS = ['#FF6B2C', '#16A34A', '#6366F1', '#0EA5E9', '#EC4899',
   '#A855F7', '#EF4444', '#F43F5E', '#EAB308', '#64748B'];
 
 var DEFAULT_COLOR = '#64748B';
 
-/* الإيموجي والوصف اختياريين — الفئة القديمة (بلا الزوج) لازم تبقى
-   تتقرا. الحرف الأول من الاسم يخدم كبديل مقبول. */
 function badgeChar(category) {
   if (category.emoji) return category.emoji;
   var name = String(category.name || '?').trim();
@@ -48,8 +35,6 @@ function categoryCard(category) {
   var color = category.color || DEFAULT_COLOR;
   var count = countProducts(category.id);
 
-  /* اللون يجي من normalizeColor في catalog.mjs — hex برك، ولا null.
-     يعني ما يقدرش يخرج من قيمة الـ CSS ويحقن قاعدة أخرى. */
   return '<div class="cat-card" style="--cat-color:' + esc(color) + '">' +
       '<div class="cat-card__badge" aria-hidden="true">' + esc(badgeChar(category)) + '</div>' +
       '<div class="cat-card__body">' +
@@ -66,8 +51,6 @@ function categoryCard(category) {
         '<button class="btn btn--outline btn--xs" data-act="edit-category" data-id="' + esc(category.id) + '">' +
           esc(t('common.edit')) +
         '</button>' +
-        /* عدد المنتجات يمشي مع الـ id: رسالة التأكيد تقول بالضبط شحال
-           منتج غادي يبقى بلا فئة، بدل تحذير عام ما يقول والو */
         '<button class="btn btn--danger btn--xs" data-act="del-category"' +
           ' data-id="' + esc(category.id) + '" data-count="' + count + '">' +
           esc(t('common.delete')) +
@@ -99,8 +82,6 @@ export function renderCategories() {
   );
 }
 
-/* ── نافذة التعديل ──────────────────────────────────────────────── */
-
 function colorSwatches(selected) {
   return '<div class="swatches" role="radiogroup" aria-label="' + esc(t('categories.color')) + '">' +
     COLORS.map(function (color) {
@@ -118,8 +99,6 @@ export function categoryModal(category) {
     { name: '', slug: '', tagline: '', emoji: '', color: '', sort: 0 },
     category || {},
   );
-  /* الفئات القدام حطّو الإيموجي في `icon` — catalog.mjs يرقّيهم عند
-     أوّل حفظ، بصح النافذة لازم تعرضو حتى قبل ذاك الحفظ */
   var startEmoji = draft.emoji || (String(draft.icon || '').indexOf('i-') === 0 ? '' : draft.icon || '');
   var color = draft.color || '';
 
@@ -133,9 +112,6 @@ export function categoryModal(category) {
       '<input type="text" id="catSlug" value="' + esc(draft.slug) + '"></div>' +
     '<div class="field"><label for="catTagline">' + esc(t('categories.tagline')) + '</label>' +
       '<input type="text" id="catTagline" value="' + esc(draft.tagline) + '" dir="auto"></div>' +
-    /* إيموجي بدل قائمة أيقونات sprite: القائمة القديمة كانت تخزّن
-       أسماء ('i-pin') ما يعرضها حتى بلاصة — لا اللوحة لا المتجر.
-       الإيموجي يبان في الزوج بلا ما نزيدو sprite جديد لكل فئة. */
     '<div class="form-grid">' +
       '<div class="field"><label for="catEmoji">' + esc(t('categories.emoji')) + '</label>' +
         '<input type="text" id="catEmoji" maxlength="4" value="' + esc(startEmoji) + '" ' +
@@ -154,8 +130,6 @@ export function categoryModal(category) {
   var saveBtn = overlay.querySelector('#catSave');
   var saving = false;
 
-  /* الاختيار يعيش في متغيّر ماشي في الـ DOM: الحفظ يقراه من هنا،
-     والـ DOM يعرض برك — بلا هذا لازم نقلّبو على .is-on وقت الحفظ */
   overlay.querySelector('.swatches').addEventListener('click', function (event) {
     var swatch = event.target.closest('.swatch');
     if (!swatch) return;
@@ -168,7 +142,7 @@ export function categoryModal(category) {
   });
 
   saveBtn.addEventListener('click', async function () {
-    if (saving) return;   // بلا هذا الحرس، ضغطة مزدوجة تبعث حفظتين للسيرفر
+    if (saving) return;
 
     var values = {
       name: overlay.querySelector('#catName').value,
@@ -204,12 +178,6 @@ export function categoryModal(category) {
   });
 }
 
-/*
- * حذف فئة — المنتجات تبقى، غير تولّي بلا فئة.
- *
- * التأكيد يحسب المنتجات ويقولها بالرقم: "3 منتجات يبقاو بلا فئة"
- * تخلّي التاجر يقرّر بمعلومة، و"متأكد؟" ما تعطي والو.
- */
 export async function deleteCategory(id, count) {
   var category = state.categories.filter(function (c) { return c.id === id; })[0];
   var confirmed = await confirmDialog({
@@ -225,8 +193,6 @@ export async function deleteCategory(id, count) {
   try {
     var res = await api('categories.delete', { id: id });
     state.categories = res.categories;
-    /* المنتجات في الحالة مازال حاملة categoryId القديم — البطاقات
-       تحسب منها، فبلا تحديث العدّاد يبقى يعدّ فئة ما بقاتش */
     state.products = (await api('products.list')).products;
     renderCategories();
     toast(t('categories.deleted'));
@@ -235,10 +201,6 @@ export async function deleteCategory(id, count) {
   }
 }
 
-/* ── الفئات الجاهزة ─────────────────────────────────────────────── */
-
-/* التصنيفة تسكن في lib/category-presets.mjs (السيرفر) — نجيبوها مرّة
-   وحدة ونحتفظو بيها: هي ثابتة، ما تتبدّلش بين طلب وآخر. */
 var presetsCache = null;
 
 async function loadPresets() {
@@ -307,7 +269,6 @@ export async function presetPicker() {
     try {
       var res = await api('categories.seedPresets', { slugs: slugs });
       close();
-      /* الجواب فيه القائمة الطرية — ما نعاودوش نطلبوها */
       state.categories = res.categories;
       renderCategories();
       toast(t('categories.presetsAdded', { n: res.created.length }));

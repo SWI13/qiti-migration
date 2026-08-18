@@ -1,11 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الهيكل العام (شريط جانبي + هيدر)
-   NAV تسكن هنا ماشي في router.js: router.js يستورد الصفحات (pages/*)
-   وpages/* يستوردو shell() — لو NAV كانت في router.js، shell.js يلزمها
-   تستورد من router.js وندورو في حلقة (router → pages → shell → router).
-   router.js يعيد تصديرها (`export { NAV }`) باش تبقى ملقاة من بلاصة
-   وحدة منطقياً، بصح المصدر الحقيقي هنا.
-   ========================================================================== */
 import { state } from '../state.js';
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
@@ -25,10 +17,6 @@ var GROUPS = [
   { key: 'content', label: 'nav.group.content' },
   { key: 'store', label: 'nav.group.store' },
 ];
-
-/* الأيقونات كامل في ui/icon.js — كل صفحة عندها شكل مميّز بدل المربّع
-   الموحّد القديم، تفرّق بالعين بلا ما تقرا النص (مهمّة خاصة في وضع سكة
-   الأيقونات 64px، أين النص مخبّي أصلاً). */
 
 function navHtml() {
   return GROUPS.map(function (group) {
@@ -50,9 +38,6 @@ function navHtml() {
 }
 
 export function shell(title, actions, body) {
-  /* الزر يطوي ويحلّ — فاسمو لازم يقلب مع الحالة. كان ديما "Collapse"
-     حتى وهو مطوي، يعني قارئ الشاشة يقول للمستخدم عكس اللي غادي يصرا.
-     app.js يبدّلو تاني بعد كل ضغطة (بلا ما نعاودو نبنيو الشاسي كامل). */
   var collapsed = localStorage.getItem('qiti-admin-collapsed') === '1';
   var collapseLabel = t(collapsed ? 'nav.expand' : 'nav.collapse');
 
@@ -67,16 +52,9 @@ export function shell(title, actions, body) {
       '</div>' +
       '<nav class="admin__nav">' + navHtml() + '</nav>' +
       '<div class="admin__sidebar-foot">' +
-        /* aria-label مكتوب بصيغة الفعل ("Toggle dark mode") ماشي بصيغة
-           الحالة — الشاسي ما يتعاودش بناؤه عند التبديل، فأي نص يوصف
-           الحالة يولّي كاذب بعد أول ضغطة. الأيقونة والنص الظاهر يتبدّلو
-           بـ CSS من [data-theme] (شوف .theme-ico في base.css). */
         '<button type="button" class="admin__collapse-toggle admin__theme-toggle" data-act="toggle-theme" aria-label="' + esc(t('nav.themeToggle')) + '">' +
           icon('moon', 'theme-ico theme-ico--to-dark') +
           icon('sun', 'theme-ico theme-ico--to-light') +
-          /* النصّين مغلّفين في .sidebar-label وحيد قصداً: في وضع سكة
-             الأيقونات (64px) الغلاف يختفي كامل بقاعدة .sidebar-label
-             الموجودة، وتبديل النص جوّاه يبقى مستقلّ عليها. */
           '<span class="sidebar-label">' +
             '<span class="theme-swap--to-dark">' + esc(t('nav.themeDark')) + '</span>' +
             '<span class="theme-swap--to-light">' + esc(t('nav.themeLight')) + '</span>' +

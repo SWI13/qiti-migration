@@ -1,10 +1,3 @@
-/* ==========================================================================
-   Qiti admin — الحملات (قائمة + محرّر)
-   المحرّر مبني بأربع خطوات (Details/Design/Content/Review) فوق js/ui/tabs.js
-   — يعني يتنقّل بينهم بحرّية (ضغطة على الخطوة) ولا بخط مستقيم (Back/Next).
-   عمود المعاينة المباشرة يبقى ظاهر طول الوقت، برّا الخطوات، على خاطر
-   هو أهمّ حاجة في المحرّر (شوف preview-panel تحت).
-   ========================================================================== */
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
@@ -22,20 +15,14 @@ import { menuHtml } from '../ui/menu.js';
 import { validate, showErrors, markClean } from '../ui/form.js';
 
 var root = document.getElementById('adminRoot');
-/* field() القديمة صارت في section-fields.js تحت نفس الاسم القديم t() —
-   هنا نستعمل fieldHtml مباشرة، وواحد بسيط لحقول الأساس (اسم/رابط) اللي
-   ماشي جزء من SECTION_FIELDS */
 var textField = function (key, label, hint) { return { key: key, label: label, type: 'text', hint: hint }; };
 var areaField = function (key, label, hint) { return { key: key, label: label, type: 'area', hint: hint }; };
 
-/** شارة الحالة — تخدم لصف القائمة وخطوة المراجعة بلا ما نكرّروها */
 function statusBadge(campaign) {
   var published = campaign.status === 'published';
   return '<span class="badge badge--' + (published ? 'published' : 'draft') + '">' +
     esc(published ? t('campaigns.published') : t('campaigns.draft')) + '</span>';
 }
-
-/* ── قائمة الحملات ──────────────────────────────────────────────── */
 
 var campaignFilter = { q: '', status: 'all' };
 var campaignSort = { key: 'updatedAt', dir: 'desc' };
@@ -69,9 +56,6 @@ function sortCampaignRows(rows) {
   });
 }
 
-/* فعل ولا زوج يبقاو بارزين (تعديل + شوف كي تكون منشورة)، والباقي
-   (نسخ/نشر/حذف) تحت قائمة "⋯" — بلا هذا خمسة أزرار جنب بعضهم يطيّحو
-   على 360px (شوف الملاحظة في ui/menu.js) */
 function campaignRowActions(campaign) {
   var published = campaign.status === 'published';
   var items = [
@@ -138,8 +122,6 @@ export function renderCampaignList() {
     campaignFilter.status = event.target.value;
     refresh();
   });
-  /* مستمع مفوَّض واحد على الكارت — الكارت روحو ما يتبدّلش (innerHTML
-     تاعو برك اللي يتبدّل)، فالتسجيل مرّة وحدة يكفي، نفس نمط orders.js */
   card.addEventListener('click', function (event) {
     var sortBtn = event.target.closest('[data-act="campaigns-sort"]');
     if (!sortBtn) return;
@@ -147,8 +129,6 @@ export function renderCampaignList() {
     refresh();
   });
 }
-
-/* ── ثيم الحملة ─────────────────────────────────────────────────── */
 
 function contrastRatio(a, b) {
   function lum(hex) {
@@ -171,8 +151,6 @@ function themeDefaults(mood) {
     : { accent: '#FF6B2C', accentText: '#FFFFFF', bg: '#FFFFFF', surface: '#FFFFFF', text: '#14110F' };
 }
 
-/* عنصر مستقلّ بمعرّف — bindThemeContrast() يعوّضو وحدو كل ما لون يتبدّل،
-   بلا ما نعاودو نبنيو الفورم (ونطيّحو الفوكس من حقل اللون). */
 function contrastNote(theme) {
   var defaults = themeDefaults(theme.mood);
   var ratio = contrastRatio(theme.text || defaults.text, theme.bg || defaults.bg);
@@ -213,10 +191,6 @@ function bindThemeContrast() {
     if (path !== 'theme.text' && path !== 'theme.bg' && path !== 'theme.mood') return;
     var note = document.getElementById('themeContrast');
     if (!note) return;
-    /* هذا المستمع على الفورم، وonInput العام تاع app.js على document —
-       فنخدمو قبلو فالفقّاعة، وstate.draft.theme مازال بالقيمة القديمة.
-       نقراو القيمة الطرية من الحقل روحو (نفس نمط هامش الربح فـ
-       products.js) بدل ما نتّكلو على ترتيب المستمعين. */
     var theme = Object.assign({}, state.draft.theme || {});
     theme[path.split('.')[1]] = event.target.value;
     note.outerHTML = contrastNote(theme);
@@ -225,28 +199,16 @@ function bindThemeContrast() {
   form.addEventListener('change', refresh);
 }
 
-/* ── محرّر الحملة: الخطوات ──────────────────────────────────────── */
-
 var STEP_KEYS = ['details', 'design', 'content', 'review'];
 
-/* حالة الجلسة تعيش على مستوى الموديول (state.js ماشي ملفي) — الخطوة
-   الحالية وrenderCampaignEditor() يتنادى بزاف (كل زيادة/حذف قسم)، وما
-   بغيناهاش ترجع لـ "Details" في كل مرّة. */
 var currentStep = STEP_KEYS[0];
-/* آخر مرجع (reference) تاع state.draft شفناه — ماشي id: زيادة/حذف قسم
-   يبدّل فالكائن الحالي روحو (نفس المرجع)، وفتح جديد (ولا رجوع لنفس
-   الحملة بعد ما خرجنا منها) يعطي كائن جديد كل مرّة، حتى لو نفس id. */
 var lastSeenDraft = null;
-/* الحفظ يبدّل مرجع state.draft (كائن جديد جاي من السيرفر)، فبلا هذا
-   العلَم، الحفظة العادية من خطوة ثانية (Design مثلاً) كانت ترجّع
-   currentStep لـ "Details" فوق كل حفظة، ماشي الحفظة الأولى برك. */
 var skipStepReset = false;
 
 function stepLabel(key) {
   return t('campaigns.step' + key.charAt(0).toUpperCase() + key.slice(1));
 }
 
-/** القواعد اللي لازمها تصحّ قبل النشر — الحفظ العادي (مسودّة) بلا قيود */
 function publishRules() {
   return {
     name: { required: true, maxLength: 80 },
@@ -255,16 +217,12 @@ function publishRules() {
   };
 }
 
-/** أي خطوة فيها هذا المسار — يخدم كي نوجّهو المستخدم لمكان الخطأ */
 function stepForPath(path) {
   if (path.indexOf('theme.') === 0) return 'design';
   if (path.indexOf('sections.') === 0) return 'content';
   return 'details';
 }
 
-/* حقول النشر كاملها (اسم/رابط/منتج) عايشين في خطوة Details، فـ"جاهزة
-   للنشر" تتلخّص في: هاذوك الثلاثة مليحين ولا لا. design/content ما
-   فيهمش حقل إجباري دروك، فيبقاو "check" ديماً. */
 function stepStatus(errors) {
   var detailsBad = !!(errors.name || errors.slug || errors.productId);
   return { details: detailsBad ? 'alert' : 'check', design: 'check', content: 'check', review: detailsBad ? 'alert' : 'check' };
@@ -279,8 +237,6 @@ function refreshStepIcons(draft) {
   });
 }
 
-/* التحقّق أثناء الكتابة (input/change على الفورم كامل) — بلا هذا،
-   أيقونة "alert" تبقى معلّقة بعد ما المستخدم يصلّح الحقل حتى رندر جاي */
 function bindStepValidation(rootEl) {
   var refresh = function () { refreshStepIcons(state.draft); };
   rootEl.addEventListener('input', refresh);
@@ -317,12 +273,6 @@ function updateStepNav() {
   if (pos) pos.textContent = t('campaigns.stepPosition', { n: at + 1, total: STEP_KEYS.length });
 }
 
-/* أوّل مرّة يبان فيها كائن draft جديد (فتح فعلي، ماشي إعادة رندر
-   داخلية على نفس الكائن) = جلسة جديدة: نعلّمو الحالة "نظيفة" من جديد
-   (markClean — شوف ui/form.js) ونرجّعو للخطوة الأولى.
-   ⚠️ app.js يسكّر clearDirty() على كل تنقّل (حتى الناجح بلا تعديل) —
-   يعني الرجوع لنفس الحملة بعد ما خرجنا منها يوصل هنا بكائن جديد (نفس
-   id، مرجع آخر) ولازمو يعاود يسلّح markClean، ماشي يبقى معلَّق. */
 function ensureEditorSession(draft) {
   if (draft === lastSeenDraft) return;
   lastSeenDraft = draft;
@@ -331,15 +281,7 @@ function ensureEditorSession(draft) {
   currentStep = STEP_KEYS[0];
 }
 
-/* ── خطوة 1: التفاصيل ───────────────────────────────────────────── */
-
 function detailsPanel(draft) {
-  /* اسم المنتج (يقدر يكون بالعربية) + السومة (لاتينية) في نفس السطر:
-     بلا عزل، الترتيب يتقلب ويبان "3,900 DZD — الاسم" مخلوط.
-     <bdi> ما يخدمش هنا — المتصفّح ما يرندريش وسوم HTML جوّا <option>.
-     وU+2066/U+2069 (محارف عزل خفيّة) خدمو من قبل بصح GitHub يحذّر منهم
-     (عائلة Trojan Source) وتحيّدو. الحلّ: dir="auto" على <option> —
-     المتصفّح يقرا أوّل حرف قوي ويضبط اتجاه السطر كامل منّو. */
   var productOptions = [{ value: '', label: t('campaigns.selectProduct') }].concat(
     state.products.map(function (p) {
       return { value: p.id, label: p.name + ' — ' + fmtMoney(p.price) };
@@ -357,8 +299,6 @@ function detailsPanel(draft) {
     '</div>' +
   '</div></div>';
 }
-
-/* ── خطوة 3: المحتوى (الأقسام) ──────────────────────────────────── */
 
 function contentPanel(draft) {
   var used = (draft.sections || []).map(function (s) { return s.type; });
@@ -402,8 +342,6 @@ function contentPanel(draft) {
       body: t('campaigns.sectionsEmptyBody'),
     })) +
     '<div class="add-section-row">' +
-      /* كل الأنواع مستعملة = ما بقى والو نزيدو — نبيّنو السبب بدل زر
-         يبان مفعّل وما يديرش والو كي يتضغط */
       (addable.length
         ? '<select id="addSectionType" aria-label="' + esc(t('campaigns.addSectionLabel')) + '">' +
             addable.map(function (type) {
@@ -417,10 +355,6 @@ function contentPanel(draft) {
   '</div>';
 }
 
-/* المقاسات جوّا قسم مفتوح = تبعد بالكيبورد كيما بالفارة (Tab للزر، Enter
-   يضغط) — Alt+↑/↓ فوق أي بلاصة جوّا القسم يزيدها طريق أقصر بلا ما
-   يوصل المستخدم بالتاب للزر بالضبط. نديرو click على الزر الموجود روحو
-   باش ما نكرّروش منطق التحريك (هو في app.js). */
 document.addEventListener('keydown', function (event) {
   if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
   var block = event.target.closest && event.target.closest('.section-block');
@@ -431,8 +365,6 @@ document.addEventListener('keydown', function (event) {
   event.preventDefault();
   moveBtn.click();
 });
-
-/* ── خطوة 4: المراجعة والنشر ────────────────────────────────────── */
 
 function reviewChecklist(errors) {
   var items = [
@@ -486,8 +418,6 @@ function stepPanel(key, draft, errors) {
   if (key === 'content') return contentPanel(draft);
   return reviewPanel(draft, errors);
 }
-
-/* ── محرّر الحملة ───────────────────────────────────────────────── */
 
 export function renderCampaignEditor() {
   var draft = state.draft;
@@ -545,7 +475,6 @@ export function renderCampaignEditor() {
   refreshPreview();
 }
 
-/* المعاينة تنادي نفس الرندر تاع الصفحة الحقيقية — بلا حفظ */
 var previewTimer = null;
 export function schedulePreview() {
   clearTimeout(previewTimer);
@@ -559,23 +488,17 @@ async function refreshPreview() {
     var res = await api('preview', { campaign: state.draft, productId: state.draft.productId || null });
     frame.srcdoc = res.html;
   } catch (error) {
-    /* المعاينة تفشل بالسكات — ما نقطعوش الخدمة على المستخدم على وُدّها */
     console.warn('preview failed:', error.message);
   }
 }
 
-/* ترتيب الأقسام يتخزّن كرقم — نعاودو نرقّموه بعد كل تحريك */
 export function reorderSections() {
   (state.draft.sections || []).forEach(function (section, index) { section.order = index + 1; });
 }
 
-/* ── الحفظ ──────────────────────────────────────────────────────── */
-
 export async function saveCampaign(publish) {
   var draft = state.draft;
 
-  /* النشر يوقف على تحقّق حقيقي (اسم/رابط/منتج) — المسودّة ما فيهاش
-     هاذ القيد، عندها الحقّ تبقى ناقصة */
   if (publish) {
     var result = validate(draft, publishRules());
     if (!result.ok) {
@@ -592,23 +515,14 @@ export async function saveCampaign(publish) {
 
   var statusBefore = draft.status;
   if (publish) draft.status = 'published';
-  /* الـ select يعطي '' كي ما يكونش مختار — و'' ماشي nullish، فتخزّن
-     كيما هي وتخلّي الحملة "عندها منتج" بمعرّف فارغ */
   if (!draft.productId) draft.productId = null;
 
-  /* الحفظ يعطينا كائن draft جديد (مرجع آخر) — بلا هاذ العلَم،
-     ensureEditorSession() كانت ترجّع currentStep لـ "Details" فوق كل
-     حفظة، حتى حفظة مسودّة عادية من خطوة "Design" مثلاً */
   skipStepReset = true;
   try {
     var res = await api('campaigns.save', { campaign: draft });
     state.draft = res.campaign;
-    /* نسلّحو markClean هنا، قبل تبديل الهاش: onHashChange (app.js) يفحص
-       isDirty() فور ما الهاش يتبدّل، وبلا هذا كان يبان "متبدّل" (السيرفر
-       رجّع updatedAt/id جداد) ويسأل المستخدم فوق حفظة ناجحة توّها */
     markClean(state.draft, function () { return state.draft; });
     state.campaigns = (await api('campaigns.list')).campaigns;
-    /* أول حفظ يعطينا id — نبدّلو الهاش باش refresh ما يضيّعش الحملة */
     if (location.hash !== '#/campaigns/' + res.campaign.id) {
       location.hash = '#/campaigns/' + res.campaign.id;
     } else {
@@ -616,10 +530,8 @@ export async function saveCampaign(publish) {
     }
     toast(publish ? t('campaigns.publishedToast', { slug: res.campaign.slug }) : t('campaigns.saved'));
   } catch (error) {
-    /* بلا هذا، نشر فاشل يخلّي status='published' فالذاكرة — والحفظة
-       الجاية بزر "Save" العادي تنشر الحملة بلا ما المستخدم يطلب */
     draft.status = statusBefore;
-    skipStepReset = false; /* الحفظ فشل — الجلسة ما تبدّلاتش فعلاً */
+    skipStepReset = false;
     toast(error.message, true);
   }
 }
