@@ -292,7 +292,7 @@
 
   /* desk = null معناها ما كاينش مكتب في هذي الولاية — نرجعو لسومة الدار */
   function rateFee(rate, mode) {
-    if (!rate) return null;
+    if (!rate || rate.home === null) return null;   /* ولاية بلا خدمة */
     if (mode === 'desk') return rate.desk == null ? rate.home : rate.desk;
     return rate.home;
   }
@@ -317,7 +317,9 @@
       WILAYAS.forEach(function (name, i) {
         var opt = document.createElement('option');
         opt.value = name;
-        opt.textContent = (i + 1) + ' - ' + name;
+        var served = !RATES.byId[i + 1] || RATES.byId[i + 1].home !== null;
+        opt.textContent = (i + 1) + ' - ' + name + (served ? '' : ' — ما نوصلوش');
+        opt.disabled = !served;
         /* الرقم الرسمي — بيه نلقاو سطر التسعيرة بلا ما نقارنو أسماء
            عربية حرف بحرف (صيغة وحدة تختلف = سومة غالطة) */
         opt.dataset.id = i + 1;
@@ -424,6 +426,7 @@
       form.querySelectorAll('.ship__price').forEach(function (el) {
         var mode = el.dataset.price;
         if (!rate) { el.textContent = '—'; return; }
+        if (rate.home === null) { el.textContent = 'ما نوصلوش'; return; }
         if (mode === 'desk' && rate.desk == null) { el.textContent = 'ما كاينش'; return; }
         el.textContent = dz(rateFee(rate, mode));
       });
@@ -458,8 +461,8 @@
         tr.setAttribute('data-wilaya', row.id);
         [
           row.id + ' - ' + row.name,
-          dz(row.home),
-          row.desk == null ? 'ما كاينش' : dz(row.desk)
+          row.home === null ? 'ما نوصلوش' : dz(row.home),
+          row.home === null ? '—' : (row.desk == null ? 'ما كاينش' : dz(row.desk))
         ].forEach(function (text) {
           var td = document.createElement('td');
           td.textContent = text;   /* ماشي innerHTML — نص يدخل في DOM بلا تفسير */

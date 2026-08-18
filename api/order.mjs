@@ -24,7 +24,7 @@ import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
-import { shippingFee, deskAvailable } from '../lib/shipping-rates.mjs';
+import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -49,6 +49,9 @@ function validate(order) {
   if (name.length < 3 || name.length > 80) return { error: 'الاسم ماشي صحيح.' };
   if (!/^0[5-7]\d{8}$/.test(phone)) return { error: 'رقم الهاتف ماشي صحيح.' };
   if (!wilaya || wilaya.length > 40) return { error: 'الولاية ماشي صحيحة.' };
+  /* DHD ما توصّلش لثلاث ولايات. القبول ونحنا نعرفو بلّي ما نقدروش
+     نوصّلو = مكالمة اعتذار من بعد، وزبون يحكي عليها. */
+  if (!isServed(wilaya)) return { error: 'ما نوصلوش لهذي الولاية حالياً. اتصل بينا ونشوفو حل.' };
   if (commune.length < 2 || commune.length > 60) return { error: 'البلدية ماشي صحيحة.' };
 
   return { order: { name, phone, wilaya, commune, shipping, qty } };
