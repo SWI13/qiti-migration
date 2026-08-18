@@ -155,6 +155,8 @@
   --shadow-glow: 0 18px 44px -14px rgba(255,122,61,.45);
 }
 
+
+
 /* ── 2. القاعدة ─────────────────────────────────────────────────────────
    موبايل أولاً وبس. الشاشة المرجعية 360-430px — الكمبيوتر ياخذ نفس
    العمود في الوسط. سبب: الزبون الجزائري يشري من التيليفون، وتصميم
@@ -165,7 +167,9 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 12px;
+  /* الشريط العلوي ولّى لاصق — بلا هذا، القفزة لـ #order تحطّ أوّل
+     الفورم تحت الشريط */
+  scroll-padding-top: 66px;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -265,6 +269,8 @@ h3 { font-size: 1rem; }
 
 /* نقاط تحت الصور — علامة إنّو كاين زيادة على اليمين */
 .dots { display: flex; justify-content: center; gap: 6px; margin-top: -4px; }
+/* كارت الخريطة يركب على الصور — النقاط تجي تحتو، ماشي وراه */
+.livemap + .dots { margin-top: 14px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
 .dot.is-on { background: var(--accent); width: 18px; border-radius: var(--r-full); }
 
@@ -648,6 +654,171 @@ details[open] > .faq__q::after { content: '−'; }
 }
 .done__next { display: grid; gap: 8px; width: 100%; margin-top: 6px; }
 
+/* ── 20. الطبقة الراقية ───────────────────────────────────────────────
+   الزبونة الأولى تاع Qiti هي وحدة عندها قطّة تحبّها كيما ولدها. تشري
+   حاجة تحطّها في رقبة حيوان تحبّو، فالصفحة لازم تبان تسوى الثقة هذي —
+   ماشي كيما موقع قطع غيار.
+
+   الفرق الراقي ما يجيش من ألوان أكثر، يجي من: فراغ أكثر، ألوان أقل،
+   حدود أرقّ، وخط عنوان بحرف كلاسيكي. زدنا لون ورديّ هادي حذا البرتقالي
+   تاع العلامة — دفا بلا ما نبدّلو هوية المتجر، والبرتقالي يبقى وحدو
+   للزرّ (لون واحد للفعل = العين تعرف وين تضغط).
+
+   ⚠️ التوكِنز الجداد هنا برك — ما نلمسوش --accent ولا --surface: اللوحة
+   الإدارية تبني عليهم (admin/css/tokens.css) وتبديلهم يبدّلها معانا.
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  --blush-50:  #FFF6F5;
+  --blush-100: #FFEAE8;
+  --blush-200: #FFD9D6;
+  --rose:      #D65C74;   /* القلب واللمسات — غامق كفاية باش العلامة
+                            تبان فوق خلفيتها الورديّة */
+  --rose-soft: #FFF0F2;
+  --sand:      #FBF6F1;   /* خلفية الصفحة — أدفا من الأبيض */
+  --gold:      #C79A54;   /* الضمان برك — إشارة قيمة، ماشي زينة */
+
+  /* خط العناوين: حرف نسخ كلاسيكي كي يكون موجود في التيليفون. يعطي
+     إحساس مجلّة بدل إحساس لوحة تحكّم — وما يتحمّلش، هو خط النظام. */
+  --font-display: 'Noto Naskh Arabic', 'Amiri', 'Times New Roman', Georgia, serif;
+}
+
+[data-theme="dark"] {
+  --blush-50:  #1B1416;
+  --blush-100: #241A1C;
+  --blush-200: #2E2124;
+  --rose:      #FF9AAB;
+  --rose-soft: #241A1C;
+  --sand:      #100E0D;
+  --gold:      #D9B478;
+}
+
+body { background: var(--sand); }
+
+/* العناوين: أكبر شوية، أرقّ في التباعد، وبحرف كلاسيكي */
+h1, .head h1 {
+  font-family: var(--font-display);
+  font-size: 1.62rem;
+  font-weight: 700;
+  letter-spacing: -.005em;
+  line-height: 1.35;
+}
+h2, .card__title, .strip__title h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.head__sub { font-size: .95rem; line-height: 1.7; color: var(--text-muted); }
+
+/* الشريط العلوي: زجاجي خفيف بدل خطّ حادّ */
+.topbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  position: sticky; top: 0; z-index: 40;
+}
+.brand { font-family: var(--font-display); letter-spacing: .01em; }
+.brand__mark {
+  background: linear-gradient(140deg, var(--accent), var(--rose));
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* الصور: أنعم وأوسع، وظلّ خفيف تحتها بدل حدّ */
+.shots { padding-block: 14px 10px; }
+.shot {
+  border-radius: 26px;
+  box-shadow: 0 18px 40px -24px rgba(20, 17, 15, .45);
+}
+
+/* كارت الخريطة: زجاج على الصورة */
+.livemap {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 22px;
+}
+.livemap__dist { font-family: var(--font-display); }
+
+/* السومة: الرقم هو البطل، والقديم حذاه هادي */
+.price { font-size: 2rem; letter-spacing: -.03em; }
+.pricebar { gap: 10px; margin-top: 14px; }
+.tag--save { background: var(--rose-soft); color: var(--rose); }
+
+/* الفوائد: علامة في دائرة ورديّة — أنعم من ✓ خضرا حادّة */
+.perks { gap: 12px; margin-top: 20px; }
+.perk { align-items: center; }
+.perk .ico {
+  width: 26px; height: 26px; padding: 5px;
+  border-radius: 50%;
+  background: var(--rose-soft);
+  color: var(--rose);
+  margin-top: 0;
+}
+
+/* البطاقات: زوايا أنعم، ظلّ هادي، وفراغ أكثر */
+.card {
+  border-radius: 24px;
+  padding: 20px 16px;
+  box-shadow: 0 20px 44px -34px rgba(20, 17, 15, .5);
+  border-color: color-mix(in srgb, var(--border) 75%, transparent);
+}
+.card__title { font-size: 1.12rem; margin-bottom: 16px; }
+
+/* الحقول: أنعم، وخط تحت العنوان الصغير */
+.field > label, .field > .label {
+  font-size: .8rem; font-weight: 700;
+  letter-spacing: .01em; color: var(--text-muted);
+}
+.input, select.input { border-radius: 14px; border-width: 1px; }
+.input:focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.pick__box { border-radius: 16px; border-width: 1px; }
+.pick input:checked + .pick__box {
+  background: linear-gradient(160deg, var(--accent-soft), var(--blush-50));
+  border-color: var(--accent);
+}
+
+/* الزرّ: تدرّج خفيف — يبان ملموس بلا ما يولّي صارخ */
+.btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--orange-600));
+  box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--accent) 75%, transparent);
+  letter-spacing: .01em;
+}
+.btn { border-radius: 16px; }
+
+/* الشريط السفلي: زجاجي */
+.bar {
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.bar__price b { font-family: var(--font-display); }
+
+/* الثقة: بلاطات أدفا، والضمان بلون ذهبي هادي */
+.trust__it {
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--surface), var(--blush-50));
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 14px 8px;
+}
+.trust__it .ico { color: var(--rose); }
+.trust__it:last-child .ico { color: var(--gold); }
+
+/* الأسئلة: بلا حدّ صارخ */
+.faq__q { border-radius: 16px; font-weight: 600; }
+
+/* سطر "ما تخسر والو": يولّي بلوك هادي بدل سطر عايم */
+.risk {
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  border-radius: 14px; padding: 12px;
+  margin-top: 14px; font-size: .86rem;
+}
+
+/* شريط التقدّم: تدرّج ورديّ-برتقالي */
+.prog__fill { background: linear-gradient(90deg, var(--rose), var(--accent)); }
+
+/* التذييل */
+.foot { margin-top: 32px; }
+
 /* ── 15. الكمبيوتر ────────────────────────────────────────────────────
    نفس العمود، بلا إعادة تصميم. المكتب أقلّية هنا، وعمود مقروء فيه خير
    من تخطيط ثاني يلزمو صيانة وحدو.
@@ -662,4 +833,72 @@ details[open] > .faq__q::after { content: '−'; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition: none !important; animation: none !important; }
+}
+
+/*
+ * الوضع الليلي تاع المتجر.
+ *
+ * ── علاش هذا البلوك موجود ومكرّر ────────────────────────────────────
+ * اللوحة الإدارية تكتب data-theme بيدها (فيها زرّ ليلي/نهاري)، والمتجر
+ * ما فيهش زرّ — يتبع إعداد التيليفون. الـ CSS ما تقدرش تجمع
+ * [data-theme="dark"] مع media query في نفس المُحدِّد، فالقيم تتعاود.
+ *
+ * ⚠️ لازم يجي **في آخر الملف**: أي بلوك :root يجي بعدو يغلبو. أوّل
+ * مرّة حطّيناه في الوسط، فالخلفية بقات نهارية والنص ولّى ليلي — نص
+ * فاتح على خلفية فاتحة، ما يتقرا خالص.
+ *
+ * ⚠️ بدّلتي لون في بلوك [data-theme="dark"]؟ بدّلو هنا. سكريبت التحقّق
+ * (verify-sections) يقارن أسماء المتغيّرات ويطيح إذا نسيت وحدة.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --bg:            #0C0B0A;
+  --bg-alt:        #131110;
+  --bg-gray:       #131110;
+  --surface:       #161412;
+  --surface-2:     #1C1917;
+  --text:          #F6F2EE;
+  --text-muted:    #A69C93;
+  --text-faint:    #7E756D;
+  --border:        rgba(255,255,255,.10);
+  --border-strong: rgba(255,255,255,.18);
+  --accent:        #FF7A3D;
+  --accent-hover:  #FF8F5A;
+  --accent-soft:   rgba(255,122,61,.13);
+  --accent-text:   #1A0E07;
+
+  /* نفس المعاني، بصح أفتح شوية باش التباين يبقى مقروء فوق الخلفية الداكنة */
+  --success:        #34D07A;
+  --success-bright: #4ADE80;
+  --danger:         #FF6B6B;
+  --like:           #FF5A66;
+
+  --on-media:       #FFFFFF;
+  /* في الوضع الليلي الزر الداكن ينقلب: يولّي أبيض على خلفية سوداء */
+  --btn-light-bg:   #FFFFFF;
+  --btn-light-text: var(--ink);
+  --btn-dark-bg:       #FFFFFF;
+  --btn-dark-bg-hover: var(--cream);
+  --btn-dark-text:     var(--ink);
+  --surface-deep:      #0E0D0C;
+
+  --cta-bg-1: #1A120C;
+  --cta-bg-2: #141110;
+  --cta-bg-3: var(--bg);
+  --cta-glow: rgba(255,122,61,.16);
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.45);
+  --shadow-md: 0 8px 28px -6px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4);
+  --shadow-lg: 0 24px 60px -18px rgba(0,0,0,.75), 0 8px 20px -8px rgba(0,0,0,.5);
+  --shadow-glow: 0 18px 44px -14px rgba(255,122,61,.45);
+
+  --blush-50:  #1B1416;
+  --blush-100: #241A1C;
+  --blush-200: #2E2124;
+  --rose:      #FF9AAB;
+  --rose-soft: #241A1C;
+  --sand:      #100E0D;
+  --gold:      #D9B478;
+  }
 }

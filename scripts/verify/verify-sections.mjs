@@ -12,6 +12,7 @@ import gallery from '../../lib/render/sections/gallery.mjs';
 import reviews from '../../lib/render/sections/reviews.mjs';
 import faq from '../../lib/render/sections/faq.mjs';
 import cta from '../../lib/render/sections/cta.mjs';
+import { readFileSync } from 'node:fs';
 import orderSection from '../../lib/render/sections/order.mjs';
 import { SECTIONS } from '../../lib/render/index.mjs';
 
@@ -221,4 +222,35 @@ ok(lowStock.includes('ما تخسر والو'), 'السطر تحت الزرّ م
 ok(lowStock.includes('id="orderDoneId"'), 'رقم الطلب في شاشة النجاح');
 
 console.log(`\n${failures === 0 ? 'كل الفحوصات نجحت ✅' : failures + ' فحوصات طاحت ❌'}`);
+// ── 8. الوضع الليلي تاع المتجر ───────────────────────────────────────
+/*
+ * المتجر ما عندوش زرّ ثيم — يتبع التيليفون عبر media query، واللوحة
+ * تكتب data-theme بيدها. الزوج لازم يحملو نفس المتغيّرات: مرّة وحدة
+ * خرج المتجر بنص فاتح على خلفية فاتحة على خاطر بلوك نسي متغيّر.
+ */
+console.log("\n── 8. الوضع الليلي ──");
+const css = readFileSync(new URL('../../assets/css/styles.css', import.meta.url), 'utf8');
+
+const varsIn = (block) => new Set((block.match(/--[a-z0-9-]+s*:/gi) || []).map((v) => v.replace(/s*:$/, '')));
+const darkBlocks = [];
+let cursor = 0;
+for (;;) {
+  const start = css.indexOf('[data-theme="dark"] {', cursor);
+  if (start === -1) break;
+  const close = css.indexOf(String.fromCharCode(10) + '}', start);
+  darkBlocks.push(css.slice(start, close));
+  cursor = close;
+}
+const mediaStart = css.indexOf('@media (prefers-color-scheme: dark)');
+const media = mediaStart === -1 ? '' : css.slice(mediaStart);
+
+ok(mediaStart > -1, 'المتجر عندو بلوك ليلي يتبع التيليفون');
+ok(mediaStart > css.lastIndexOf(':root {'), 'البلوك الليلي في الآخر (وإلا :root يغلبو)');
+
+const declared = new Set();
+darkBlocks.forEach((block) => varsIn(block).forEach((v) => declared.add(v)));
+const inMedia = varsIn(media);
+const missing = [...declared].filter((v) => !inMedia.has(v));
+ok(missing.length === 0, 'كل متغيّرات الليلي موجودة في الزوج' + (missing.length ? ' — ناقص: ' + missing.join(', ') : ''));
+
 process.exit(failures === 0 ? 0 : 1);
