@@ -1,82 +1,82 @@
 # Qiti
 
-A GPS collar for cats, sold in Algeria. One static page in Algerian Darija (RTL), cash on delivery, and a Telegram bot that pings you the second an order lands.
+A GPS collar for cats, sold in Algeria.
 
-No framework, no build step for the page itself, no runtime dependencies. Small Vercel Functions in `api/` do the rest.
+One page, written in Darija, right-to-left, with the order form sitting where the customer can reach it. She pays khlas — cash, in her hand, when the delivery guy knocks. No card, no account, no wallet. That is how things are bought here, so that is what the page does.
+
+It is a static page: no framework, no build step for the page itself, zero runtime dependencies. Loads fast on a slow connection, which matters more than any animation. A few small Vercel Functions in `api/` do the rest of the work.
 
 Live: **https://qiti.vercel.app**
 
 ## Run it
 
 ```bash
-npx vercel dev                          # page + functions + admin, like production
-PORT=8888 node scripts/dev-server.mjs   # files only — fastest for admin work
+npx vercel dev                          # page + functions + admin, same as production
+PORT=8888 node scripts/dev-server.mjs   # files brk — fastest when you only touch the admin
 npm run verify                          # 118 checks
-npm run build                           # writes dist/ (public files only)
+npm run build                           # writes dist/ — public files only
 ```
 
 ## Deploy
 
-Vercel only — the `api/` functions need a server, so GitHub Pages will not do.
+Vercel, because of the functions in `api/`. GitHub Pages cannot do it — it serves static files and nothing else.
 
 ```bash
 npx vercel --prod
 ```
 
-Or connect the repo in the Vercel dashboard; `vercel.json` already carries the build command, output directory, rewrites, and the report crons.
+Or connect the repo from the Vercel dashboard and let `vercel.json` talk: build command, output directory, rewrites, and the report crons are all in there.
 
-## Layout
+## What lives where
 
 ```
 index.html          the storefront
-assets/             styles.css (all design tokens) + main.js (form, theme, attribution)
-admin/              dashboard — campaigns, products, media, live preview
+assets/             styles.css — every color goes through a token — and main.js (form, theme, attribution)
+admin/              dashboard: campaigns, products, media, live preview
 api/                Vercel Functions, one file per route
-lib/                shared code, never served to visitors
-scripts/            build, rate injection, verify suite
+lib/                shared code, never served to a visitor
+scripts/            build, shipping-rate injection, the verify suite
 ```
 
-`npm run build` copies only `index.html`, `assets/`, and `admin/` into `dist/`. The list in `scripts/build.mjs` is an allowlist — a new public file has to be added there by hand or it will not ship.
+`npm run build` copies only `index.html`, `assets/`, and `admin/` into `dist/`. That list in `scripts/build.mjs` is an allowlist, not a blocklist — add a new public file there by hand or it never ships. It was a blocklist once, and `lib/auth.mjs` was readable from outside.
 
-## How a page is built
+## How a page gets built
 
 ```
 /toji-outfit → campaign → product → theme (~15 tokens) → sections[] → HTML
 ```
 
-One renderer serves every product. Campaign pages are data, not new files. Eleven section types: hero, trust, features, how it works, lifestyle, gallery, testimonials, order form, FAQ, final CTA, footer.
+Same renderer for every product. A new campaign is data, not a new page file. Eleven section types: hero, trust, features, how it works, lifestyle, gallery, testimonials, order form, FAQ, final CTA, footer.
 
 ## Telegram
 
-Every order becomes a message with accept / decline buttons. Accepting cuts stock and can fire a Meta CAPI purchase; declining puts it back. Bot commands, restricted to the chat in `TELEGRAM_CHAT_ID`:
+Every order arrives as a message with accept and decline buttons. Accept cuts the stock and can fire a Meta CAPI purchase; decline puts it back. Commands only answer in the chat named by `TELEGRAM_CHAT_ID`:
 
 | Command | Does |
 |---|---|
-| `/state` | orders right now, without waiting for the nightly report |
-| `/stock` | stock per product and variant |
+| `/state` | where the orders stand right now, without waiting for midnight |
+| `/stock` | stock per product and per variant |
 | `/cost` | set product cost, ad cost per order, return loss — no redeploy |
-| `/leads` | people who started the form and left |
+| `/leads` | people who started the form and walked away |
 | `/block`, `/unblock`, `/blocked` | phone blocklist |
-| `/clear` | wipes every order, asks twice first |
+| `/clear` | wipes every order — it asks twice before it does |
 
-`/help` lists the rest — creating products and categories from a plain sentence, restocking, and so on.
+`/help` lists the rest: creating a product or a category from a plain sentence, restocking, and so on. Reports go out on a cron, one at midnight and one every Monday.
 
-Reports run on a cron: one at midnight, one every Monday.
-
-If the bot goes quiet, re-register the webhook before reading any code: `GET /api/telegram-webhook?setup`.
+When the bot goes quiet, check the webhook before you read a single line of code: `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. Nine times out of ten that is the whole problem.
 
 ## Environment
 
-Required in Vercel: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`. Upstash Redis and Vercel Blob add their own tokens when you connect them.
+Needed in Vercel: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`. Upstash Redis and Vercel Blob drop in their own tokens when you connect them.
 
-Optional: `SITE_URL`, Twilio (`TWILIO_*`) for customer SMS, Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Leave one out and that feature simply stays off.
+Optional: `SITE_URL`, Twilio (`TWILIO_*`) for customer SMS, Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Leave one out and that feature just stays asleep.
 
-Admin login fails closed: without both `ADMIN_*` variables nobody gets in. Generate the hash with:
+The admin fails closed — without both `ADMIN_*` variables nobody gets in, not even you. Hash your password with:
 
 ```bash
 node -e "console.log(require('node:crypto').createHash('sha256').update('yourpassword').digest('hex'))"
 ```
 
-## Full docs
+## The long version
 
-The long version — every design decision, the Telegram setup walkthrough, shipping rates for all 58 wilayas, the leads system, the trust check — lives in **[README.ar.md](README.ar.md)**, in Darija.
+Every design decision, the full Telegram walkthrough, delivery prices for the 58 wilayas, the leads system, the trust check — all of it is in **[README.ar.md](README.ar.md)**, in Darija, where it was written.
