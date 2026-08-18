@@ -57,178 +57,40 @@
 
   var attribution = captureAttribution();
 
-  /* ── بدّل الثيم (ليلي / نهاري) ─────────────────────────────── */
-  var root = document.documentElement;
-  var themeToggle = document.getElementById('themeToggle');
+  /* ── الشريط الثابت تحت ──────────────────────────────────────────
+     السومة وزرّ الطلب يبقاو في الشاشة حتى يبان الفورم. كي يبان،
+     الشريط يزيح: يغطّي الحقول اللي راه يعمّر فيهم، وما بقاش عندو
+     معنى — الزرّ الحقيقي قدّامو.
 
-  if (themeToggle) {
-    themeToggle.addEventListener('click', function () {
-      var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-      root.dataset.theme = next;
-      try { localStorage.setItem('qiti-theme', next); } catch (e) {}
-    });
-  }
-
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-    var stored;
-    try { stored = localStorage.getItem('qiti-theme'); } catch (err) {}
-    if (!stored) root.dataset.theme = e.matches ? 'dark' : 'light';
-  });
-
-  /* ── ظل شريط التنقّل + زر "اطلب الان" العائم ───────────────────────
-     الزر يبان كي ينزل الزائر بالسكرول (فوق، الـ hero عندو زوج أزرار
-     أصلاً)، **ويختفي كي يقرب قسم الطلب**.
-
-     علاش يختفي: كي يكون الفورم قدّامو، الزر العائم ما بقاش يخدم —
-     يغطّي الحقول في الموبايل، وكي يكليكي فيه بالغلط يرجّعو للفورم
-     اللي راه فيه أصلاً. زر يعاود يوديك لبلاصتك = زر خاسر. */
-  var nav = document.getElementById('nav');
-  var floatingCta = document.querySelector('.floating-cta');
-  var orderZone = document.getElementById('order') || document.getElementById('orderForm');
-  var floatThreshold = window.innerHeight * 0.6;
-  var orderNear = false;          /* واش قسم الطلب قريب ولا بايّن */
-
-  window.addEventListener('resize', function () {
-    floatThreshold = window.innerHeight * 0.6;
-  }, { passive: true });
-
-  function updateFloatingCta() {
-    if (!floatingCta) return;
-    floatingCta.classList.toggle('is-visible', window.scrollY > floatThreshold && !orderNear);
-  }
-
-  /*
-   * نعتبروه "قريب" حتى قبل ما يوصل: نكبّرو صندوق المراقبة بـ 25% من طول
-   * الشاشة تحت، باش الزر يختفي قبل ما الفورم يلحق تحت الإبهام، ماشي في
-   * نفس اللحظة.
-   */
-  if (orderZone && 'IntersectionObserver' in window) {
+     IntersectionObserver ماشي scroll: المتصفّح يحسبها وحدو بلا ما
+     نوقّفو الخيط في كل بيكسل يزحلق. */
+  var stickyBar = document.getElementById('stickyBar');
+  var orderCard = document.getElementById('order');
+  if (stickyBar && orderCard && 'IntersectionObserver' in window) {
     new IntersectionObserver(function (entries) {
-      orderNear = entries[0].isIntersecting;
-      updateFloatingCta();
-    }, { rootMargin: '0px 0px 25% 0px' }).observe(orderZone);
+      stickyBar.classList.toggle('is-hidden', entries[0].isIntersecting);
+    }, { threshold: 0.12 }).observe(orderCard);
   }
 
-  var onScroll = function () {
-    nav.classList.toggle('is-stuck', window.scrollY > 12);
-    /* متصفّح قديم بلا IntersectionObserver — نحسبوها بالمسطرة */
-    if (orderZone && !('IntersectionObserver' in window)) {
-      var box = orderZone.getBoundingClientRect();
-      orderNear = box.top < window.innerHeight * 1.25 && box.bottom > 0;
-    }
-    updateFloatingCta();
-  };
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
-
-  /* ── قائمة الموبايل ───────────────────────────────────────── */
-  var burger = document.getElementById('burger');
-  var menu = document.getElementById('mobileMenu');
-
-  function setMenu(open) {
-    menu.hidden = !open;
-    burger.setAttribute('aria-expanded', String(open));
-    burger.querySelector('use').setAttribute('href', open ? '#i-x' : '#i-menu');
+  /* ── نقاط الصور ─────────────────────────────────────────────────
+     السلايدر روحو CSS (scroll-snap). هنا غير النقطة اللي تتنوّر —
+     علامة إنّو كاين صور أخرى، وهي السبب اللي يخلّي الواحد يزحلق. */
+  var shots = document.getElementById('shots');
+  var dots = document.getElementById('dots');
+  if (shots && dots && dots.children.length) {
+    var syncDot = function () {
+      var index = Math.round(shots.scrollLeft / shots.clientWidth);
+      /* في RTL المتصفّحات تعطي scrollLeft سالب — القيمة المطلقة تخدم في الزوج */
+      index = Math.min(dots.children.length - 1, Math.abs(index));
+      for (var i = 0; i < dots.children.length; i++) {
+        dots.children[i].classList.toggle('is-on', i === index);
+      }
+    };
+    shots.addEventListener('scroll', function () {
+      window.clearTimeout(shots._dotTimer);
+      shots._dotTimer = window.setTimeout(syncDot, 60);
+    }, { passive: true });
   }
-
-  if (burger && menu) {
-    burger.addEventListener('click', function () { setMenu(menu.hidden); });
-    menu.addEventListener('click', function (e) {
-      if (e.target.closest('a')) setMenu(false);
-    });
-    window.matchMedia('(min-width: 901px)').addEventListener('change', function (e) {
-      if (e.matches) setMenu(false);
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !menu.hidden) setMenu(false);
-    });
-  }
-
-  /* ── ظهور تدريجي عند التمرير ──────────────────────────────── */
-  var revealables = document.querySelectorAll('.reveal');
-
-  if (reduceMotion || !('IntersectionObserver' in window)) {
-    revealables.forEach(function (el) { el.classList.add('is-in'); });
-  } else {
-    var revealObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add('is-in');
-        revealObserver.unobserve(entry.target);
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-
-    revealables.forEach(function (el) { revealObserver.observe(el); });
-  }
-
-  /* ── عدّاد الأرقام المتحرّك ───────────────────────────────── */
-  var counters = document.querySelectorAll('[data-count]');
-
-  function formatNumber(n) {
-    return n.toLocaleString('en-US');
-  }
-
-  function runCounter(el) {
-    var target = parseFloat(el.dataset.count);
-    var suffix = el.dataset.suffix || '';
-
-    if (reduceMotion) {
-      el.textContent = formatNumber(target) + suffix;
-      return;
-    }
-
-    var duration = 1600;
-    var start = null;
-
-    function tick(now) {
-      if (start === null) start = now;
-      var p = Math.min((now - start) / duration, 1);
-      var eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
-      el.textContent = formatNumber(Math.round(target * eased)) + suffix;
-      if (p < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }
-
-  if ('IntersectionObserver' in window) {
-    var counterObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        runCounter(entry.target);
-        counterObserver.unobserve(entry.target);
-      });
-    }, { threshold: 0.5 });
-    counters.forEach(function (el) { counterObserver.observe(el); });
-  } else {
-    counters.forEach(runCounter);
-  }
-
-  /* ── FAQ: نخلّيو غير جواب واحد محلول ──────────────────────── */
-  var faqItems = document.querySelectorAll('.faq__item');
-  faqItems.forEach(function (item) {
-    item.addEventListener('toggle', function () {
-      if (!item.open) return;
-      faqItems.forEach(function (other) {
-        if (other !== item) other.open = false;
-      });
-    });
-  });
-
-  /* ── معرض صور المنتج ──────────────────────────────────────── */
-  var galleryImg = document.getElementById('galleryImg');
-  var thumbs = document.querySelectorAll('.thumb');
-
-  thumbs.forEach(function (thumb) {
-    thumb.addEventListener('click', function () {
-      if (thumb.classList.contains('is-active')) return;
-      galleryImg.src = thumb.dataset.src;
-      galleryImg.alt = thumb.dataset.alt || '';
-      thumbs.forEach(function (t) {
-        t.classList.toggle('is-active', t === thumb);
-        t.setAttribute('aria-selected', String(t === thumb));
-      });
-    });
-  });
 
   /* ── فورم الطلب ────────────────────────────────────────────── */
 
@@ -332,7 +194,6 @@
     var qtyButtons = document.querySelectorAll('.qty__btn');
     var shipInputs = form.querySelectorAll('input[name="shipping"]');
     var shipHint = document.getElementById('shipHint');
-    var ratesBox = document.getElementById('shipRates');
     var sumQty = document.getElementById('sumQty');
     var sumProduct = document.getElementById('sumProduct');
     var sumShip = document.getElementById('sumShip');
@@ -400,8 +261,8 @@
       if (deskInput) {
         var deskOff = Boolean(rate) && rate.desk == null;
         deskInput.disabled = deskOff;
-        var deskLabel = deskInput.closest('.ship');
-        if (deskLabel) deskLabel.classList.toggle('ship--off', deskOff);
+        var deskLabel = deskInput.closest('.pick');
+        if (deskLabel) deskLabel.classList.toggle('pick--off', deskOff);
         if (deskOff && deskInput.checked) {
           var homeInput = form.querySelector('input[name="shipping"][value="home"]');
           if (homeInput) homeInput.checked = true;
@@ -423,7 +284,7 @@
 
       if (shipHint) shipHint.hidden = Boolean(rate);
 
-      form.querySelectorAll('.ship__price').forEach(function (el) {
+      form.querySelectorAll('.pick__price').forEach(function (el) {
         var mode = el.dataset.price;
         if (!rate) { el.textContent = '—'; return; }
         if (rate.home === null) { el.textContent = 'ما نوصلوش'; return; }
@@ -431,56 +292,6 @@
         el.textContent = dz(rateFee(rate, mode));
       });
 
-      highlightRate(currentWilayaId());
-    }
-
-    /*
-     * جدول التوصيل لكل ولاية — الزبون يشوف سومتو قبل ما يعمّر حتى حقل،
-     * وهذا سؤال رقم واحد في الرسائل. يتبنى في المتصفّح من نفس وسم
-     * JSON: 58 سطر مكتوبين في كل صفحة معروضة وزن بلا فايدة، وأغلب
-     * الناس ما يحلّوش الجدول أصلاً.
-     */
-    (function buildRateTable() {
-      if (!ratesBox || !RATES.table) return;
-      var body = ratesBox.querySelector('.ship-rates__body');
-      if (!body) return;
-
-      var table = document.createElement('table');
-      table.className = 'rate-table';
-
-      var head = document.createElement('tr');
-      ['الولاية', 'للدار', 'للمكتب'].forEach(function (label) {
-        var th = document.createElement('th');
-        th.textContent = label;
-        head.appendChild(th);
-      });
-      table.appendChild(head);
-
-      RATES.table.forEach(function (row) {
-        var tr = document.createElement('tr');
-        tr.setAttribute('data-wilaya', row.id);
-        [
-          row.id + ' - ' + row.name,
-          row.home === null ? 'ما نوصلوش' : dz(row.home),
-          row.home === null ? '—' : (row.desk == null ? 'ما كاينش' : dz(row.desk))
-        ].forEach(function (text) {
-          var td = document.createElement('td');
-          td.textContent = text;   /* ماشي innerHTML — نص يدخل في DOM بلا تفسير */
-          tr.appendChild(td);
-        });
-        table.appendChild(tr);
-      });
-
-      body.appendChild(table);
-      ratesBox.hidden = false;
-    })();
-
-    /* سطر الولاية المختارة يتنوّر — الجدول طويل، بلا هذا لازم تقلّب فيه */
-    function highlightRate(id) {
-      if (!ratesBox) return;
-      ratesBox.querySelectorAll('tr[data-wilaya]').forEach(function (tr) {
-        tr.classList.toggle('is-on', Number(tr.getAttribute('data-wilaya')) === id);
-      });
     }
 
     qtyButtons.forEach(function (btn) {

@@ -73,20 +73,27 @@ const page = renderPage({
 });
 
 console.log('══ 1. الطوق معروض من المعطيات ══');
-ok('every section rendered', ['hero', 'trust', 'section__head', 'steps', 'order__form', 'lifestyle', 'gallery', 'faq__item', 'cta__'].every((c) => page.includes(c)));
+ok('every section rendered', ['class="head"', 'class="trust"', 'class="steps"', 'id="orderForm"', 'class="shots"', 'faq__q', 'id="product"'].every((c) => page.includes(c)));
 
-const HOOKS = ['reveal', 'data-count', 'data-suffix', 'data-float', 'thumb', 'data-src',
-  'faq__item', 'orderForm', 'fName', 'fPhone', 'fWilaya', 'fCommune', 'fQty', 'sumTotal',
-  'submitBtn', 'orderDone', 'orderAgain', 'ship__price', 'qty__btn', 'themeToggle',
-  'burger', 'mobileMenu', 'floating-cta', 'galleryImg'];
+/* الـ hooks اللي بقات: الفورم، السلايدر، والشريط الثابت. اللي طاحو
+     (reveal, data-count, thumb, themeToggle, burger, floating-cta...)
+     راحو مع زخرفة الصفحة القديمة. */
+const HOOKS = ['orderForm', 'fName', 'fPhone', 'fWilaya', 'fCommune', 'fQty', 'sumTotal',
+  'sumShip', 'shipHint', 'submitBtn', 'orderDone', 'orderAgain', 'pick__price', 'qty__btn',
+  'qiti-pricing', 'qiti-shipping-rates', 'stickyBar', 'shots', 'dots'];
 const missing = HOOKS.filter((h) => !page.includes(h));
 ok('all JS hooks main.js binds to are present', missing.length === 0, missing.length ? 'MISSING: ' + missing.join(', ') : `${HOOKS.length} hooks`);
 
-const liveSections = (live.match(/<section class="([^"]+)"/g) || []).length;
-const newSections = (page.match(/<section class="([^"]+)"/g) || []).length;
-ok('section count comparable to live page', Math.abs(liveSections - newSections) <= 2, `live ${liveSections}, rendered ${newSections} (reviews off)`);
+/*
+ * ما نقارنوش عدد الأقسام مع index.html: الصفحة الستاتيك ولّات صفحة
+ * وحدة قصيرة (صور، سومة، فورم)، والحملة تقدر تزيد أقسام حسب المنتج.
+ * اللي يهمّ هو إنّو الفورم يجي بكري — الزبون ما يزحلقش يقلّب عليه.
+ */
+const orderAt = page.indexOf('id="order"');
+ok('order form is in the first half of the page', orderAt > 0 && orderAt < page.length / 2,
+  `${Math.round((orderAt / page.length) * 100)}% في الصفحة`);
 
-ok('disabled reviews section absent', !page.includes('social-post'));
+ok('disabled reviews section absent', !page.includes('class="quotes"'));
 ok('58 wilayas server-rendered', (page.match(/<option value="[^"]+"/g) || []).length === 58);
 ok('price from product, not campaign copy', page.includes('3,900 دج') || page.includes('3900'));
 ok('canonical + JSON-LD present', page.includes('rel="canonical"') && page.includes('ld+json'));
@@ -116,12 +123,13 @@ const tojiPage = renderPage({
 
 console.log('\n══ 2. نفس المحرّك، Toji Outfit ══');
 ok('dark mood locked, toggle hidden', tojiPage.includes('data-theme="dark"') && !tojiPage.includes('themeToggle'));
-ok('Cairo loaded instead of Tajawal', tojiPage.includes('family=Cairo') && !tojiPage.includes('family=Tajawal'));
+/* الخطوط ولّاو خط النظام — حتى طلب برّاني للـ CSS ما بقاش */
+ok('no web font request at all', !tojiPage.includes('fonts.googleapis.com') && !tojiPage.includes('fonts.gstatic.com'));
 ok('sharp radius applied', tojiPage.includes('--r-md:3px'));
 ok('crimson accent applied', tojiPage.includes('--accent:#E11D48'));
 ok('size + colour pickers rendered', (tojiPage.match(/role="radiogroup"/g) || []).length === 2);
 ok('8 variants in pricing payload', JSON.parse(tojiPage.match(/id="qiti-pricing">(.*?)<\/script>/s)[1].replace(/\\u003c/g, '<')).variants.length === 8);
-ok('no "how it works" for clothing', !tojiPage.includes('step__num'));
+ok('no "how it works" for clothing', !tojiPage.includes('class="step"'));
 /*
  * القرار السريع (طوق، حوايج) = الفورم في الثلاثة الأوائل. القرار البطيء
  * (auto, tech) يبيع قبل ما يطلب، فالفورم يجي بعد المواصفات — هذا مقصود.

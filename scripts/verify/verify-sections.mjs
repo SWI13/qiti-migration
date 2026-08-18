@@ -1,5 +1,9 @@
-// فحص الأقسام الثمانية الجداد — يتأكّد من: الكلاسات، الحقول الفارغة،
-// الهروب من XSS، وبقاء الـ hooks اللي main.js يقرا بيهم.
+// فحص الأقسام — الكلاسات، الحقول الفارغة، الهروب من XSS، والـ hooks
+// اللي main.js يقرا بيهم.
+//
+// ⚠️ الكلاسات هنا هي كلاسات التصميم الجديد (موبايل أولاً). القديمة
+// (cards, social-post, gallery__thumbs, reveal, data-count...) تحيّدو
+// مع التصميم — التشيك هنا يحرس البنية الجديدة، ماشي يحنّ للقديمة.
 import trust from '../../lib/render/sections/trust.mjs';
 import features from '../../lib/render/sections/features.mjs';
 import how from '../../lib/render/sections/how.mjs';
@@ -122,14 +126,14 @@ const ctaData = {
 
 // ── 1. كل قسم يطلع بالكلاسات المتوقّعة ───────────────────────────────
 const cases = [
-  { name: 'trust', fn: trust, data: trustData, ctx: {}, mustHave: ['class="trust"', 'trust__head', 'class="badges', 'class="stats', 'data-count="300"', 'data-suffix="+"'] },
-  { name: 'features', fn: features, data: featuresData, ctx: {}, mustHave: ['id="features"', 'class="cards"', 'class="card reveal"', 'card__icon'] },
-  { name: 'how', fn: how, data: howData, ctx: {}, mustHave: ['id="how"', 'class="steps"', 'step__num', 'step__icon'] },
-  { name: 'lifestyle', fn: lifestyle, data: lifestyleData, ctx: {}, mustHave: ['class="lifestyle"', 'lifestyle__bg', 'lifestyle__scrim', 'lifestyle__title'] },
-  { name: 'gallery', fn: gallery, data: galleryData, ctx: { priceView }, mustHave: ['id="product"', 'id="galleryStage"', 'id="galleryImg"', 'gallery__thumbs', 'role="tablist"', 'class="thumb is-active"', 'aria-selected="true"', 'data-src=', 'price-box', 'showcase__stage', 'data-float'] },
-  { name: 'reviews', fn: reviews, data: reviewsData, ctx: {}, mustHave: ['id="reviews"', 'social-post', 'class="comments"', 'comment--reply', 'comment__heart'] },
-  { name: 'faq', fn: faq, data: faqData, ctx: {}, mustHave: ['id="faq"', 'faq__item', 'faq__body'] },
-  { name: 'cta', fn: cta, data: ctaData, ctx: {}, mustHave: ['class="cta"', 'cta__title', 'cta__assurances'] },
+  { name: 'trust', fn: trust, data: trustData, ctx: {}, mustHave: ['class="strip"', 'class="trust"', 'trust__it'] },
+  { name: 'features', fn: features, data: featuresData, ctx: {}, mustHave: ['id="features"', 'class="perks"', 'class="perk"'] },
+  { name: 'how', fn: how, data: howData, ctx: {}, mustHave: ['id="how"', 'class="steps"', 'class="step"', 'step__n'] },
+  { name: 'lifestyle', fn: lifestyle, data: lifestyleData, ctx: {}, mustHave: ['class="strip"', 'class="shot"', 'loading="lazy"'] },
+  { name: 'gallery', fn: gallery, data: galleryData, ctx: { priceView }, mustHave: ['id="product"', 'class="shots"', 'class="shot"', 'class="dots"', 'class="price"'] },
+  { name: 'reviews', fn: reviews, data: reviewsData, ctx: {}, mustHave: ['id="reviews"', 'class="quotes"', 'class="quote', 'quote__who'] },
+  { name: 'faq', fn: faq, data: faqData, ctx: {}, mustHave: ['id="faq"', '<details>', 'faq__q', 'faq__a'] },
+  { name: 'cta', fn: cta, data: ctaData, ctx: {}, mustHave: ['class="card"', 'btn--primary', 'class="perk"'] },
 ];
 
 console.log('── 1. الكلاسات المتوقّعة ──');
@@ -159,21 +163,27 @@ ok(!allHtml.includes('href="#<script>'), 'اسم أيقونة خبيث ما دخ
 // رابط جالري thumb src خبيث ماكانش هنا، بصح ننجرب ctaHref خبيث في lifestyle
 ok(!allHtml.includes('href="javascript:'), 'ctaHref الخبيث في lifestyle اتبدّل بـ fallback');
 
-// ── 4. الـ hooks تاع main.js ─────────────────────────────────────────
-console.log('\n── 4. الـ JS hooks ──');
+// ── 4. الـ hooks والقواعد تاع الموبايل ───────────────────────────────
+console.log('\n── 4. hooks الموبايل ──');
 const galleryHtml = gallery({ data: galleryData, priceView });
-const reviewsHtml = reviews({ data: reviewsData });
 const trustHtml = trust({ data: trustData });
 const faqHtml = faq({ data: faqData });
 
-ok(trustHtml.includes('reveal'), 'trust: .reveal موجودة');
-ok(trustHtml.includes('data-count='), 'trust: [data-count] موجودة');
-ok(trustHtml.includes('data-suffix='), 'trust: [data-suffix] موجودة');
-ok(galleryHtml.includes('class="thumb is-active"') && galleryHtml.includes('data-src='), 'gallery: .thumb[data-src] موجودة');
-ok(galleryHtml.includes('role="tablist"'), 'gallery: role="tablist" موجودة');
-ok(galleryHtml.includes('aria-selected="true"') && galleryHtml.includes('aria-selected="false"'), 'gallery: aria-selected موجودة (true و false)');
-ok(galleryHtml.includes('data-float'), 'gallery: [data-float] موجودة على .device');
-ok(faqHtml.includes('faq__item'), 'faq: .faq__item موجودة');
+/* السلايدر: main.js يلقاه بالـ id باش ينوّر النقطة الصحيحة */
+ok(galleryHtml.includes('id="shots"'), 'gallery: #shots موجود (سلايدر)');
+ok(galleryHtml.includes('id="dots"'), 'gallery: #dots موجودة');
+/* الصورة الأولى بأولوية، والباقي كسول — هذا هو كل فرق وقت التحميل */
+ok(galleryHtml.includes('fetchpriority="high"'), 'gallery: أول صورة بأولوية عالية');
+ok(galleryHtml.includes('loading="lazy"'), 'gallery: باقي الصور كسولة');
+/* مقاسات مكتوبة = بلاصة محجوزة = النص ما يقفزش كي توصل الصورة */
+ok(/width="800" height="800"/.test(galleryHtml), 'gallery: مقاسات الصور مكتوبة (بلا قفزة)');
+/* بلا جافاسكريبت للفتح والغلق */
+ok(faqHtml.includes('<details>') && !faqHtml.includes('faq__item'), 'faq: <details> عادية بلا JS');
+/* حركة/أنيميشن ما بقاتش — reveal كانت تخبّي المحتوى حتى يزحلق */
+const noReveal = [galleryHtml, trustHtml, faqHtml].every((html) => !html.includes('reveal'));
+ok(noReveal, 'ما بقاش .reveal (المحتوى يبان مباشرة)');
+/* الصور الشخصية تاع التعليقات ما تتعرضش — كانت صور ستوك */
+ok(!reviews({ data: reviewsData }).includes('<img'), 'reviews: بلا صور (كانت ستوك)');
 
 // ── 5. reviews بلا تعليقات = '' كامل (بلا شكل فارغ) ───────────────────
 console.log('\n── 5. reviews بلا تعليقات ──');

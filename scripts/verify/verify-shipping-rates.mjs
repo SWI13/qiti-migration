@@ -110,7 +110,5 @@ const orderApi = readFileSync(new URL('../../api/order.mjs', import.meta.url), '
 ok('api/order.mjs يحسب السومة من الولاية', orderApi.includes('shippingFee: shippingFee(order.wilaya, order.shipping)'));
 ok('api/order.mjs يرفض مكتب في ولاية بلاه', orderApi.includes('deskAvailable(wilaya)'));
 ok('api/order.mjs يرفض ولاية بلا خدمة', orderApi.includes('!isServed(wilaya)'));
-const indexHtml = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
-ok('index.html فيه بلاصة الجدول', indexHtml.includes('id="shipRates"'));
 
 console.log(`\nid تاع الجزائر = ${wilayaId('الجزائر')} (لازم 16)`);
