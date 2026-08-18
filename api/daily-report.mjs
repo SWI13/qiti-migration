@@ -10,7 +10,8 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>.netlify.app/api/daily-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getStock, getCosts } from '../lib/store.mjs';
+import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts } from '../lib/store.mjs';
+import { stockLines } from '../lib/stock-view.mjs';
 import { dz, esc, profitFor, goodsTotal } from '../lib/message.mjs';
 import { listOpenLeads, sweepLeads } from '../lib/leads.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
@@ -135,11 +136,18 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     if (openLeads.length > 10) lines.push(`… و${openLeads.length - 10} آخرين — /leads`);
   }
 
-  if (stock) {
-    const warn = stock.qty <= stock.threshold ? ' ⚠️' : '';
-    lines.push('', `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${warn}`);
+  /*
+   * نفس الأسطر اللي يعطيها /stock بالضبط (lib/stock-view.mjs).
+   *
+   * ⚠️ قبل، هنا كان يتعرض العدّاد العام وحدو مكتوب "المخزون الحالي:
+   * <n> طوق". كي ولّاو المنتجات عندهم عدّادات وحدهم، التقرير بقا يعدّ
+   * العدّاد القديم برك — يقول 1 و/stock يقول 4، والزوج صحاح. رقمين
+   * بنفس الاسم أخطر من رقم غالط: تصدّق واحد فيهم وتشري ولا تبيع عليه.
+   */
+  if (stock?.lines?.length) {
+    lines.push('', '📦 <b>المخزون</b>', ...stock.lines);
     if (returnQty) {
-      lines.push(`🔁 مُرجَعات معلّقة (لم تُضف بعد): <b>${returnQty}</b> طوق — تصبح <b>${stock.qty + returnQty}</b> عند وصولها كاملة`);
+      lines.push('', `🔁 مُرجَعات معلّقة (لم تُضف بعد): <b>${returnQty}</b> — تتزاد للمخزون كي توصل`);
     }
   }
 
@@ -162,7 +170,10 @@ async function handler(request) {
 
     const orders = await listOrdersForDay(dayJustEnded);
     const [awaiting, awaitingReturn, stock, costs, openLeads] = await Promise.all([
-      listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(), getCosts(),
+      listAwaitingDelivery(), listAwaitingReturnReceipt(),
+      /* أرقام /restock ما تنفعش في تقرير — والتقص باش التقرير يبقى
+         تقرير، ماشي جرد كامل كل ليلة */
+      stockLines({ withIndexes: false, limit: 12 }).catch(() => null), getCosts(),
       listOpenLeads().catch(() => []),
     ]);
     const report = buildReport(dayJustEnded, orders, awaiting, awaitingReturn, stock, costs, openLeads);

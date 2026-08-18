@@ -60,6 +60,9 @@ import {
   completeness, leadMessage, LEAD_FIELDS,
 } from '../lib/leads.mjs';
 import { parseProductIntent } from '../lib/product-intent.mjs';
+/* عرض المخزون مشترك مع التقرير اليومي — رقمين مختلفين بنفس الاسم
+   كانو يخرجو من زوج نسخ من نفس المنطق (شوف lib/stock-view.mjs) */
+import { stockTargets, stockLines } from '../lib/stock-view.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf, toE164Dz, dzTime } from '../lib/message.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
@@ -527,7 +530,8 @@ async function handleReply(message) {
  */
 async function buildStateMessage() {
   const [pending, awaitingDelivery, awaitingReturn, stock] = await Promise.all([
-    listPendingOrders(), listAwaitingDelivery(), listAwaitingReturnReceipt(), getStock(),
+    listPendingOrders(), listAwaitingDelivery(), listAwaitingReturnReceipt(),
+    stockLines({ withIndexes: false, limit: 12 }),
   ]);
 
   const isOld = (order) => Date.now() - new Date(order.createdAt).getTime() > 24 * 60 * 60 * 1000;
@@ -547,16 +551,17 @@ async function buildStateMessage() {
 
   const pendingCash = [...pending, ...awaitingDelivery].reduce((sum, o) => sum + (o.total ?? 0), 0);
   const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-  const stockWarn = stock.qty <= stock.threshold ? ' ⚠️ منخفض' : '';
 
   lines.push(
     '',
     '➖➖➖➖➖➖➖➖',
     `💵 مبالغ بانتظار نتيجة نهائية (بانتظار قرار + في الطريق): <b>${dz(pendingCash)}</b>`,
-    `📦 المخزون الحالي: <b>${stock.qty}</b> طوق${stockWarn}`,
+    '',
+    '📦 <b>المخزون</b>',
+    ...stock.lines,
   );
   if (returnQty) {
-    lines.push(`🔁 مُرجَعات لم تُضف للمخزون بعد: <b>${returnQty}</b> طوق (تصبح ${stock.qty + returnQty} عند وصولها كاملة)`);
+    lines.push('', `🔁 مُرجَعات لم تُضف للمخزون بعد: <b>${returnQty}</b> — تتزاد كي توصل للمحل`);
   }
 
   return lines.join('\n');
@@ -603,29 +608,9 @@ async function buildStateMessage() {
  * الترتيب لازم يكون ثابت — الرقم اللي يبان في /stock هو اللي يتكتب في
  * /restock، فلو تبدّل بين الأمرين المستخدم يزوّد الفاريانت الغالط.
  */
-async function stockTargets() {
-  const products = await listProducts().catch(() => []);
-  const sorted = products.slice().sort((a, b) =>
-    String(a.name ?? '').localeCompare(String(b.name ?? '')) || String(a.id).localeCompare(String(b.id)));
-
-  const targets = [];
-  for (const product of sorted) {
-    const rows = await listStockFor(product).catch(() => []);
-    for (const { variant, stock } of rows) {
-      targets.push({
-        index: targets.length + 1,
-        productId: product.id,
-        productName: product.name || '—',
-        sku: variant.sku,
-        label: Object.keys(variant.options || {}).length
-          ? Object.values(variant.options).join(' / ')
-          : 'مفرد',
-        stock,
-      });
-    }
-  }
-  return targets;
-}
+/* stockTargets/stockLines سكنو في lib/stock-view.mjs — التقرير اليومي
+   يقرا منهم تاني، وقبل هذا كان يعرض العدّاد العام برك ويسمّيه "المخزون
+   الحالي"، فيخرج رقم غير اللي يعطي /stock على نفس اللحظة */
 
 /* ── إنشاء منتج/فئة من تيليغرام ────────────────────────────────────
  *
@@ -1083,33 +1068,11 @@ async function handleCommand(message) {
   }
 
   if (command === '/stock') {
-    const [legacy, awaitingReturn, targets] = await Promise.all([
-      getStock(), listAwaitingReturnReceipt(), stockTargets(),
+    const [view, awaitingReturn] = await Promise.all([
+      stockLines(), listAwaitingReturnReceipt(),
     ]);
+    const { lines, targets } = view;
     const returnQty = awaitingReturn.reduce((sum, o) => sum + (o.qty ?? 0), 0);
-    const lines = [];
-
-    /*
-     * العدّاد القديم يبان غير إذا فيه شي حاجة — الطلبات القديمة (والصفحة
-     * الحالية) مازال يخدمو عليه، فما نخبّيوهش، بصح ما نعرضوهش فارغ
-     * كي تصبح كلش على المنتجات.
-     */
-    if (legacy.qty > 0 || !targets.length) {
-      const warn = legacy.qty <= legacy.threshold ? ' ⚠️' : '';
-      lines.push(`📦 <b>${legacy.qty}</b>${warn}  (المخزون العام · حد التنبيه ${legacy.threshold})`);
-    }
-
-    /* الرقم قدّام كل سطر هو اللي تستعملو في /restock و/setstock —
-       بلاه، ما كانش كيفاش تسمّي فاريانت معيّن في رسالة تيليغرام */
-    let lastProduct = null;
-    for (const target of targets) {
-      if (target.productName !== lastProduct) {
-        lines.push('', `<b>${esc(target.productName)}</b>`);
-        lastProduct = target.productName;
-      }
-      const warn = target.stock.qty <= target.stock.threshold ? ' ⚠️' : '';
-      lines.push(`  <b>${target.index}</b>) ${esc(target.label)} — <b>${target.stock.qty}</b>${warn}`);
-    }
 
     if (targets.length) {
       lines.push('', `أضف: <code>/restock ${targets.length > 1 ? '&lt;رقم&gt; ' : ''}10</code>`);
