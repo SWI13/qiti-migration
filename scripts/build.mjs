@@ -18,6 +18,7 @@ import { cp, rm, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectShippingRates } from './inject-rates.mjs';
+import { stripCss, stripHtml } from './strip-comments.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(repo, 'dist');
@@ -39,7 +40,11 @@ for (const entry of PUBLIC) {
  * ملف ثابت — بلا حقن، الصفحة تحسب بتسعيرة وحدة قديمة والزبون يشوف
  * سومة غير سومة اللي يحسبها السيرفر.
  */
+/* التعليقات تبقى في المصدر وتخرج من المنشور — شوف strip-comments.mjs */
+const cssPath = join(out, 'assets', 'css', 'styles.css');
+await writeFile(cssPath, stripCss(await readFile(cssPath, 'utf8')));
+
 const indexPath = join(out, 'index.html');
-await writeFile(indexPath, injectShippingRates(await readFile(indexPath, 'utf8')));
+await writeFile(indexPath, injectShippingRates(stripHtml(await readFile(indexPath, 'utf8'))));
 
 console.log(`dist/ ready — ${PUBLIC.join(', ')} (+ جدول التوصيل)`);

@@ -315,7 +315,10 @@ async function handler(request) {
     '| customer SMS:', customerResult.status,
     '| meta Lead:', meta?.ok ? 'sent' : (meta?.skipped ? 'skipped' : 'failed'),
   );
-  return json(200, { ok: true });
+  /* رقم الطلب يرجع للصفحة — الزبون يشوفو في شاشة النجاح ويذكرو كي
+     يتّصل. ماشي سرّ: كل تبديل على الطلب يمرّ من تيليغرام ولا من اللوحة
+     وزوجهم يطلبو صلاحية. */
+  return json(200, { ok: true, id: record.id });
 }
 
 /* توقيع Vercel هو (req,res) — الجسر في lib/http.mjs */

@@ -1,4 +1,4 @@
-// فحص الأقسام — الكلاسات، الحقول الفارغة، الهروب من XSS، والـ hooks
+// فحص الأقسام — الكلاسات، الحقول الفارغة، الهروب من console.log("\n── 7. الإقناع ──");SS، والـ hooks
 // اللي main.js يقرا بيهم.
 //
 // ⚠️ الكلاسات هنا هي كلاسات التصميم الجديد (موبايل أولاً). القديمة
@@ -12,6 +12,7 @@ import gallery from '../../lib/render/sections/gallery.mjs';
 import reviews from '../../lib/render/sections/reviews.mjs';
 import faq from '../../lib/render/sections/faq.mjs';
 import cta from '../../lib/render/sections/cta.mjs';
+import orderSection from '../../lib/render/sections/order.mjs';
 import { SECTIONS } from '../../lib/render/index.mjs';
 
 let failures = 0;
@@ -196,6 +197,28 @@ const expected = ['hero', 'trust', 'features', 'how', 'lifestyle', 'gallery', 'r
 for (const key of expected) {
   ok(typeof SECTIONS[key] === 'function', `SECTIONS.${key} مسجّل ويصدّر فنكشن`);
 }
+
+// ── 7. طبقة الإقناع — صادقة برك ──────────────────────────────────────
+console.log("\n── 7. الإقناع ──");
+const orderCtx = {
+  data: {},
+  product: { id: 'p1', name: 'قميص', price: 3900, options: [], variants: [] },
+  campaign: { id: 'c1' },
+};
+const lowStock = orderSection({ ...orderCtx, stock: [{ variant: { sku: 'default' }, stock: { qty: 3, threshold: 5 } }] });
+const fullStock = orderSection({ ...orderCtx, stock: [{ variant: { sku: 'default' }, stock: { qty: 50, threshold: 5 } }] });
+const soldOut = orderSection({ ...orderCtx, stock: [{ variant: { sku: 'default' }, stock: { qty: 0, threshold: 5 } }] });
+
+/* الندرة مربوطة بالعدّاد الحقيقي — هذا هو الفحص المهمّ */
+ok(lowStock.includes('باقي 3 برك'), 'الندرة تبان كي المخزون الحقيقي يهبط للحدّ');
+ok(!fullStock.includes('class="left"'), 'مخزون مليح = بلا شارة (ما نكذبوش)');
+ok(!soldOut.includes('class="left"'), 'مخزون صفر = بلا شارة');
+ok(!orderSection(orderCtx).includes('class="left"'), 'بلا معطيات مخزون = بلا شارة');
+
+ok(lowStock.includes('id="progFill"'), 'شريط التقدّم موجود');
+ok(lowStock.includes('id="etaLine"'), 'سطر وقت التوصيل موجود');
+ok(lowStock.includes('ما تخسر والو'), 'السطر تحت الزرّ مصاغ بالخسارة');
+ok(lowStock.includes('id="orderDoneId"'), 'رقم الطلب في شاشة النجاح');
 
 console.log(`\n${failures === 0 ? 'كل الفحوصات نجحت ✅' : failures + ' فحوصات طاحت ❌'}`);
 process.exit(failures === 0 ? 0 : 1);

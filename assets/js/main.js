@@ -72,6 +72,22 @@
     }, { threshold: 0.12 }).observe(orderCard);
   }
 
+  /* ── المسافة في كارت الخريطة ────────────────────────────────────
+     الحركة تاع النقطة CSS. هنا غير الرقم: يتحرّك شوية باش الكارت
+     يبان حيّ ماشي صورة. كل 3 ثواني — أسرع من هذا يشدّ العين ويبعّدها
+     على السومة، وأبطأ ما يتلاحظش.
+
+     كي يكون الجهاز على "قلّل الحركة" ما نحرّكو والو. */
+  var mapDist = document.getElementById('mapDist');
+  if (mapDist && !reduceMotion) {
+    var walked = 340;
+    window.setInterval(function () {
+      /* مشية قطّة: خطوة صغيرة في أي جهة، وتبقى في مجال معقول */
+      walked = Math.max(120, Math.min(480, walked + Math.round((Math.random() - 0.45) * 30)));
+      mapDist.textContent = walked + ' م';
+    }, 3000);
+  }
+
   /* ── نقاط الصور ─────────────────────────────────────────────────
      السلايدر روحو CSS (scroll-snap). هنا غير النقطة اللي تتنوّر —
      علامة إنّو كاين صور أخرى، وهي السبب اللي يخلّي الواحد يزحلق. */
@@ -194,6 +210,9 @@
     var qtyButtons = document.querySelectorAll('.qty__btn');
     var shipInputs = form.querySelectorAll('input[name="shipping"]');
     var shipHint = document.getElementById('shipHint');
+    var etaLine = document.getElementById('etaLine');
+    var progFill = document.getElementById('progFill');
+    var progTxt = document.getElementById('progTxt');
     var sumQty = document.getElementById('sumQty');
     var sumProduct = document.getElementById('sumProduct');
     var sumShip = document.getElementById('sumShip');
@@ -278,11 +297,34 @@
       sumQty.textContent = '×' + qty;
       sumProduct.textContent = dz(productCost);
       sumShip.textContent = shipCost === null ? '—' : dz(shipCost);
-      sumTotal.textContent = dz(productCost + (shipCost || 0));
+      var nextTotal = dz(productCost + (shipCost || 0));
+      /* وميض قصير كي يتبدّل الرقم — العين تلقاه بلا ما تقلّب عليه */
+      if (sumTotal.textContent !== nextTotal && !reduceMotion) {
+        sumTotal.classList.remove('flash');
+        void sumTotal.offsetWidth;   /* يعاود يشغّل الأنيميشن */
+        sumTotal.classList.add('flash');
+      }
+      sumTotal.textContent = nextTotal;
       /* نخبّيوها باش الـ lead يعرف واش كان في السلّة كي حبس */
       cartTotal = productCost + (shipCost || 0);
 
       if (shipHint) shipHint.hidden = Boolean(rate);
+
+      /*
+       * "وقتاش يوصلني؟" هو السؤال اللي يوقف الطلبية أكثر من السومة.
+       * الجواب هنا، على ولايتو هو، في نفس اللحظة اللي يختارها.
+       */
+      if (etaLine) {
+        if (rate && rate.eta && shipCost !== null) {
+          etaLine.textContent = 'يوصلك تقريباً في ' + rate.eta.min + '-' + rate.eta.max
+            + ' أيام · التوصيل ' + dz(shipCost);
+          etaLine.hidden = false;
+        } else {
+          etaLine.hidden = true;
+        }
+      }
+
+      updateProgress();
 
       form.querySelectorAll('.pick__price').forEach(function (el) {
         var mode = el.dataset.price;
@@ -322,12 +364,39 @@
       fCommune: function (v) { return v.trim().length >= 2 ? '' : 'دخّل اسم البلدية.'; }
     };
 
+    /*
+     * التقدّم: يبدا من 25% (المنتج راهو مختار) ويكمّل مع كل حقل صحيح.
+     * الرقم اللي يبان هو **اللي باقي**، ماشي اللي تعمّر — "باقي حاجة
+     * وحدة" تدفع أكثر من "3 من 4".
+     */
+    var PROG_FIELDS = ['fName', 'fPhone', 'fWilaya', 'fCommune'];
+    function updateProgress() {
+      /* validators تتعرّف تحت — updateSummary ينادي هنا من أوّل تحميل،
+         قبل ما توصل. الحرس هذا يمنع خطأ في الثانية الأولى تاع الصفحة. */
+      if (!progFill || !validators) return;
+      var done = PROG_FIELDS.filter(function (id) {
+        var input = document.getElementById(id);
+        return input && input.value && !validators[id](input.value);
+      }).length;
+      progFill.style.width = (25 + (done / PROG_FIELDS.length) * 75) + '%';
+      if (!progTxt) return;
+      var left = PROG_FIELDS.length - done;
+      progTxt.textContent = left === 0
+        ? 'كلش جاهز ✓ — اضغط اطلب الآن'
+        : (left === 1 ? 'باقي معلومة وحدة برك' : 'باقي ' + left + ' معلومات');
+    }
+
     function showError(id, msg) {
       var input = document.getElementById(id);
       var errEl = form.querySelector('[data-err-for="' + id + '"]');
       var field = input.closest('.field');
       if (errEl) errEl.textContent = msg;
-      if (field) field.classList.toggle('has-error', Boolean(msg));
+      if (field) {
+        field.classList.toggle('has-error', Boolean(msg));
+        /* علامة خضرا كي يكون الحقل صحيح ومعمّر — تأكيد صغير في وقتو */
+        field.classList.toggle('is-ok', !msg && Boolean(input.value));
+      }
+      updateProgress();
     }
 
     function validateField(id) {
@@ -342,7 +411,11 @@
       input.addEventListener('blur', function () { validateField(id); });
       input.addEventListener('input', function () {
         if (input.closest('.field').classList.contains('has-error')) validateField(id);
+        /* الشريط يتحرّك مع الكتابة، ماشي غير كي يخرج من الحقل — تقدّم
+           يبان بعد ثانيتين ما يحسّوش الواحد بلّي راهو يتقدّم */
+        updateProgress();
       });
+      input.addEventListener('change', updateProgress);
     });
 
     /* ── التقاط الطلب قبل ما يكمّل ─────────────────────────────────
@@ -552,16 +625,27 @@
             return data;
           });
         })
-        .then(function () {
+        .then(function (data) {
           /* كمّل — السيرفر علّم الـ lead `converted` وحدو، وحنا نحبسو
              الالتقاط باش beacon تاع السكّر ما يعاودش يبعثو */
           leadDone = true;
           clearTimeout(leadTimer);
           clearTimeout(leadIdleTimer);
 
+          /*
+           * آخر لحظة هي اللي تتفكّر. رقم الطلب يعطي الزبون حاجة يشدّ
+           * فيها (ويذكرها كي يتّصل)، والجملة تقول بالضبط واش راح يصرا
+           * ومتى — استنى بلا ما تعرف واش تستنّى هو اللي يخلّق الشكّ.
+           */
+          var orderDoneId = document.getElementById('orderDoneId');
+          if (orderDoneId && data && data.id) {
+            orderDoneId.textContent = 'رقم الطلب: ' + data.id;
+            orderDoneId.hidden = false;
+          }
+
           orderDoneMsg.textContent =
             'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
-            '. راح يتّصل بيك فريقنا في أقرب وقت باش يأكّد الطلب.';
+            '. نتصلو بيك باش نأكّدو، وما تخلّص والو حتى يوصلك.';
 
           form.hidden = true;
           orderDone.hidden = false;

@@ -483,6 +483,171 @@ details[open] > .faq__q::after { content: '−'; }
 .quote__stars { color: var(--accent); font-size: .82rem; letter-spacing: 1px; margin-inline-start: auto; }
 .quote p { font-size: .9rem; color: var(--text-muted); }
 
+/* ── 16. لحظة المنتج: الخريطة الحيّة ──────────────────────────────────
+   المنتج راه يبيع حاجة وحدة: "تعرف وين راهي قطّتك". أي كلام يشرح هذا
+   أضعف من ما تشوفو يتحرّك. الكارت هذا هو الوعد وهو يخدم — نقطة تتنقّل
+   على خريطة، وحلقات تخرج منها، والمسافة تتبدّل.
+
+   مرسوم كامل بـ CSS: بلا صورة، بلا مكتبة، بلا طلب زايد. الوزن كامل
+   أقل من نص كيلو، والحركة تخدم على الـ compositor (transform/opacity
+   برك) — يعني ما تلقّشش حتى على تيليفون رخيص.
+
+   prefers-reduced-motion يوقّفها كامل (القاعدة العامة في آخر الملف):
+   الحركة اللي ما تتوقّفش تدوّخ ناس عندهم حساسية، والبيع ما يستاهلش.
+   ────────────────────────────────────────────────────────────────────── */
+.livemap {
+  position: relative;
+  margin: -46px 12px 0;          /* يركب على الصورة — يخلّي الزوج بلوك واحد */
+  z-index: 2;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.livemap__grid {
+  position: relative;
+  width: 84px; height: 64px; flex: none;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background:
+    linear-gradient(var(--border) 1px, transparent 1px) 0 0 / 100% 16px,
+    linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 16px 100%,
+    var(--surface-deep);
+}
+/* الطريق — خط مايل يمشي عليه المؤشّر */
+.livemap__road {
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 46%, var(--border-strong) 46%, var(--border-strong) 54%, transparent 54%);
+}
+.livemap__dot {
+  position: absolute; top: 50%; inset-inline-start: 50%;
+  width: 12px; height: 12px; margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  animation: mapWalk 7s var(--ease) infinite;
+}
+/* الحلقات — إشارة حيّة تخرج من النقطة */
+.livemap__dot::before, .livemap__dot::after {
+  content: ''; position: absolute; inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: mapPing 2.4s var(--ease-out) infinite;
+}
+.livemap__dot::after { animation-delay: 1.2s; }
+
+@keyframes mapWalk {
+  0%   { transform: translate(14px, 12px); }
+  35%  { transform: translate(-2px, -4px); }
+  60%  { transform: translate(-12px, 6px); }
+  100% { transform: translate(14px, 12px); }
+}
+@keyframes mapPing {
+  0%   { transform: scale(.7); opacity: .75; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+.livemap__txt { min-width: 0; }
+.livemap__live {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .72rem; font-weight: 800; color: var(--success);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.livemap__live::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success-bright);
+  animation: blink 1.6s steps(1, end) infinite;
+}
+@keyframes blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .25; } }
+.livemap__dist { display: block; font-weight: 900; font-size: 1.05rem; }
+.livemap__note { display: block; font-size: .76rem; color: var(--text-faint); }
+
+/* ── 17. الندرة الحقيقية ──────────────────────────────────────────────
+   "باقي 4 برك" يبان **غير** كي المخزون الحقيقي يهبط للحد — الرقم يجي
+   من نفس العدّاد اللي يستعملو /stock. عدّاد كذّاب (يرجع لـ 5 كل ساعة)
+   الزبون يشوفو مرّتين ويفهمو، ووقتها يشكّ في السومة والتوصيل تاني.
+   ────────────────────────────────────────────────────────────────────── */
+.left {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .78rem; font-weight: 800;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  padding: 6px 10px; border-radius: var(--r-full);
+}
+.left::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--danger);
+  animation: blink 2s steps(1, end) infinite;
+}
+
+/* ── 18. التقدّم في الفورم ────────────────────────────────────────────
+   الشريط يبدا معمّر شوية عمداً: الزبون خلّص خطوة (اختار المنتج) قبل ما
+   يوصل هنا. مهمّة نصف مبدوءة تتكمّل أكثر من مهمّة تبدا من صفر — وهذا
+   مقيس، ماشي ذوق (endowed progress).
+   ────────────────────────────────────────────────────────────────────── */
+.prog { margin: -4px 0 14px; }
+.prog__bar { height: 6px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; }
+.prog__fill {
+  height: 100%; width: 25%;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, var(--accent), var(--orange-400));
+  transition: width .35s var(--ease-out);
+}
+.prog__txt { display: block; font-size: .76rem; color: var(--text-faint); margin-top: 6px; }
+
+/* حقل صحيح ياخذ علامة خضرا — تأكيد صغير في وقتو يخفّف التردّد */
+.field { position: relative; }
+.field.is-ok .input { border-color: color-mix(in srgb, var(--success) 55%, var(--border-strong)); }
+.field.is-ok::after {
+  content: '✓';
+  position: absolute; inset-inline-end: 12px; top: 34px;
+  color: var(--success); font-weight: 900; font-size: 1rem;
+  animation: popIn .25s var(--ease-out);
+}
+/* الولاية عندها سهم في نفس البلاصة — العلامة تزيح شوية */
+.field.is-ok:has(select)::after { inset-inline-end: 40px; }
+@keyframes popIn { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* المجموع يومض كي يتبدّل — العين تلقى الرقم الجديد بلا ما تقلّب */
+.flash { animation: flash .6s var(--ease); }
+@keyframes flash {
+  0%   { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+
+/* وقت التوصيل حسب الولاية — الشكّ في "وقتاش يوصل" يوقف الطلبية أكثر
+   من السومة. الجواب هنا، في نفس اللحظة اللي يختار فيها ولايتو. */
+.eta {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .82rem; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft);
+  padding: 9px 11px; border-radius: var(--r-md);
+  margin-top: 4px;
+}
+.eta[hidden] { display: none; }
+
+/* السطر تحت الزرّ — مصاغ بالخسارة ماشي بالربح ("ما تخسر والو" بدل
+   "اربح ضمان"). الصياغة بالخسارة تحرّك أكثر، وهنا حتى صادقة: الدفع
+   عند الاستلام معناه فعلاً ما يخاطر بوالو. */
+.risk {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  font-size: .84rem; font-weight: 700; color: var(--success);
+  margin-top: 10px;
+}
+
+/* ── 19. بعد الطلب ────────────────────────────────────────────────────
+   آخر لحظة هي اللي تتفكّر (peak-end). رقم الطلب + وقت الاتصال + زرّ
+   واتساب = الزبون يخرج وهو عارف واش راح يصرا، ماشي يستنّى في الفراغ.
+   ────────────────────────────────────────────────────────────────────── */
+.done__id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700; background: var(--surface-2);
+  padding: 6px 12px; border-radius: var(--r-full); font-size: .85rem;
+}
+.done__next { display: grid; gap: 8px; width: 100%; margin-top: 6px; }
+
 /* ── 15. الكمبيوتر ────────────────────────────────────────────────────
    نفس العمود، بلا إعادة تصميم. المكتب أقلّية هنا، وعمود مقروء فيه خير
    من تخطيط ثاني يلزمو صيانة وحدو.

@@ -67,6 +67,21 @@
            alt="التطبيق يبيّن مكان القطّة" width="800" height="800" loading="lazy" decoding="async">
     </div>
   </div>
+
+  <!-- الوعد وهو يخدم: نقطة تتحرّك على خريطة والمسافة تتبدّل. كل شيء
+       CSS (شوف styles.css §16) — بلا صورة وبلا مكتبة. -->
+  <div class="livemap">
+    <div class="livemap__grid" aria-hidden="true">
+      <span class="livemap__road"></span>
+      <span class="livemap__dot"></span>
+    </div>
+    <div class="livemap__txt">
+      <span class="livemap__live">مباشر</span>
+      <b class="livemap__dist" id="mapDist">340 م</b>
+      <small class="livemap__note">قطّتك راهي قرب الحديقة</small>
+    </div>
+  </div>
+
   <div class="dots" id="dots" aria-hidden="true">
     <span class="dot is-on"></span><span class="dot"></span><span class="dot"></span>
   </div>
@@ -105,6 +120,14 @@
     </h2>
 
     <form id="orderForm" novalidate>
+      <!-- الشريط يبدا معمّر 25%: اختيار المنتج راهو خطوة مكمّلة.
+           مهمّة مبدوءة تتكمّل أكثر من مهمّة فارغة. -->
+      <div class="prog">
+        <div class="prog__bar"><div class="prog__fill" id="progFill"></div></div>
+        <small class="prog__txt" id="progTxt">اخترت المنتج ✓ — باقي 4 معلومات</small>
+      </div>
+
+
       <div class="hp" aria-hidden="true">
         <label for="fWebsite">لا تعمّر هذا الحقل</label>
         <input id="fWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
@@ -141,6 +164,7 @@
         <div class="field">
           <span class="label">التوصيل</span>
           <p class="ship-hint" id="shipHint">اختر ولايتك باش تبان سومة التوصيل.</p>
+          <p class="eta" id="etaLine" hidden></p>
           <div class="picks">
             <label class="pick">
               <input type="radio" name="shipping" value="home" checked>
@@ -184,6 +208,10 @@
       <button type="submit" class="btn btn--primary btn--block btn--xl" id="submitBtn">
         Commander — اطلب الآن
       </button>
+      <p class="risk">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+        ما تخسر والو — تخلّص كي تشوف السلعة في يدك
+      </p>
       <p class="err err--submit" id="submitErr" role="alert"></p>
       <p class="note">نتصلو بيك في أقرب وقت باش نأكّدو الطلب.</p>
     </form>
@@ -191,8 +219,12 @@
     <div class="done" id="orderDone" hidden>
       <span class="done__ico"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg></span>
       <h2>تسجّل الطلب!</h2>
+      <span class="done__id" id="orderDoneId" hidden></span>
       <p id="orderDoneMsg"></p>
-      <button type="button" class="btn btn--ghost" id="orderAgain">اطلب مرّة أخرى</button>
+      <div class="done__next">
+        <a class="btn btn--primary" href="https://wa.me/213555000000" rel="noopener">راسلنا في واتساب</a>
+        <button type="button" class="btn btn--ghost" id="orderAgain">اطلب مرّة أخرى</button>
+      </div>
     </div>
   </section>
 

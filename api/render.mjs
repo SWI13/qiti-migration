@@ -19,7 +19,7 @@
  * يقرا `cdn-cache-control` (المعيار المشترك) و`vercel-cdn-cache-control`.
  * نحطّو المعياري باش يخدم في الزوج.
  */
-import { resolveRoute, getCampaign, getProduct, getCategory, listProducts } from '../lib/catalog.mjs';
+import { resolveRoute, getCampaign, getProduct, getCategory, listProducts, listStockFor } from '../lib/catalog.mjs';
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { esc, escAttr, dz } from '../lib/render/html.mjs';
@@ -138,7 +138,10 @@ async function renderCampaign(id, origin) {
 
   const product = campaign.productId ? await getProduct(campaign.productId) : null;
   const priceView = priceViewFor(product);
-  const content = renderSections(campaign, product);
+  /* المخزون الحقيقي — الشارة "باقي 4" تبان غير كي يهبط فعلاً. فشل
+     الجلب ما يوقّفش الصفحة: تتعرض بلا شارة. */
+  const stock = product ? await listStockFor(product).catch(() => []) : [];
+  const content = renderSections(campaign, product, { stock });
 
   return html(
     renderPage({
@@ -172,9 +175,10 @@ async function renderProduct(id, origin) {
   };
 
   const priceView = priceViewFor(product);
+  const stock = await listStockFor(product).catch(() => []);
   return html(
     renderPage({
-      content: renderSections(pseudoCampaign, product),
+      content: renderSections(pseudoCampaign, product, { stock }),
       campaign: pseudoCampaign,
       product,
       priceView,
