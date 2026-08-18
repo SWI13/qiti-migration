@@ -120,4 +120,10 @@ node -e "console.log(require('node:crypto').createHash('sha256').update('yourpas
 
 ## 📖 The long version
 
-Every design decision, the full Telegram walkthrough, delivery prices for the 58 wilayas, the leads system, the trust check — all of it is in **[README.ar.md](README.ar.md)**, in Darija, where it was written.
+The old Darija manual — every design decision, the full Telegram walkthrough, delivery prices for the 58 wilayas, the leads system, the trust check — was removed from the tree, but it is still in the history:
+
+```bash
+git show e922fd4:README.ar.md > README.ar.md
+```
+
+The code itself carries the same reasoning: most files open with a comment saying why they are shaped the way they are.
