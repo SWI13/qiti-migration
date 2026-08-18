@@ -65,6 +65,28 @@ docs/               screenshots for this page
 
 Same renderer for every product. A new campaign is data, not a new page file. Eleven section types: hero, trust, features, how it works, lifestyle, gallery, testimonials, order form, FAQ, final CTA, footer.
 
+## 🖥️ The admin — `/admin`
+
+A single page, no build, no framework: hash routing, one `api()` call for every action, and a form that is generated from a field recipe instead of written field by field. Add a field to a section, add it to the recipe, and `npm run verify` fails if you forgot.
+
+Getting in takes two steps: your password, then a 6-digit code the same Telegram bot sends you. After that a signed cookie lasts 7 days.
+
+<img src="docs/admin-dashboard.png" width="100%" alt="Admin dashboard: revenue, profit, orders, conversion, and charts">
+
+**Dashboard** — revenue, net profit after cost and ads, orders, average order value, units, customers, conversion. Charts for revenue against pipeline, orders per day, sales by category, plus top products, live campaigns, low stock, and the last orders. One request fills the whole screen; six small ones would be six round trips on a weak connection.
+
+<table>
+<tr>
+<td><img src="docs/admin-products.png" alt="Products list with price, type, and status"></td>
+<td><img src="docs/admin-campaigns.png" alt="Campaigns list with published and draft rows"></td>
+</tr>
+</table>
+
+**Products** — price, cost, options, and stock per variant, with the margin recalculated as you type. **Campaigns** — create, duplicate, publish, delete; the live preview calls the *same* `renderSections` / `renderPage` the server uses, because a preview built from different code lies to you eventually. **Orders**, **Categories**, and **Media** round it out, and the sidebar carries a badge with the pending order count.
+
+> [!NOTE]
+> The numbers in these screenshots are demo data — the admin is rendered locally against fixtures, not a real store.
+
 ## 🤖 Telegram
 
 Every order arrives as a message with accept and decline buttons. Accept cuts the stock and can fire a Meta CAPI purchase; decline puts it back. Commands only answer in the chat named by `TELEGRAM_CHAT_ID`:
