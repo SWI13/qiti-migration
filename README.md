@@ -2,9 +2,7 @@
 
 # 🐈 Qiti
 
-**An ecommerce page builder for cash-on-delivery stores — API, admin, and a Telegram bot for the day-to-day.**
-
-Campaign pages are data, not files. Write a product, pick sections, publish a slug — the renderer builds the page on request, the order lands in Telegram, and the stock moves by itself.
+**Page builder for cash-on-delivery stores. API, admin dashboard, Telegram bot.**
 
 [![live](https://img.shields.io/badge/live-qiti.vercel.app-FF6B2C?style=flat-square)](https://qiti.vercel.app)
 [![deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-000000?style=flat-square&logo=vercel)](https://vercel.com)
@@ -14,21 +12,19 @@ Campaign pages are data, not files. Write a product, pick sections, publish a sl
 
 </div>
 
----
-
 ## What it is
 
-A small store engine, built for how things are actually bought in Algeria: no card, no account, no wallet — the customer pays khlas, cash in her hand, when the delivery guy knocks. Everything else follows from that. The page is in Darija and right-to-left. The form asks for a wilaya and a commune, and the delivery price changes with it. Nobody signs up for anything.
+I sell online in Algeria, where almost nobody pays with a card. The customer pays khlas, cash to the delivery guy, and she isn't going to make an account to do it. So this is built for that: pages in Darija, RTL, a form that asks for a wilaya and a commune, and a delivery price that changes with the wilaya.
 
-There is no page-per-product. A **campaign** points at a **product**, picks a theme and a list of **sections**, and claims a slug; the renderer turns that into HTML on request. Adding a second store means adding a row, not a folder.
+There's no page file per product. A campaign points at a product, picks a theme and a list of sections, and takes a slug. The renderer builds the HTML when someone asks for it. Selling something else is a new row, not a new folder.
 
-The first store on it sells a GPS collar for cats — that is the page in the screenshots.
+The first thing I put on it is a GPS collar for cats. That's what the screenshots show.
 
 <div align="center">
-<img src="docs/preview-hero.png" width="300" alt="A rendered storefront: product photo, live tracking card, price"> <img src="docs/preview-order.png" width="300" alt="The order section: name, phone, wilaya, delivery choice, quantity">
+<img src="docs/preview-hero.png" width="300" alt="Rendered storefront: product photo, live tracking card, price"> <img src="docs/preview-order.png" width="300" alt="Order section: name, phone, wilaya, delivery choice, quantity">
 </div>
 
-## How a request becomes a page
+## How a page gets made
 
 ```
 GET /toji-outfit
@@ -46,123 +42,118 @@ GET /toji-outfit
   layout               head, SEO, footer
 ```
 
-Every path falls through to `api/render` (see the rewrites in `vercel.json`), so a new page needs no deploy — publish it from the admin and it answers on the next request.
+Every path falls through to `api/render` (the rewrites are in `vercel.json`), so publishing a page doesn't need a deploy. Hit save in the admin and the next request has it.
 
-**Ten section types** — `hero`, `trust`, `features`, `how`, `lifestyle`, `gallery`, `reviews`, `faq`, `cta`, and `order`, the only one that touches money: it reads price, options, and variants from the product, never from the campaign. A new campaign starts from a default section order chosen by product type (`pet`, `clothing`, `auto`, `tech`, `life`), then you rearrange.
+Ten section types: `hero`, `trust`, `features`, `how`, `lifestyle`, `gallery`, `reviews`, `faq`, `cta`, `order`. Only `order` deals with money, and it reads the price and the variants off the product, never off the campaign. New campaigns start with a section order picked from the product type (`pet`, `clothing`, `auto`, `tech`, `life`) and you drag from there.
 
-**Themes are tokens, not CSS.** A campaign can set around fifteen values — colors, radius, font — and nothing else. Free CSS per campaign is a promise you cannot keep once there are twenty of them.
+Themes are about fifteen tokens: colors, radius, font. Not free CSS. I tried free CSS first and every campaign turned into its own little stylesheet nobody wanted to maintain.
 
-## The API
+## API
 
-Every file in `api/` is a route. No router, no framework.
+One file per route in `api/`, no router.
 
 | Route | What it does |
 |---|---|
-| `api/render` | renders any public path — campaigns, products, categories |
+| `api/render` | renders any public path: campaigns, products, categories |
 | `api/order` | takes an order, stores it, pings Telegram |
-| `api/lead` | captures an abandoned form once the phone number is valid |
+| `api/lead` | saves an abandoned form once the phone number looks real |
 | `api/telegram-webhook` | accept/decline taps, `/stock`, `/cost`, product creation from a sentence |
-| `api/admin-api` | one authenticated POST endpoint behind the whole dashboard |
-| `api/admin-login` | password, then a code sent over Telegram |
-| `api/media-upload` · `api/media-serve` | image upload (checked by magic bytes) and delivery |
-| `api/track` | visit counters, atomic |
-| `api/daily-report` · `api/weekly-report` | cron reports, midnight and Mondays |
+| `api/admin-api` | one authenticated POST behind the whole dashboard |
+| `api/admin-login` | password, then a code over Telegram |
+| `api/media-upload`, `api/media-serve` | image upload (magic bytes checked) and delivery |
+| `api/track` | visit counters |
+| `api/daily-report`, `api/weekly-report` | cron reports at midnight and on Mondays |
 
-Storage sits behind one `getStore()` in `lib/blobs.mjs` — Upstash Redis for data, Vercel Blob for media. Shipping rates for all 58 wilayas live in a single file, `lib/shipping-rates.mjs`, and are injected into the static page at build time so the local copy never quotes a price the deployed one does not.
+Storage goes through `getStore()` in `lib/blobs.mjs`: Upstash Redis for data, Vercel Blob for images. Delivery prices for the 58 wilayas sit in `lib/shipping-rates.mjs` and get injected into the static page at build time, so local and deployed can't quote different numbers.
 
-## 🖥️ The admin — `/admin`
+## Admin
 
-One page, no build, no framework: hash routing, a single `api()` call for every action, and forms generated from a field recipe instead of written field by field. Add a field to a section, add it to the recipe — `npm run verify` fails if you forget.
+`/admin`. Single page, hash routing, one `api()` call per action. The forms aren't written field by field, they're generated from a recipe, and `npm run verify` fails if a section has a field the recipe doesn't.
 
-Getting in takes two steps: your password, then a 6-digit code the same Telegram bot sends you. After that a signed cookie lasts 7 days.
+Login is password plus a 6-digit code the bot sends you. Signed cookie after that, 7 days.
 
-<img src="docs/admin-dashboard.png" width="100%" alt="Admin dashboard: revenue, profit, orders, conversion, and charts">
+<img src="docs/admin-dashboard.png" width="100%" alt="Admin dashboard: revenue, profit, orders, conversion, charts">
 
-**Dashboard** — revenue, net profit after cost and ads, orders, average order value, units, customers, conversion. Charts for revenue against pipeline, orders per day, and sales by category, plus top products, live campaigns, low stock, and the latest orders. One request fills the screen; six small ones would be six round trips on a weak connection.
+Dashboard: revenue, net profit after cost and ads, orders, average order value, units, customers, conversion. Then revenue vs pipeline, orders per day, sales by category, top products, live campaigns, low stock, last orders. It's one request, not six. Six round trips on a bad connection is a blank screen for two seconds.
 
 <table>
 <tr>
-<td><img src="docs/admin-products.png" alt="Products list with price, type, and status"></td>
+<td><img src="docs/admin-products.png" alt="Products list with price, type, status"></td>
 <td><img src="docs/admin-campaigns.png" alt="Campaigns list with published and draft rows"></td>
 </tr>
 </table>
 
-**Products** — price, cost, options, and stock per variant, with the margin recalculated as you type. **Campaigns** — create, duplicate, publish, delete; the live preview calls the *same* `renderSections` / `renderPage` the server uses, because a preview built from different code lies to you eventually. **Orders**, **Categories**, and **Media** finish the set, and the sidebar carries a badge with the pending order count.
+Products hold price, cost, options and per-variant stock, with the margin updating while you type. Campaigns can be created, duplicated, published, deleted, and the preview calls the same `renderSections`/`renderPage` the server does. A preview written separately drifts, and then you ship something you never saw.
 
-> [!NOTE]
-> The numbers in these shots are demo data — the admin is rendered locally against fixtures, not a real store.
+Orders, categories and media are there too. The sidebar shows a badge with the pending order count.
 
-## 🤖 Telegram, as the back office
+Numbers in those shots are fake. There's no live store in the environment I take screenshots in.
 
-Every order arrives as a message with accept and decline buttons. Accept cuts the stock and can fire a Meta CAPI purchase; decline puts it back. Commands answer only in the chat named by `TELEGRAM_CHAT_ID`:
+## Telegram
+
+Orders show up as a message with accept and decline buttons. Accept cuts stock and can fire a Meta CAPI purchase, decline gives it back. Commands only work in the chat set as `TELEGRAM_CHAT_ID`.
 
 | Command | Does |
 |---|---|
-| `/state` | where the orders stand right now, without waiting for midnight |
-| `/stock` | stock per product and per variant |
-| `/cost` | set product cost, ad cost per order, return loss — no redeploy |
-| `/leads` | people who started the form and walked away |
-| `/block` · `/unblock` · `/blocked` | phone blocklist |
-| `/clear` | wipes every order — it asks twice before it does |
+| `/state` | orders right now, instead of waiting for the midnight report |
+| `/stock` | stock per product and variant |
+| `/cost` | product cost, ad cost per order, return loss. No redeploy |
+| `/leads` | people who started the form and left |
+| `/block`, `/unblock`, `/blocked` | phone blocklist |
+| `/clear` | wipes every order, asks twice first |
 
-`/help` lists the rest: creating a product or a category from a plain sentence, restocking, and so on.
+`/help` has the rest, including making a product or category out of a plain sentence.
 
-> [!TIP]
-> When the bot goes quiet, check the webhook before you read a single line of code: `GET /api/telegram-webhook?setup` re-registers it and reports what it set. Nine times out of ten that is the whole problem.
+If the bot stops responding, check the webhook before reading any code. `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. That's been the problem nearly every time.
 
-## 🚀 Run it
+## Running it
 
 ```bash
-npx vercel dev                          # pages + API + admin, same as production
-PORT=8888 node scripts/dev-server.mjs   # files brk — fastest when you only touch the admin
+npx vercel dev                          # pages + API + admin, like production
+PORT=8888 node scripts/dev-server.mjs   # files brk, fastest when I'm only in the admin
 npm run verify                          # 118 checks
-npm run build                           # writes dist/ — public files only
+npm run build                           # writes dist/, public files only
 ```
 
-## ☁️ Deploy
-
-Vercel, because of `api/`. GitHub Pages cannot do it — it serves static files and nothing else.
+Deploy is Vercel, since `api/` needs to run somewhere. GitHub Pages can't host this.
 
 ```bash
 npx vercel --prod
 ```
 
-Or connect the repo from the dashboard and let `vercel.json` talk: build command, output directory, rewrites, and the cron schedule are all in there.
+## Environment
 
-## 🔑 Environment
+Needs `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`. Upstash and Blob add their own when you connect them.
 
-Required: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`. Upstash Redis and Vercel Blob drop in their own tokens when you connect them.
+Optional: `SITE_URL`, Twilio (`TWILIO_*`) for SMS, Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Skip one and that feature just doesn't run.
 
-Optional: `SITE_URL`, Twilio (`TWILIO_*`) for customer SMS, Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Leave one out and that feature stays asleep.
-
-> [!WARNING]
-> The admin fails closed — without both `ADMIN_*` variables nobody gets in, not even you.
+Without both `ADMIN_*` vars the admin locks everyone out, including you. Hash the password with:
 
 ```bash
 node -e "console.log(require('node:crypto').createHash('sha256').update('yourpassword').digest('hex'))"
 ```
 
-## 📁 What lives where
+## Layout
 
 ```
-index.html          the static storefront for the first product
-assets/             styles.css — every color goes through a token — and main.js
-admin/              dashboard: campaigns, products, categories, media, orders
+index.html          static storefront for the first product
+assets/             styles.css (everything goes through tokens) + main.js
+admin/              dashboard
 api/                one file per route
-lib/                renderer, catalog, storage, Telegram messages, analytics
+lib/                renderer, catalog, storage, telegram messages, analytics
   render/sections/  the ten section types
-scripts/            build, rate injection, the verify suite
+scripts/            build, rate injection, verify suite
 docs/               screenshots for this page
 ```
 
-`npm run build` copies only `index.html`, `assets/`, and `admin/` into `dist/`. That list in `scripts/build.mjs` is an allowlist, not a blocklist — a new public file has to be added by hand or it never ships. It was a blocklist once, and `lib/auth.mjs` was readable from outside.
+`npm run build` copies `index.html`, `assets/` and `admin/` into `dist/` and nothing else. The list in `scripts/build.mjs` is an allowlist, so a new public file has to be added there or it won't ship. It used to be a blocklist and `lib/auth.mjs` was readable from the outside.
 
-## 📖 Notes
+## Notes
 
-The old Darija manual — every design decision, the Telegram setup walkthrough, delivery prices per wilaya, the leads system, the trust check — was removed from the tree but is still in the history:
+The old Darija manual (design decisions, Telegram setup, per-wilaya prices, leads, trust check) isn't in the tree anymore, but it's in the history:
 
 ```bash
 git show e922fd4:README.ar.md > README.ar.md
 ```
 
-The server side carries the same reasoning inline: most files in `api/` and `lib/` open with a comment explaining why they are shaped the way they are. The browser JavaScript (`assets/js/`, `admin/js/`) is comment-free on purpose — every visitor downloads it.
+Most files in `api/` and `lib/` still start with a comment about why they're built the way they are. The browser JS (`assets/js/`, `admin/js/`) has no comments left in it, since every visitor downloads that.
