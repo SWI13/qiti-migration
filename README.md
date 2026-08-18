@@ -1,14 +1,30 @@
-# Qiti
+<div align="center">
 
-A GPS collar for cats, sold in Algeria.
+# 🐈 Qiti
 
-One page, written in Darija, right-to-left, with the order form sitting where the customer can reach it. She pays khlas — cash, in her hand, when the delivery guy knocks. No card, no account, no wallet. That is how things are bought here, so that is what the page does.
+**A GPS collar for cats, sold in Algeria.**
 
-It is a static page: no framework, no build step for the page itself, zero runtime dependencies. Loads fast on a slow connection, which matters more than any animation. A few small Vercel Functions in `api/` do the rest of the work.
+One page, in Darija, right-to-left. She pays khlas — cash in her hand, when the delivery guy knocks.
 
-Live: **https://qiti.vercel.app**
+[![live](https://img.shields.io/badge/live-qiti.vercel.app-FF6B2C?style=flat-square)](https://qiti.vercel.app)
+[![deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-000000?style=flat-square&logo=vercel)](https://vercel.com)
+![runtime dependencies](https://img.shields.io/badge/runtime%20deps-0-22C55E?style=flat-square)
+![no build step](https://img.shields.io/badge/build%20step-none-D65C74?style=flat-square)
+![checks](https://img.shields.io/badge/checks-118-C79A54?style=flat-square)
 
-## Run it
+<img src="docs/preview-hero.png" width="330" alt="The storefront: product photo, live tracking card, price"> <img src="docs/preview-order.png" width="330" alt="The order form, wearing cat ears and whiskers">
+
+</div>
+
+---
+
+## Why it is built this way
+
+No card, no account, no wallet — that is how things are bought here, so that is what the page does.
+
+It is static: no framework, no build step for the page itself, zero runtime dependencies. It loads fast on a slow connection, which sells more than any animation. A few small Vercel Functions in `api/` do the rest of the work.
+
+## 🚀 Run it
 
 ```bash
 npx vercel dev                          # page + functions + admin, same as production
@@ -17,7 +33,7 @@ npm run verify                          # 118 checks
 npm run build                           # writes dist/ — public files only
 ```
 
-## Deploy
+## ☁️ Deploy
 
 Vercel, because of the functions in `api/`. GitHub Pages cannot do it — it serves static files and nothing else.
 
@@ -27,7 +43,7 @@ npx vercel --prod
 
 Or connect the repo from the Vercel dashboard and let `vercel.json` talk: build command, output directory, rewrites, and the report crons are all in there.
 
-## What lives where
+## 📁 What lives where
 
 ```
 index.html          the storefront
@@ -36,11 +52,12 @@ admin/              dashboard: campaigns, products, media, live preview
 api/                Vercel Functions, one file per route
 lib/                shared code, never served to a visitor
 scripts/            build, shipping-rate injection, the verify suite
+docs/               screenshots for this page
 ```
 
 `npm run build` copies only `index.html`, `assets/`, and `admin/` into `dist/`. That list in `scripts/build.mjs` is an allowlist, not a blocklist — add a new public file there by hand or it never ships. It was a blocklist once, and `lib/auth.mjs` was readable from outside.
 
-## How a page gets built
+## 🧩 How a page gets built
 
 ```
 /toji-outfit → campaign → product → theme (~15 tokens) → sections[] → HTML
@@ -48,7 +65,7 @@ scripts/            build, shipping-rate injection, the verify suite
 
 Same renderer for every product. A new campaign is data, not a new page file. Eleven section types: hero, trust, features, how it works, lifestyle, gallery, testimonials, order form, FAQ, final CTA, footer.
 
-## Telegram
+## 🤖 Telegram
 
 Every order arrives as a message with accept and decline buttons. Accept cuts the stock and can fire a Meta CAPI purchase; decline puts it back. Commands only answer in the chat named by `TELEGRAM_CHAT_ID`:
 
@@ -58,25 +75,27 @@ Every order arrives as a message with accept and decline buttons. Accept cuts th
 | `/stock` | stock per product and per variant |
 | `/cost` | set product cost, ad cost per order, return loss — no redeploy |
 | `/leads` | people who started the form and walked away |
-| `/block`, `/unblock`, `/blocked` | phone blocklist |
+| `/block` · `/unblock` · `/blocked` | phone blocklist |
 | `/clear` | wipes every order — it asks twice before it does |
 
 `/help` lists the rest: creating a product or a category from a plain sentence, restocking, and so on. Reports go out on a cron, one at midnight and one every Monday.
 
-When the bot goes quiet, check the webhook before you read a single line of code: `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. Nine times out of ten that is the whole problem.
+> [!TIP]
+> When the bot goes quiet, check the webhook before you read a single line of code: `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. Nine times out of ten that is the whole problem.
 
-## Environment
+## 🔑 Environment
 
 Needed in Vercel: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`. Upstash Redis and Vercel Blob drop in their own tokens when you connect them.
 
 Optional: `SITE_URL`, Twilio (`TWILIO_*`) for customer SMS, Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Leave one out and that feature just stays asleep.
 
-The admin fails closed — without both `ADMIN_*` variables nobody gets in, not even you. Hash your password with:
+> [!WARNING]
+> The admin fails closed — without both `ADMIN_*` variables nobody gets in, not even you.
 
 ```bash
 node -e "console.log(require('node:crypto').createHash('sha256').update('yourpassword').digest('hex'))"
 ```
 
-## The long version
+## 📖 The long version
 
 Every design decision, the full Telegram walkthrough, delivery prices for the 58 wilayas, the leads system, the trust check — all of it is in **[README.ar.md](README.ar.md)**, in Darija, where it was written.
