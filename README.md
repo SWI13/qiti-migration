@@ -79,7 +79,26 @@ Numbers in those shots are fake, there's no live store in the environment I take
 
 ## Telegram
 
-Orders arrive as a message with accept and decline buttons. Accept cuts stock and can fire a Meta CAPI purchase, decline puts it back. Commands only work in the chat set as `TELEGRAM_CHAT_ID`.
+I don't sit in the admin all day. The bot is where the shop actually gets run from, and every order shows up like this:
+
+<img src="docs/telegram-order.png" width="420" alt="Order message with confirm, accept, decline and WhatsApp buttons">
+
+(That's the output of `lib/message.mjs` for a made-up order, rendered locally. Not a screenshot of a real chat.)
+
+Name, phone in international form so tapping it works, wilaya and commune, delivery method with its price, quantity, where the customer came from (`utm_*`, `fbclid`, `ttclid` picked up on the landing page), and the total. The WhatsApp button opens a chat with that number, no copy-paste.
+
+The buttons move the order through its states, and the message repaints itself after each tap, so the last version in the chat is always the current one:
+
+```
+pending ──[✅ accept]──► accepted ──[📦 delivered]──► delivered
+   │                        │
+   │                        └──────[↩️ returned]───► returned ──[📥 got it back]──► stock returns
+   └──[❌ decline]──► denied
+```
+
+Accepting cuts stock right away. If there isn't enough, the tap is refused and the order stays undecided instead of going through with stock it doesn't have. Declining leaves stock alone. A return records the loss immediately, because the money is gone the moment the courier turns around, but the stock only comes back when I tap that I physically got the item, which can be a week later.
+
+Commands only answer in the chat set as `TELEGRAM_CHAT_ID`.
 
 | Command | Does |
 |---|---|
@@ -92,7 +111,53 @@ Orders arrive as a message with accept and decline buttons. Accept cuts stock an
 
 `/help` has the rest.
 
+Reports come in on their own: one at midnight with the day, one on Monday with the week.
+
 If the bot goes quiet, check the webhook before reading any code. `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. That's been the problem nearly every time.
+
+## Site, bot and admin on the same data
+
+There's one store behind all three. `api/order` writes the order to Redis and then messages Telegram. A button tap goes to `api/telegram-webhook`, which updates that same record and repaints the message. The admin reads the same keys through `api/admin-api`. Nothing has its own copy, so nothing can disagree.
+
+Stock works the same way. It's one number per variant, and `/stock`, the low-stock card on the dashboard, the accept button's check, and `/restock` all read and write that one number. This wasn't true early on. There were two counters, an old global one and the per-variant one, and `/restock` was updating the wrong one while the dashboard read the other.
+
+Order totals get frozen at write time. The order stores its own `shippingFee`, and the cost snapshot is stored when the delivery outcome is recorded. Change a price or a cost tomorrow and last month's numbers stay what they were.
+
+## Why the page is light
+
+Built output, gzipped:
+
+| File | Raw | Gzipped |
+|---|---|---|
+| `index.html` | 17.3 KB | 4.7 KB |
+| `styles.css` | 39.1 KB | 7.9 KB |
+| `main.js` | 20.0 KB | 5.7 KB |
+
+About 18 KB over the wire for the whole page. No framework, no web font (system font, since a font request is half a second of invisible text on a bad connection), no analytics script, no cookie banner, nothing loaded from a CDN. The build strips comments out of the CSS and HTML, and the browser JS has none left in it. Images are the only heavy part, and they're the product.
+
+The shipping table is inlined into the static page at build time, so the page can price delivery without waiting for an API call.
+
+## Money
+
+Delivery prices are per wilaya in `lib/shipping-rates.mjs`, `{ home, desk }` keyed by the official wilaya number rather than the name, since the name gets typed three different ways and one wrong character silently falls back to the default rate. `desk: null` means that wilaya has no delivery office, and the form greys the option out. Both null means the courier doesn't go there at all, the wilaya is disabled in the form and the server rejects it. Anything missing from the table falls back to 600 home / 400 desk, on purpose: a missing rate should sell at the normal price, not break the order.
+
+What the customer pays:
+
+```
+total = unit price × quantity + shipping fee(wilaya, home|desk)
+```
+
+The shipping fee is not revenue. It passes through to the courier, so every calculation uses `goodsTotal = total − shippingFee`. Counting it as revenue inflates the number, and counting it as profit inflates it twice.
+
+Profit per order:
+
+```
+delivered:  goodsTotal − unitCost × qty − adsCost − courierCost
+returned:   − returnLoss
+anything else (pending, denied, still out): 0
+```
+
+The three costs come from `/cost` in Telegram, so I can change them without a deploy. Defaults are 1,500 for the product, 300 in ads per order, 700 for a return. `courierCost` defaults to 0 because on cash on delivery the customer pays the delivery, but it's there for when I eat that cost.
 
 ## Running it
 
