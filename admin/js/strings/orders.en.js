@@ -39,6 +39,7 @@ export var ORDERS_EN = {
   'orders.shipping': 'Shipping',
   'orders.shippingHome': 'Home delivery',
   'orders.shippingDesk': 'Desk pickup',
+  'orders.shippingFee': 'Delivery fee',
   'orders.quantity': 'Quantity',
   'orders.unitPrice': 'Unit price',
   'orders.total': 'Total',

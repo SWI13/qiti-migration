@@ -1091,6 +1091,61 @@ input:focus, select:focus {
 .ship input:checked + .ship__box .ship__price { color: var(--accent); }
 .ship input:focus-visible + .ship__box { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ولاية بلا مكتب DHD — الخيار يبقى يبان بصح ميّت. تحييدو كامل يخلّي
+   الزبون يقلّب على حاجة تحرّكت وين، ويخلّي الفورم يفقّز. */
+.ship--off { cursor: not-allowed; opacity: .5; }
+.ship--off .ship__box { border-style: dashed; }
+
+.ship-hint {
+  font-size: .8rem;
+  color: var(--text-faint);
+  margin: -4px 0 8px;
+}
+
+/* جدول التوصيل لكل ولاية — مطوي، يتحلّ كي الزبون يحوّس على ولايتو */
+.ship-rates {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+.ship-rates > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ship-rates > summary:hover { color: var(--accent); }
+.ship-rates__body {
+  max-height: 260px;   /* 58 ولاية ما تدفعش الفورم كامل تحت */
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.rate-table th, .rate-table td {
+  padding: 7px 14px;
+  text-align: start;
+  border-bottom: 1px solid var(--border);
+}
+.rate-table th {
+  position: sticky; top: 0;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.rate-table td { color: var(--text-muted); }
+.rate-table tr.is-on td {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .qty {
   display: inline-flex; align-items: center; gap: 0;
   border: 1.5px solid var(--border-strong);

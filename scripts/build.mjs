@@ -14,9 +14,10 @@
  * قائمة بيضا ماشي سودا: حاجة جديدة ما تتنشرش حتى تكتبها هنا بيدك.
  * العكس (نمنعو حاجة حاجة) ينسى واحدة نهار من النهارات.
  */
-import { cp, rm, mkdir } from 'node:fs/promises';
+import { cp, rm, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { injectShippingRates } from './inject-rates.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(repo, 'dist');
@@ -31,4 +32,14 @@ for (const entry of PUBLIC) {
   await cp(join(repo, entry), join(out, entry), { recursive: true });
 }
 
-console.log(`dist/ ready — ${PUBLIC.join(', ')}`);
+/*
+ * جدول التوصيل يتحقن في الصفحة الستاتيك.
+ *
+ * الصفحات المعروضة من الخادم تاخذ الجدول من renderer، بصح index.html
+ * ملف ثابت — بلا حقن، الصفحة تحسب بتسعيرة وحدة قديمة والزبون يشوف
+ * سومة غير سومة اللي يحسبها السيرفر.
+ */
+const indexPath = join(out, 'index.html');
+await writeFile(indexPath, injectShippingRates(await readFile(indexPath, 'utf8')));
+
+console.log(`dist/ ready — ${PUBLIC.join(', ')} (+ جدول التوصيل)`);

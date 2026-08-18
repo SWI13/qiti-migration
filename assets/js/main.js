@@ -265,6 +265,38 @@
   var PRODUCT_PRICE = PRICING.price;
   var SHIPPING = PRICING.shipping;
 
+  /*
+   * ── تسعيرة التوصيل حسب الولاية ────────────────────────────────────
+   *
+   * الجدول يجي من وسم JSON كتبو السيرفر (lib/shipping-rates.mjs):
+   * الصفحات المعروضة تكتبو مع الصفحة، والصفحة الستاتيك تاخذو محقون في
+   * scripts/build.mjs. ما نعاودوش نكتبو 58 ولاية هنا — نفس التحذير
+   * تاع WILAYAS تحت، وهذا الجدول يتبدّل أكثر منها بزاف.
+   *
+   * الوسم ناقص (صفحة قديمة) = نرجعو للتسعيرة الوحدة. الفورم يبقى
+   * خدّام بسومة معقولة بدل ما يوقف.
+   */
+  var RATES = (function () {
+    var fallback = { def: SHIPPING, byId: {}, table: null };
+    var el = document.getElementById('qiti-shipping-rates');
+    if (!el) return fallback;
+    try {
+      var parsed = JSON.parse(el.textContent);
+      var byId = {};
+      (parsed.table || []).forEach(function (row) { byId[row.id] = row; });
+      return { def: parsed['default'] || SHIPPING, byId: byId, table: parsed.table || null };
+    } catch (e) {
+      return fallback;   /* JSON مهرّس ما يوقّفش الفورم */
+    }
+  })();
+
+  /* desk = null معناها ما كاينش مكتب في هذي الولاية — نرجعو لسومة الدار */
+  function rateFee(rate, mode) {
+    if (!rate) return null;
+    if (mode === 'desk') return rate.desk == null ? rate.home : rate.desk;
+    return rate.home;
+  }
+
   /* الولايات — الصفحات الجديدة تعمّرهم في السيرفر، والقديمة هنا */
   var WILAYAS = [
     'أدرار', 'الشلف', 'الأغواط', 'أم البواقي', 'باتنة', 'بجاية', 'بسكرة', 'بشار',
@@ -286,6 +318,9 @@
         var opt = document.createElement('option');
         opt.value = name;
         opt.textContent = (i + 1) + ' - ' + name;
+        /* الرقم الرسمي — بيه نلقاو سطر التسعيرة بلا ما نقارنو أسماء
+           عربية حرف بحرف (صيغة وحدة تختلف = سومة غالطة) */
+        opt.dataset.id = i + 1;
         wilayaSelect.appendChild(opt);
       });
     }
@@ -294,12 +329,29 @@
     var qtyInput = document.getElementById('fQty');
     var qtyButtons = document.querySelectorAll('.qty__btn');
     var shipInputs = form.querySelectorAll('input[name="shipping"]');
+    var shipHint = document.getElementById('shipHint');
+    var ratesBox = document.getElementById('shipRates');
     var sumQty = document.getElementById('sumQty');
     var sumProduct = document.getElementById('sumProduct');
     var sumShip = document.getElementById('sumShip');
     var sumTotal = document.getElementById('sumTotal');
 
     function dz(n) { return n.toLocaleString('en-US') + ' دج'; }
+
+    /* رقم الولاية المختارة، ولا 0 إذا مازال ما اختارش */
+    function currentWilayaId() {
+      if (!wilayaSelect.value) return 0;
+      var opt = wilayaSelect.options[wilayaSelect.selectedIndex];
+      return parseInt((opt && opt.dataset.id) || wilayaSelect.selectedIndex, 10) || 0;
+    }
+
+    /* null = مازال ما اختار ولاية. السومة ما تتخمّنش — تبان "—" حتى
+       يختار، خير من رقم يتبدّل قدّامو من بعد. */
+    function currentRate() {
+      var id = currentWilayaId();
+      if (!id) return null;
+      return RATES.byId[id] || RATES.def;
+    }
 
     function currentShipping() {
       var checked = form.querySelector('input[name="shipping"]:checked');
@@ -337,21 +389,94 @@
       var qty = Math.max(1, Math.min(10, parseInt(qtyInput.value, 10) || 1));
       qtyInput.value = qty;
 
+      var rate = currentRate();
+
+      /* ولاية بلا مكتب DHD: نعميو الخيار قبل ما نقراو الاختيار، وإلا
+         نحسبو بسومة مكتب ما كاينش. السيرفر يدير نفس الحاجة في
+         api/order.mjs — الصفحة ما تتحكمش وحدها في الفلوس. */
+      var deskInput = form.querySelector('input[name="shipping"][value="desk"]');
+      if (deskInput) {
+        var deskOff = Boolean(rate) && rate.desk == null;
+        deskInput.disabled = deskOff;
+        var deskLabel = deskInput.closest('.ship');
+        if (deskLabel) deskLabel.classList.toggle('ship--off', deskOff);
+        if (deskOff && deskInput.checked) {
+          var homeInput = form.querySelector('input[name="shipping"][value="home"]');
+          if (homeInput) homeInput.checked = true;
+        }
+      }
+
       var shipKey = currentShipping();
-      var shipCost = SHIPPING[shipKey];
+      var shipCost = rateFee(rate, shipKey);
       var variant = currentVariant();
       var unitPrice = Math.max(0, PRODUCT_PRICE + ((variant && variant.priceDelta) || 0));
       var productCost = unitPrice * qty;
 
       sumQty.textContent = '×' + qty;
       sumProduct.textContent = dz(productCost);
-      sumShip.textContent = dz(shipCost);
-      sumTotal.textContent = dz(productCost + shipCost);
+      sumShip.textContent = shipCost === null ? '—' : dz(shipCost);
+      sumTotal.textContent = dz(productCost + (shipCost || 0));
       /* نخبّيوها باش الـ lead يعرف واش كان في السلّة كي حبس */
-      cartTotal = productCost + shipCost;
+      cartTotal = productCost + (shipCost || 0);
+
+      if (shipHint) shipHint.hidden = Boolean(rate);
 
       form.querySelectorAll('.ship__price').forEach(function (el) {
-        el.textContent = dz(SHIPPING[el.dataset.price]);
+        var mode = el.dataset.price;
+        if (!rate) { el.textContent = '—'; return; }
+        if (mode === 'desk' && rate.desk == null) { el.textContent = 'ما كاينش'; return; }
+        el.textContent = dz(rateFee(rate, mode));
+      });
+
+      highlightRate(currentWilayaId());
+    }
+
+    /*
+     * جدول التوصيل لكل ولاية — الزبون يشوف سومتو قبل ما يعمّر حتى حقل،
+     * وهذا سؤال رقم واحد في الرسائل. يتبنى في المتصفّح من نفس وسم
+     * JSON: 58 سطر مكتوبين في كل صفحة معروضة وزن بلا فايدة، وأغلب
+     * الناس ما يحلّوش الجدول أصلاً.
+     */
+    (function buildRateTable() {
+      if (!ratesBox || !RATES.table) return;
+      var body = ratesBox.querySelector('.ship-rates__body');
+      if (!body) return;
+
+      var table = document.createElement('table');
+      table.className = 'rate-table';
+
+      var head = document.createElement('tr');
+      ['الولاية', 'للدار', 'للمكتب'].forEach(function (label) {
+        var th = document.createElement('th');
+        th.textContent = label;
+        head.appendChild(th);
+      });
+      table.appendChild(head);
+
+      RATES.table.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.setAttribute('data-wilaya', row.id);
+        [
+          row.id + ' - ' + row.name,
+          dz(row.home),
+          row.desk == null ? 'ما كاينش' : dz(row.desk)
+        ].forEach(function (text) {
+          var td = document.createElement('td');
+          td.textContent = text;   /* ماشي innerHTML — نص يدخل في DOM بلا تفسير */
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+
+      body.appendChild(table);
+      ratesBox.hidden = false;
+    })();
+
+    /* سطر الولاية المختارة يتنوّر — الجدول طويل، بلا هذا لازم تقلّب فيه */
+    function highlightRate(id) {
+      if (!ratesBox) return;
+      ratesBox.querySelectorAll('tr[data-wilaya]').forEach(function (tr) {
+        tr.classList.toggle('is-on', Number(tr.getAttribute('data-wilaya')) === id);
       });
     }
 
@@ -364,6 +489,8 @@
       });
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
+    /* تبديل الولاية يبدّل سومة التوصيل — هذا هو بيت القصيد كامل */
+    wilayaSelect.addEventListener('change', updateSummary);
     /* تبديل المقاس/اللون يقدر يبدّل السومة (priceDelta) */
     form.querySelectorAll('input[data-option]').forEach(function (el) {
       el.addEventListener('change', updateSummary);

@@ -17,13 +17,14 @@
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
 import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
-import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith, SHIPPING } from '../lib/message.mjs';
+import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith } from '../lib/message.mjs';
 import { convertLead, sweepLeads } from '../lib/leads.mjs';
 import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
+import { shippingFee, deskAvailable } from '../lib/shipping-rates.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -39,7 +40,10 @@ function validate(order) {
   const phone = String(order.phone ?? '').replace(/\D/g, '');
   const wilaya = String(order.wilaya ?? '').trim();
   const commune = String(order.commune ?? '').trim();
-  const shipping = order.shipping === 'desk' ? 'desk' : 'home';
+  /* ولاية بلا مكتب DHD: الطلب يولّي للدار. الفورم يعمي الخيار، بصح
+     الطلب يقدر يجي من صفحة قديمة ولا من سكريبت — والوعد بمكتب ما
+     كاينش أسوأ من تبديل صامت للدار. */
+  const shipping = order.shipping === 'desk' && deskAvailable(wilaya) ? 'desk' : 'home';
   const qty = Math.max(1, Math.min(10, parseInt(order.qty, 10) || 1));
 
   if (name.length < 3 || name.length > 80) return { error: 'الاسم ماشي صحيح.' };
@@ -209,7 +213,7 @@ async function handler(request) {
        والمداخيل/الربح لازمهم السلعة وحدها. تخزينها هنا يخلّي الحساب
        صحيح حتى لو بدّلنا تسعيرة التوصيل من بعد — الطلبات القديمة تبقى
        بسومتها هي، ما تتعاودش تتحسب بتسعيرة اليوم. */
-    shippingFee: SHIPPING[order.shipping] ?? 0,
+    shippingFee: shippingFee(order.wilaya, order.shipping),
     /* منين جا الزبون — يبان في الرسالة ويتجمّع في التقارير حسب القناة */
     attribution,
     channel: channelKey(attribution),

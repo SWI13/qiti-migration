@@ -271,6 +271,7 @@
 
           <div class="field field--full">
             <span class="label">نوع التوصيل</span>
+            <p class="ship-hint" id="shipHint">اختر ولايتك باش تبان سومة التوصيل.</p>
             <div class="ship-opts">
               <label class="ship">
                 <input type="radio" name="shipping" value="home" checked>
@@ -300,6 +301,13 @@
             </div>
           </div>
         </div>
+
+        <!-- جدول التوصيل لكل ولاية — يتعمّر في main.js من وسم
+             qiti-shipping-rates (يتحقن في scripts/build.mjs) -->
+        <details class="ship-rates" id="shipRates" hidden>
+          <summary>سومة التوصيل لكل ولاية</summary>
+          <div class="ship-rates__body"></div>
+        </details>
 
         <div class="summary" aria-live="polite">
           <div class="summary__row"><span>المنتج <em id="sumQty">×1</em></span><b id="sumProduct">3900 دج</b></div>

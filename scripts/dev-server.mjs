@@ -14,6 +14,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { injectShippingRates } from './inject-rates.mjs';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,7 +50,11 @@ const server = createServer(async (req, res) => {
     }
     if (!info) { res.writeHead(404); res.end('Not found'); return; }
 
-    const body = await readFile(full);
+    /* نفس الحقن اللي في scripts/build.mjs — بلاه، التجريب المحلّي
+       يعرض تسعيرة توصيل غير اللي يعرضها الموقع المنشور */
+    const body = full.endsWith('index.html')
+      ? injectShippingRates(await readFile(full, 'utf8'))
+      : await readFile(full);
     res.writeHead(200, { 'content-type': TYPES[extname(full)] ?? 'application/octet-stream' });
     res.end(body);
   } catch (error) {

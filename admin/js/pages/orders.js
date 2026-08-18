@@ -269,6 +269,7 @@ function orderDetail(order) {
       row(t('orders.phone'), esc(order.phone)) +
       row(t('orders.location'), esc(order.wilaya) + (order.commune ? ', ' + esc(order.commune) : '')) +
       row(t('orders.shipping'), esc(order.shipping === 'desk' ? t('orders.shippingDesk') : t('orders.shippingHome'))) +
+      row(t('orders.shippingFee'), order.shippingFee == null ? '' : esc(fmtMoney(order.shippingFee))) +
     '</dl>';
 
   var decisionDl =
