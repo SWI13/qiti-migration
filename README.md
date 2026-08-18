@@ -202,5 +202,5 @@ Most files in `api/` and `lib/` open with a comment about why they're built that
 The old long manual isn't in the tree anymore but it's still in the history:
 
 ```bash
-git show e922fd4:README.ar.md > README.ar.md
+git show 4580c7c:README.ar.md > README.ar.md
 ```
