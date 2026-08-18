@@ -21,6 +21,7 @@
  */
 import { resolveRoute, getCampaign, getProduct, getCategory, listProducts, listStockFor } from '../lib/catalog.mjs';
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
+import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { esc, escAttr, dz } from '../lib/render/html.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -129,6 +130,22 @@ async function handler(request) {
   return notFound();
 }
 
+/*
+ * منتجات الباقات والعرض الإضافي — نجيبوهم مرّة وحدة قبل العرض، باش
+ * القسم يكتب أسماءهم وسومهم. حملة بلا عروض ما تديرش حتى رحلة للتخزين.
+ */
+async function loadOfferProducts(campaign) {
+  const ids = offerProductIds(campaign);
+  if (!ids.length) return {};
+
+  const entries = await Promise.all(ids.map(async (id) => {
+    const product = await getProduct(id).catch(() => null);
+    return product ? [id, product] : null;
+  }));
+
+  return Object.fromEntries(entries.filter(Boolean));
+}
+
 async function renderCampaign(id, origin) {
   const campaign = await getCampaign(id);
   if (!campaign) return notFound();
@@ -141,7 +158,10 @@ async function renderCampaign(id, origin) {
   /* المخزون الحقيقي — الشارة "باقي 4" تبان غير كي يهبط فعلاً. فشل
      الجلب ما يوقّفش الصفحة: تتعرض بلا شارة. */
   const stock = product ? await listStockFor(product).catch(() => []) : [];
-  const content = renderSections(campaign, product, { stock });
+  const content = renderSections(campaign, product, {
+    stock,
+    offerProducts: await loadOfferProducts(campaign),
+  });
 
   return html(
     renderPage({

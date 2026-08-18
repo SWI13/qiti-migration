@@ -62,6 +62,42 @@ function kpiGrid(summary) {
   '</div>';
 }
 
+function offersCard(summary) {
+  var o = (summary.kpis || {}).offers;
+  if (!o || (!o.bundleOrders && !o.upsellOffers)) return '';
+
+  var rows = [];
+  if (o.bundleOrders) {
+    rows.push({
+      name: t('dashboard.bundleOrders'),
+      meta: t('dashboard.bundleUnits', { units: o.bundleUnits }),
+      amount: fmtMoney(o.bundleRevenue),
+    });
+  }
+  if (o.upsellOffers) {
+    rows.push({
+      name: t('dashboard.upsellConversion'),
+      meta: t('dashboard.upsellAccepted', { accepted: o.upsellAccepted, offers: o.upsellOffers }),
+      amount: o.upsellRate == null ? '—' : fmtPct(o.upsellRate),
+    });
+    rows.push({
+      name: t('dashboard.upsellRevenue'),
+      meta: t('dashboard.upsellPerOrder', { amount: fmtMoney(o.upsellPerOrder) }),
+      amount: fmtMoney(o.upsellRevenue),
+    });
+  }
+
+  var html = rows.map(function (row) {
+    return '<div class="row-item row-item--order">' +
+      '<div><div class="row-item__name">' + esc(row.name) + '</div>' +
+      '<div class="row-item__meta">' + esc(row.meta) + '</div></div>' +
+      '<div class="row-item__amount">' + esc(row.amount) + '</div>' +
+    '</div>';
+  }).join('');
+
+  return rowListCard(t('dashboard.offersTitle'), html);
+}
+
 function chartCard(title, chartHtml) {
   return '<div class="admin-card chart-card">' +
     '<div class="chart-card__head"><h3>' + esc(title) + '</h3></div>' +
@@ -184,6 +220,7 @@ export function renderDashboard() {
       '<div class="dash-grid" style="margin-top:14px">' + revenueChartCard(summary) + ordersChartCard(summary) + '</div>' +
       '<div class="dash-grid" style="margin-top:14px">' + categoryChartCard(summary) + topProductsCard(summary) + '</div>' +
       '<div class="dash-grid" style="margin-top:14px">' + campaignsCard(summary) + lowStockCard(summary) + '</div>' +
+      (offersCard(summary) ? '<div style="margin-top:14px">' + offersCard(summary) + '</div>' : '') +
       '<div style="margin-top:14px">' + recentOrdersCard(summary) + '</div>';
   }
 

@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { esc, toast } from '../dom.js';
 import { fmtMoney, fmtDateTime } from '../format.js';
 import { t } from '../i18n.js';
-import { SECTION_FIELDS, SECTION_LABELS, FONTS, RADII } from '../section-fields.js';
+import { SECTION_FIELDS, SECTION_LABELS, FONTS, RADII, BUNDLE_FIELDS, UPSELL_FIELDS } from '../section-fields.js';
 import { shell } from '../ui/shell.js';
 import { fieldHtml } from '../ui/field-html.js';
 import { stateBlock } from '../ui/state-block.js';
@@ -199,7 +199,7 @@ function bindThemeContrast() {
   form.addEventListener('change', refresh);
 }
 
-var STEP_KEYS = ['details', 'design', 'content', 'review'];
+var STEP_KEYS = ['details', 'design', 'content', 'offers', 'review'];
 
 var currentStep = STEP_KEYS[0];
 var lastSeenDraft = null;
@@ -412,10 +412,50 @@ function reviewPanel(draft, errors) {
     '</div>';
 }
 
+function offersPanel(draft) {
+  var bundles = draft.bundles || { enabled: false, items: [] };
+  var upsell = draft.upsell || { enabled: false };
+
+  var bundleList = (bundles.items || []).map(function (bundle, index) {
+    var path = 'bundles.items.' + index;
+    return '<div class="section-block">' +
+      '<div class="section-block__head">' +
+        '<b>' + esc(bundle.name || t('campaigns.bundleUntitled')) + '</b>' +
+        '<button type="button" class="mini-btn" data-act="move" data-path="bundles.items" data-index="' + index + '" data-dir="-1">↑</button>' +
+        '<button type="button" class="mini-btn" data-act="move" data-path="bundles.items" data-index="' + index + '" data-dir="1">↓</button>' +
+        '<button type="button" class="mini-btn mini-btn--danger" data-act="del-item" data-path="' + path + '">✕</button>' +
+      '</div>' +
+      '<div class="form-grid">' +
+        BUNDLE_FIELDS.map(function (def) {
+          return fieldHtml(def, bundle[def.key], path + '.' + def.key);
+        }).join('') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return '<div class="admin-card"><h3>' + esc(t('campaigns.bundlesTitle')) + '</h3>' +
+      '<div class="hint">' + esc(t('campaigns.bundlesHint')) + '</div>' +
+      fieldHtml({ key: 'enabled', label: t('campaigns.bundlesEnable'), type: 'bool' }, bundles.enabled, 'bundles.enabled') +
+      bundleList +
+      '<button type="button" class="btn btn--outline btn--xs" data-act="add-item" data-path="bundles.items">' +
+        esc(t('campaigns.bundleAdd')) + '</button>' +
+    '</div>' +
+    '<div class="admin-card"><h3>' + esc(t('campaigns.upsellTitle')) + '</h3>' +
+      '<div class="hint">' + esc(t('campaigns.upsellHint')) + '</div>' +
+      fieldHtml({ key: 'enabled', label: t('campaigns.upsellEnable'), type: 'bool' }, upsell.enabled, 'upsell.enabled') +
+      '<div class="form-grid">' +
+        UPSELL_FIELDS.map(function (def) {
+          return fieldHtml(def, upsell[def.key], 'upsell.' + def.key);
+        }).join('') +
+      '</div>' +
+    '</div>';
+}
+
 function stepPanel(key, draft, errors) {
   if (key === 'details') return detailsPanel(draft);
   if (key === 'design') return themeBlock(draft.theme || {});
   if (key === 'content') return contentPanel(draft);
+  if (key === 'offers') return offersPanel(draft);
   return reviewPanel(draft, errors);
 }
 

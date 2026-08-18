@@ -1,6 +1,7 @@
 import { esc } from '../dom.js';
 import { t } from '../i18n.js';
 import { ICONS } from '../section-fields.js';
+import { state } from '../state.js';
 
 export function fieldHtml(def, value, path) {
   var id = 'f_' + path.replace(/\./g, '_');
@@ -49,6 +50,33 @@ export function fieldHtml(def, value, path) {
         def.options.map(function (option) {
           return '<option dir="auto" value="' + esc(option.value) + '"' +
             (String(value) === String(option.value) ? ' selected' : '') + '>' + esc(option.label) + '</option>';
+        }).join('') +
+      '</select>' + hint + '</div>';
+  }
+
+  if (def.type === 'item') {
+    var refs = [];
+    (state.products || []).forEach(function (product) {
+      var variants = product.variants && product.variants.length
+        ? product.variants
+        : [{ sku: 'default', options: {} }];
+      variants.forEach(function (variant) {
+        var names = Object.keys(variant.options || {}).map(function (key) {
+          return variant.options[key];
+        });
+        refs.push({
+          value: product.id + ':' + variant.sku,
+          label: product.name + (names.length ? ' — ' + names.join(' / ') : ''),
+        });
+      });
+    });
+
+    return '<div class="field">' + label +
+      '<select id="' + id + '" data-path="' + esc(path) + '">' +
+        '<option value="">' + esc(t('common.none')) + '</option>' +
+        refs.map(function (ref) {
+          return '<option dir="auto" value="' + esc(ref.value) + '"' +
+            (String(value) === ref.value ? ' selected' : '') + '>' + esc(ref.label) + '</option>';
         }).join('') +
       '</select>' + hint + '</div>';
   }

@@ -246,9 +246,26 @@ function orderDetail(order) {
       (order.returnReceivedAt ? row(t('orders.returnReceivedAt'), esc(fmtDateTime(order.returnReceivedAt)) + (order.returnReceivedActor ? ' · ' + esc(order.returnReceivedActor) : '')) : '') +
     '</dl>';
 
+  var lines = Array.isArray(order.lines) ? order.lines : [];
+  var bundleRows = lines.filter(function (line) { return line.kind === 'bundle'; }).map(function (line) {
+    var items = (line.items || []).map(function (item) {
+      return esc((item.name || item.productId) + ' ×' + (item.qty * (line.qty || 1)));
+    }).join('<br>');
+    return row(t('orders.bundle'),
+      '<b>' + esc((line.name || '') + ' ×' + (line.qty || 1)) + '</b> — ' + esc(fmtMoney(line.lineTotal || 0)) +
+      (items ? '<div class="row-item__meta">' + items + '</div>' : ''));
+  }).join('');
+
+  var upsell = lines.filter(function (line) { return line.kind === 'upsell'; })[0];
+  var upsellRow = upsell
+    ? row(t('orders.upsell'), esc((upsell.name || '') + ' ×' + (upsell.qty || 1)) + ' — ' + esc(fmtMoney(upsell.lineTotal || 0)))
+    : '';
+
   var productDl =
     '<dl>' +
-      row(t('orders.product'), esc((product && product.name) || order.productId || '—') + (variantLabel ? ' — ' + esc(variantLabel) : '')) +
+      (bundleRows ? '' : row(t('orders.product'), esc((product && product.name) || order.productId || '—') + (variantLabel ? ' — ' + esc(variantLabel) : ''))) +
+      bundleRows +
+      upsellRow +
       row(t('orders.quantity'), Number(order.qty || 1)) +
       row(t('orders.unitPrice'), order.unitPrice != null ? esc(fmtMoney(order.unitPrice)) : '') +
       row(t('orders.total'), esc(fmtMoney(order.total))) +

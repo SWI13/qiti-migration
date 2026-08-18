@@ -22,6 +22,7 @@ import { listMedia, deleteMedia } from '../lib/media.mjs';
 import { listOrders, listPendingOrders } from '../lib/store.mjs';
 import { listLeads } from '../lib/leads.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
+import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { dashboardSummary } from '../lib/analytics.mjs';
 import { toVercel } from '../lib/http.mjs';

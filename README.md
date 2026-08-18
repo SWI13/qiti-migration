@@ -38,6 +38,8 @@ Sections: `hero`, `trust`, `features`, `how`, `lifestyle`, `gallery`, `reviews`,
 
 Themes are about fifteen tokens: colors, radius, font. I let campaigns write their own CSS at first and after four of them it was four stylesheets nobody wanted to touch.
 
+A campaign can also carry bundles and one upsell. A bundle is a few products with quantities and its own price, shown next to the single item so the customer picks one or the other. The upsell is offered after the order is placed: one tap adds it, no second form. Both are set up in the campaign editor, both deduct real stock per item when you accept the order, and a campaign that doesn't use them renders exactly as it did before.
+
 ## API
 
 One file per route in `api/`, no router.
@@ -130,10 +132,10 @@ Built output, gzipped:
 | File | Raw | Gzipped |
 |---|---|---|
 | `index.html` | 17.3 KB | 4.7 KB |
-| `styles.css` | 39.1 KB | 7.9 KB |
-| `main.js` | 20.0 KB | 5.7 KB |
+| `styles.css` | 41.3 KB | 8.2 KB |
+| `main.js` | 22.4 KB | 6.2 KB |
 
-About 18 KB over the wire for the whole page. No framework, no web font (system font, since a font request is half a second of invisible text on a bad connection), no analytics script, no cookie banner, nothing loaded from a CDN. The build strips comments out of the CSS and HTML, and the browser JS has none left in it. Images are the only heavy part, and they're the product.
+About 19 KB over the wire for the whole page. No framework, no web font (system font, since a font request is half a second of invisible text on a bad connection), no analytics script, no cookie banner, nothing loaded from a CDN. The build strips comments out of the CSS and HTML, and the browser JS has none left in it. Images are the only heavy part, and they're the product.
 
 The shipping table is inlined into the static page at build time, so the page can price delivery without waiting for an API call.
 
@@ -164,7 +166,7 @@ The three costs come from `/cost` in Telegram, so I can change them without a de
 ```bash
 npx vercel dev                          # pages + API + admin, like production
 PORT=8888 node scripts/dev-server.mjs   # files only, fastest when I'm in the admin
-npm run verify                          # 118 checks
+npm run verify                          # 253 checks
 npm run build                           # writes dist/
 npx vercel --prod                       # deploy
 ```

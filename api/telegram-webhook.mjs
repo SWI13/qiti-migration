@@ -49,7 +49,7 @@
 import {
   getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
-  getStockForOrder, adjustStockForOrder, markLowStockAlertedForOrder,
+  getStockForOrder, adjustStockForOrder, markLowStockAlertedForOrder, stockCheckForOrder,
   listOrders, listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
@@ -64,6 +64,7 @@ import { parseProductIntent } from '../lib/product-intent.mjs';
    كانو يخرجو من زوج نسخ من نفس المنطق (شوف lib/stock-view.mjs) */
 import { stockTargets, stockLines } from '../lib/stock-view.mjs';
 import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf, toE164Dz, dzTime } from '../lib/message.mjs';
+import { stockRefsForOrder } from '../lib/store.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
@@ -377,12 +378,21 @@ async function handleCallback(query) {
   }
 
   if (action === 'ok') {
-    /* ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو */
+    /*
+     * ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو.
+     *
+     * الطلب اللي فيه باقة يحتاج **كل** عناصرها: باقة فيها طوق ×2 وغطاء
+     * ×1 ما تتقبّلش إذا الغطاء خلص، حتى لو الطوق عندك بزّاف. الفحص
+     * يمرّ على كل السطور ويسمّي اللي ناقص.
+     */
     if (order) {
-      const needed = order.qty ?? 1;
-      const stockBefore = await getStockForOrder(order).catch(() => null);
-      if (stockBefore && stockBefore.qty < needed) {
-        return answer(`🚫 المخزون غير كافٍ — المتبقّي ${stockBefore.qty}، والطلب يحتاج ${needed}. أضف كمية بـ /restock.`);
+      const check = await stockCheckForOrder(order).catch(() => null);
+      if (check?.shortages?.length) {
+        const rows = await Promise.all(check.shortages.map(async (row) => {
+          const item = row.productId ? await getProduct(row.productId).catch(() => null) : null;
+          return `• ${esc(item?.name ?? 'المنتج')} — المتبقّي ${row.qty}، والطلب يحتاج ${row.needed}`;
+        }));
+        return answer(`🚫 المخزون غير كافٍ:\n${rows.join('\n')}\nأضف كمية بـ /restock.`);
       }
     }
 
@@ -396,7 +406,7 @@ async function handleCallback(query) {
       const record = updated ?? { ...order, messageId: message.message_id };
       await repaintOrder(message.chat.id, record);
 
-      const stock = await adjustStockForOrder(record, -(record.qty ?? 0)).catch((error) => {
+      const stock = await adjustStockForOrder(record, -1).catch((error) => {
         console.error('Stock decrement failed:', error.message, '| order:', orderId);
         return null;
       });
@@ -420,9 +430,23 @@ async function handleCallback(query) {
       const costs = await getCosts().catch(() => null);
       const product = order?.productId ? await getProduct(order.productId).catch(() => null) : null;
 
+      /*
+       * تكلفة السلعة تتحسب على كل اللي في الطلب: المنتج، عناصر الباقة
+       * وحدة بوحدة، والعرض الإضافي. نجيبو منتجاتهم مرّة وحدة هنا باش
+       * اللقطة تكون كاملة — من بعد ما نقدروش نعرفو تكلفة كانت شحال.
+       */
+      const costById = new Map();
+      if (product) costById.set(product.id, product.unitCost);
+      for (const ref of stockRefsForOrder(order ?? {})) {
+        if (costById.has(ref.productId)) continue;
+        const item = await getProduct(ref.productId).catch(() => null);
+        costById.set(ref.productId, item?.unitCost ?? null);
+      }
+      const unitCostOf = (id) => costById.get(id) ?? null;
+
       const updated = await updateOrder(orderId, {
         deliveryStatus, deliveryActor: who, deliveryDecidedAt: new Date().toISOString(),
-        ...(costs ? { costSnapshot: costSnapshotOf(costs, product) } : {}),
+        ...(costs ? { costSnapshot: costSnapshotOf(costs, product, { order, unitCostOf }) } : {}),
       });
       if (!updated) return answer('الطلب غير موجود.');
 
@@ -459,7 +483,7 @@ async function handleCallback(query) {
       await repaintOrder(message.chat.id, updated);
 
       /* دروك فعلاً بين يديك — تزيد للمخزون */
-      await adjustStockForOrder(updated, updated.qty ?? 0).catch((error) =>
+      await adjustStockForOrder(updated, 1).catch((error) =>
         console.error('Restock after receiving return failed:', error.message, '| order:', orderId));
     } catch (error) {
       console.error('Return-receipt update failed:', error.message, '| order:', orderId);

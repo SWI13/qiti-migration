@@ -37,6 +37,8 @@ export var ORDERS_EN = {
   'orders.quantity': 'Quantity',
   'orders.unitPrice': 'Unit price',
   'orders.total': 'Total',
+  'orders.bundle': 'Bundle',
+  'orders.upsell': 'Upsell',
   'orders.product': 'Product',
   'orders.channel': 'Channel',
   'orders.placedAt': 'Placed',

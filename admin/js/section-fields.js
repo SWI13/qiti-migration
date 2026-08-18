@@ -48,6 +48,33 @@ export var list = function (key, label, fields, hint) {
   return { key: key, label: label, type: 'list', fields: fields, hint: hint };
 };
 export var readout = function (key, label, hint) { return { key: key, label: label, type: 'readout', hint: hint }; };
+export var item = function (key, label, hint) { return { key: key, label: label, type: 'item', hint: hint }; };
+
+export var BUNDLE_FIELDS = [
+  field('name', 'Bundle name'),
+  area('description', 'Description'),
+  img('image', 'Bundle image'),
+  num('price', 'Bundle price'),
+  num('compareAt', 'Compare-at price', 'Leave empty and the items are added up for you'),
+  bool('active', 'Active'),
+  list('items', 'Items in the bundle', [
+    item('ref', 'Product'),
+    num('qty', 'Quantity'),
+  ], 'Each item is deducted from stock when the order is accepted'),
+];
+
+export var UPSELL_FIELDS = [
+  item('ref', 'Product'),
+  field('title', 'Offer title'),
+  area('description', 'Description'),
+  img('image', 'Image'),
+  num('price', 'Offer price'),
+  num('compareAt', 'Compare-at price'),
+  { key: 'trigger', label: 'When it shows', type: 'select', options: [
+    { value: 'after-order', label: 'Right after the order is placed (one tap)' },
+    { value: 'before-submit', label: 'Above the confirm button' },
+  ] },
+];
 
 export var SECTION_FIELDS = {
   hero: [

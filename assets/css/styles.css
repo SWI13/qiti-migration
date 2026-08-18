@@ -1076,6 +1076,57 @@ body {
   * { transition: none !important; animation: none !important; }
 }
 
+/* ── 23. العروض: الباقات والعرض الإضافي ───────────────────────────────
+   الزبونة تختار من التيليفون بإصبعها: كل عرض بلاطة كبيرة، السومة
+   على اليسار، وواش فيها تحت الاسم. الاختيار المعلّم يتلوّن بالبرتقالي
+   كيما مختارات التوصيل — نفس اللغة البصرية، ما نخترعوش وحدة جديدة.
+   ────────────────────────────────────────────────────────────────────── */
+.offers { display: grid; gap: 8px; }
+.offer { position: relative; display: block; }
+.offer input { position: absolute; opacity: 0; width: 0; height: 0; }
+.offer__box {
+  display: flex; align-items: center; gap: 10px;
+  border: 1.5px solid var(--border-strong); border-radius: 16px;
+  padding: 12px; background: var(--surface);
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+.offer__img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; flex: none; }
+.offer__main { display: grid; gap: 2px; min-width: 0; }
+.offer__name { font-size: .95rem; }
+.offer__note { color: var(--text-faint); font-size: .76rem; }
+.offer__note--off { color: var(--danger); }
+.offer__items { color: var(--text-muted); font-size: .78rem; }
+.offer__price { margin-inline-start: auto; text-align: end; display: grid; gap: 2px; }
+.offer__price b { font-size: 1rem; }
+.offer__old { color: var(--text-faint); font-size: .78rem; }
+.offer__save {
+  background: var(--rose-soft); color: var(--rose);
+  border-radius: var(--r-full); padding: 1px 8px; font-size: .72rem; font-weight: 700;
+}
+.offer input:checked + .offer__box {
+  border-color: var(--accent);
+  background: linear-gradient(160deg, var(--accent-soft), var(--blush-50));
+}
+.offer input:focus-visible + .offer__box { outline: 3px solid var(--accent); outline-offset: 2px; }
+.offer--off { opacity: .5; }
+.offer--off .offer__box { border-style: dashed; }
+
+/* العرض الإضافي: يبان بعد ما يتسجّل الطلب، في نفس بلاصة النجاح */
+.upsell {
+  display: grid; gap: 10px; justify-items: stretch; text-align: start;
+  width: 100%; margin-top: 6px; padding: 14px;
+  border: 1.5px dashed var(--accent); border-radius: 18px;
+  background: var(--accent-soft);
+}
+.upsell[hidden] { display: none; }
+.upsell__img { width: 100%; max-height: 160px; object-fit: cover; border-radius: 12px; }
+.upsell__txt { display: grid; gap: 4px; }
+.upsell__title { font-size: 1rem; }
+.upsell__note { color: var(--text-muted); font-size: .86rem; }
+.upsell__price b { font-size: 1.15rem; color: var(--accent); }
+.upsell__old { color: var(--text-faint); font-size: .85rem; margin-inline-start: 6px; }
+.upsell__done { color: var(--success); font-size: .88rem; font-weight: 700; }
+
 /*
  * الوضع الليلي تاع المتجر.
  *

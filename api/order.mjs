@@ -16,10 +16,13 @@
  *   ⚠️ حساب Twilio Trial يبعث غير للأرقام المتحقّق منها — أرقام الزبائن
  *      ما تخدمش حتى ترقّي الحساب لـ paid.
  */
-import { newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry } from '../lib/store.mjs';
-import { ownerMessage, orderButtons, toE164Dz, totalFor, totalWith } from '../lib/message.mjs';
+import {
+  newOrderId, saveOrder, updateOrder, algiersDate, listOrdersByPhone, getBlockEntry, getOrder,
+} from '../lib/store.mjs';
+import { ownerMessage, orderButtons, buttonsFor, toE164Dz, totalFor, totalWith } from '../lib/message.mjs';
 import { convertLead, sweepLeads } from '../lib/leads.mjs';
-import { getProduct, matchVariant, variantPrice } from '../lib/catalog.mjs';
+import { getProduct, getCampaign, matchVariant, variantPrice, SIMPLE_SKU } from '../lib/catalog.mjs';
+import { findBundle, upsellOf, linesTotal } from '../lib/offers.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
@@ -33,6 +36,63 @@ const json = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json; charset=utf-8' },
 });
+
+/*
+ * سطور الطلب — واش تباع بالضبط.
+ *
+ * ⚠️ السومة تتحسب هنا من الحملة والمنتجات المخزّنة. المتصفّح يبعث
+ * `bundleId` برك: أي رقم جاي منّو يتجاهل. نفس القاعدة تاع productId.
+ *
+ * الباقة تعوّض سطر المنتج (الزبون يختار: وحدة ولا باقة)، والعرض الإضافي
+ * يتزاد كسطر ثالث كي يقبلو. الشكل عام — طلب فيه الثلاثة مع بعض يتخزّن
+ * ويتقرا بلا تبديل، حتى لو الفورم الحالي ما يبيعش هكذا.
+ */
+async function bundleLineFor(campaign, bundleId, qty) {
+  const bundle = findBundle(campaign, bundleId);
+  if (!bundle) return null;
+
+  /* أسماء العناصر لقطة وقت الطلب: تبديل اسم منتج غداً ما يبدّلش واش
+     كان مكتوب في الطلبية اللي شدّيتها بيدك. */
+  const items = [];
+  for (const item of bundle.items) {
+    const product = await getProduct(item.productId).catch(() => null);
+    items.push({
+      productId: item.productId,
+      sku: item.sku ?? SIMPLE_SKU,
+      name: product?.name ?? null,
+      qty: item.qty,
+    });
+  }
+
+  return {
+    kind: 'bundle',
+    bundleId: bundle.id,
+    productId: null,
+    sku: null,
+    name: bundle.name,
+    qty,
+    unitPrice: bundle.price,
+    lineTotal: bundle.price * qty,
+    items,
+  };
+}
+
+async function upsellLineFor(campaign) {
+  const upsell = upsellOf(campaign);
+  if (!upsell) return null;
+
+  const product = await getProduct(upsell.productId).catch(() => null);
+  return {
+    kind: 'upsell',
+    productId: upsell.productId,
+    sku: upsell.sku ?? SIMPLE_SKU,
+    name: upsell.title ?? product?.name ?? null,
+    qty: 1,
+    unitPrice: upsell.price,
+    lineTotal: upsell.price,
+    items: null,
+  };
+}
 
 /* نفس التحقّق اللي في المتصفّح — يتعاود هنا على خاطر ما نثقوش في الكليان */
 function validate(order) {
@@ -111,6 +171,63 @@ async function notifyCustomer(record) {
   if (!response.ok) throw new Error(`Twilio ${response.status}: ${await response.text()}`);
 }
 
+/*
+ * العرض الإضافي بضغطة وحدة.
+ *
+ * ── علاش هنا وماشي في فنكشن جديدة ──────────────────────────────────
+ * خطة Vercel Hobby محدودة في عدد الفنكشنات، وراهي شبه معمّرة. الطلب
+ * والعرض الإضافي نفس الشي تقريباً (نفس الطلب، نفس الرسالة)، فزدناه
+ * كـ action هنا بدل ملف جديد.
+ *
+ * ⚠️ السومة تجي من الحملة، ماشي من المتصفّح. والضغطة تخدم غير على طلب
+ * مازال ما تقرّرش فيه (pending) وما عندوش عرض من قبل — وإلا ضغطتين
+ * يزيدو زوج سطور ويكذّبو المجموع.
+ */
+async function acceptUpsell(payload) {
+  const orderId = String(payload.orderId ?? '').slice(0, 64);
+  if (!orderId) return json(400, { error: 'الطلب ماشي معروف.' });
+
+  const order = await getOrder(orderId);
+  if (!order) return json(404, { error: 'الطلب ماشي موجود.' });
+  if (order.status !== 'pending') return json(409, { error: 'الطلب تقرّر فيه من قبل.' });
+  if ((order.lines ?? []).some((line) => line.kind === 'upsell')) {
+    return json(200, { ok: true, total: order.total, already: true });
+  }
+
+  const campaign = order.campaignId ? await getCampaign(order.campaignId).catch(() => null) : null;
+  const line = await upsellLineFor(campaign);
+  if (!line) return json(409, { error: 'العرض ماشي مفعّل.' });
+
+  const lines = [...(order.lines ?? []), line];
+  const total = linesTotal(lines) + (order.shippingFee ?? 0);
+  const updated = await updateOrder(orderId, {
+    lines,
+    total,
+    upsellAcceptedAt: new Date().toISOString(),
+  });
+
+  /* الرسالة في تيليغرام تتعاود ترسم بالمجموع الجديد — وإلا تشدّ الطلبية
+     على القديم وتنسى القطعة الزايدة. */
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (updated?.messageId && token && chatId) {
+    await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: updated.messageId,
+        text: ownerMessage(updated),
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: buttonsFor(updated),
+      }),
+    }).catch((err) => console.error('Upsell repaint failed:', err.message, '| order:', orderId));
+  }
+
+  return json(200, { ok: true, total: updated?.total ?? total, id: orderId });
+}
+
 async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
@@ -123,6 +240,9 @@ async function handler(request) {
 
   /* فخّ البوتات: حقل مخبّي، البشر ما يعمّروهش. نجاوبو بنجاح باش البوت ما يعاودش. */
   if (payload.website) return json(200, { ok: true });
+
+  /* ضغطة "زيدها" بعد الطلب — ما تعاودش تمرّ على التحقّق تاع الفورم */
+  if (payload.action === 'upsell') return acceptUpsell(payload);
 
   const { order, error } = validate(payload);
   if (error) return json(400, { error });
@@ -158,8 +278,46 @@ async function handler(request) {
     if (!variant) return json(400, { error: 'اختر المقاس واللون قبل ما تأكّد.' });
   }
 
+  /*
+   * الحملة تجيب معاها الباقات والعرض الإضافي. طلب بلا campaignId (صفحة
+   * index.html الستاتيك) يخدم كيما كان بالضبط — campaign تبقى null وكل
+   * ما تحت يتخطّى.
+   */
+  const campaignId = typeof payload.campaignId === 'string' ? payload.campaignId.slice(0, 64) : null;
+  const campaign = campaignId && !campaignId.startsWith('product:')
+    ? await getCampaign(campaignId).catch((err) => {
+        console.error('Campaign lookup failed:', err.message, '| id:', campaignId);
+        return null;
+      })
+    : null;
+
+  const bundleLine = campaign && payload.bundleId
+    ? await bundleLineFor(campaign, String(payload.bundleId).slice(0, 64), order.qty)
+    : null;
+
   const unitPrice = product && variant ? variantPrice(product, variant) : null;
-  const total = unitPrice !== null ? totalWith(unitPrice, order) : totalFor(order);
+
+  /*
+   * السطور: باقة ولا منتج، ماشي الزوج — الفورم يخيّر بيناتهم.
+   * `lines` هو المصدر الوحيد للمخزون وللتكلفة، والحقول القديمة
+   * (productId/unitPrice/qty) تبقى معمّرة باش كل كود قديم يبقى يخدم.
+   */
+  const lines = bundleLine
+    ? [bundleLine]
+    : [{
+        kind: 'product',
+        productId: product?.id ?? null,
+        sku: variant?.sku ?? SIMPLE_SKU,
+        name: product?.name ?? null,
+        qty: order.qty,
+        unitPrice,
+        lineTotal: unitPrice === null ? null : unitPrice * order.qty,
+        items: null,
+      }];
+
+  const total = bundleLine
+    ? linesTotal(lines) + shippingFee(order.wilaya, order.shipping)
+    : (unitPrice !== null ? totalWith(unitPrice, order) : totalFor(order));
 
   /*
    * تاريخ الزبون بهذا الرقم — لازم **قبل** ما نسجّلو الطلب الجديد، وإلا
@@ -209,9 +367,16 @@ async function handler(request) {
      * الطلبيات القديمة ويخرّب حساب الربح تاع الشهر اللي فات.
      */
     productId: product?.id ?? null,
-    campaignId: typeof payload.campaignId === 'string' ? payload.campaignId.slice(0, 64) : null,
+    productName: product?.name ?? null,
+    campaignId,
     variant: variant ? { sku: variant.sku, options: variant.options } : null,
-    unitPrice,
+    unitPrice: bundleLine ? bundleLine.unitPrice : unitPrice,
+    /* واش تباع بالضبط — سطر لكل حاجة. شوف lib/offers.mjs */
+    lines,
+    /* واش تعرض عليه عرض إضافي أصلاً — بلا هذا، نسبة القبول تتحسب على
+       كل الطلبات وتبان أصغر بزّاف مما هي. */
+    upsellOffered: Boolean(upsellOf(campaign)),
+    upsellAcceptedAt: null,
     /* سومة التوصيل مخزّنة صراحةً: total فيه سومة السلعة + التوصيل،
        والمداخيل/الربح لازمهم السلعة وحدها. تخزينها هنا يخلّي الحساب
        صحيح حتى لو بدّلنا تسعيرة التوصيل من بعد — الطلبات القديمة تبقى

@@ -86,12 +86,16 @@
         price: typeof parsed.price === 'number' ? parsed.price : fallback.price,
         shipping: parsed.shipping || fallback.shipping,
         options: parsed.options || [],
-        variants: parsed.variants || []
+        variants: parsed.variants || [],
+        bundles: parsed.bundles || []
       };
     } catch (e) {
       return fallback;
     }
   })();
+
+  var BUNDLES = {};
+  (PRICING.bundles || []).forEach(function (b) { BUNDLES[b.id] = b.price; });
 
   var PRODUCT_PRICE = PRICING.price;
   var SHIPPING = PRICING.shipping;
@@ -182,6 +186,12 @@
       return chosen;
     }
 
+    function currentOffer() {
+      var checked = form.querySelector('input[name="offer"]:checked');
+      var id = checked ? checked.value : '';
+      return id && BUNDLES[id] != null ? { id: id, price: BUNDLES[id] } : null;
+    }
+
     function currentVariant() {
       if (!PRICING.options.length) return PRICING.variants[0] || null;
       var chosen = selectedOptions();
@@ -216,8 +226,14 @@
       var shipKey = currentShipping();
       var shipCost = rateFee(rate, shipKey);
       var variant = currentVariant();
-      var unitPrice = Math.max(0, PRODUCT_PRICE + ((variant && variant.priceDelta) || 0));
+      var offer = currentOffer();
+      var unitPrice = offer ? offer.price : Math.max(0, PRODUCT_PRICE + ((variant && variant.priceDelta) || 0));
       var productCost = unitPrice * qty;
+
+      form.querySelectorAll('input[data-option]').forEach(function (el) {
+        var field = el.closest('.field');
+        if (field) field.hidden = Boolean(offer);
+      });
 
       sumQty.textContent = '×' + qty;
       sumProduct.textContent = dz(productCost);
@@ -265,6 +281,9 @@
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
     wilayaSelect.addEventListener('change', updateSummary);
+    form.querySelectorAll('input[name="offer"]').forEach(function (el) {
+      el.addEventListener('change', updateSummary);
+    });
     form.querySelectorAll('input[data-option]').forEach(function (el) {
       el.addEventListener('change', updateSummary);
     });
@@ -425,6 +444,45 @@
 
     var ORDER_ENDPOINT = '/api/order';
 
+    var upsellBox = document.getElementById('upsellOffer');
+    var upsellBtn = document.getElementById('upsellAdd');
+    var upsellDone = document.getElementById('upsellDone');
+
+    function showUpsell(orderId) {
+      if (!upsellBox || !orderId) return;
+      upsellBox.hidden = false;
+      upsellBox.dataset.orderId = orderId;
+    }
+
+    if (upsellBtn) {
+      upsellBtn.addEventListener('click', function () {
+        var orderId = upsellBox.dataset.orderId;
+        if (!orderId) return;
+        upsellBtn.disabled = true;
+        fetch(ORDER_ENDPOINT, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'upsell', orderId: orderId })
+        })
+          .then(function (res) { return res.json().catch(function () { return {}; }); })
+          .then(function (data) {
+            if (data && data.error) throw new Error(data.error);
+            upsellBtn.hidden = true;
+            if (upsellDone) upsellDone.hidden = false;
+            if (data && data.total && orderDoneMsg) {
+              orderDoneMsg.textContent = 'المجموع الجديد: ' + dz(data.total) + ' — نتصلو بيك باش نأكّدو.';
+            }
+          })
+          .catch(function () {
+            upsellBtn.disabled = false;
+            if (upsellDone) {
+              upsellDone.hidden = false;
+              upsellDone.textContent = 'ما قدرناش نزيدوها. قولها للي يتصل بيك.';
+            }
+          });
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
 
@@ -473,6 +531,7 @@
           attribution: attribution,
           productId: PRICING.productId,
           campaignId: (form.querySelector('input[name="campaignId"]') || {}).value || null,
+          bundleId: (currentOffer() || {}).id || null,
           options: selectedOptions()
         })
       })
@@ -496,6 +555,8 @@
           orderDoneMsg.textContent =
             'شكراً ' + name + '! تسجّل طلبك بـ ' + total + ' نحو ولاية ' + wilaya +
             '. نتصلو بيك باش نأكّدو، وما تخلّص والو حتى يوصلك.';
+
+          showUpsell(data && data.id);
 
           form.hidden = true;
           orderDone.hidden = false;
