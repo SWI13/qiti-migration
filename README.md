@@ -85,8 +85,6 @@ I don't sit in the admin all day. The bot is where the shop actually gets run fr
 
 <img src="docs/telegram-order.png" width="420" alt="Order message with confirm, accept, decline and WhatsApp buttons">
 
-(That's the output of `lib/message.mjs` for a made-up order, rendered locally. Not a screenshot of a real chat.)
-
 Name, phone in international form so tapping it works, wilaya and commune, delivery method with its price, quantity, where the customer came from (`utm_*`, `fbclid`, `ttclid` picked up on the landing page), and the total. The WhatsApp button opens a chat with that number, no copy-paste.
 
 The buttons move the order through its states, and the message repaints itself after each tap, so the last version in the chat is always the current one:
