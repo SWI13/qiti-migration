@@ -18,6 +18,7 @@ import { stockLines } from '../lib/stock-view.mjs';
 import { dz, esc, profitFor, goodsTotal } from '../lib/message.mjs';
 import { listOpenLeads, sweepLeads } from '../lib/leads.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
+import { runShipmentJobs } from '../lib/ecotrack/sync.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 /* الجدولة ولّات في vercel.json ("crons") — Vercel ما يقراش config هنا */
@@ -159,6 +160,14 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
 
 async function handler(request) {
   if (!authorized(request)) return new Response('Forbidden', { status: 403 });
+
+  /*
+   * نزامنو الطرود قبل ما نكتبو التقرير — بلا هذا، التقرير يحكي على
+   * حالة البارح والطردة اللي وصلات اليوم تبان "في الطريق". الفشل ما
+   * يوقّفش التقرير: الأرقام تتبعث على أي حال.
+   */
+  await runShipmentJobs().catch((error) =>
+    console.error('Shipment sync failed:', error.message));
 
   /* ساعة لور = ما زلنا في النهار اللي كمل، حتى لو تشغّل على 00:00 بالضبط */
   const dayJustEnded = algiersDate(new Date(Date.now() - 60 * 60 * 1000));

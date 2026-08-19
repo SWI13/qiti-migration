@@ -977,6 +977,37 @@ async function handleCommand(message) {
     }).catch((error) => console.error('/clear prompt failed:', error.message));
   }
 
+  /*
+   * /ship — يبعث طردة طلب واحد بيدك.
+   * يخدم كي الإرسال التلقائي مطفي، ولا كي طاح وصلّحت السبب.
+   */
+  if (command === '/ship') {
+    const orderId = arg;
+    if (!orderId) return reply('اكتب رقم الطلب: <code>/ship QT-1042</code>');
+
+    const result = await sendShipment(orderId, { by: displayName(message.from) });
+    if (!result.ok) return reply(`⚠️ ما تبعثش: ${esc(result.error)}`);
+    if (result.already) return reply(`الطردة موجودة من قبل — <code>${esc(result.tracking)}</code>`);
+
+    await shipmentCreated(result.order).catch(() => {});
+    return reply(`🚚 الطردة خرجت — <code>${esc(result.tracking)}</code>`);
+  }
+
+  /* /sync — يسحب حالات الطرود دروك بدل ما تستنّى الكرون */
+  if (command === '/sync') {
+    const result = await syncOpenShipments({ actor: displayName(message.from) });
+    if (result.skipped) return reply('الربط مع الموصّل غير مضبوط.');
+
+    const retry = await retryFailedShipments({ by: displayName(message.from) });
+    return reply([
+      '🔄 <b>المزامنة</b>',
+      `طرود مفحوصة: ${result.checked ?? 0}`,
+      `حالات تبدّلت: ${result.changed ?? 0}`,
+      `قرارات توصيل: ${result.outcomes ?? 0}`,
+      ...(retry.retried ? [`إعادة إرسال: ${retry.sent}/${retry.retried}`] : []),
+    ].join('\n'));
+  }
+
   if (command === '/stock') {
     /* الطوق كان مخزونو في عدّاد عام بلا منتج — الهجرة تصلّحو، وتصرا
        مرّة وحدة (شوف lib/legacy-stock.mjs) */
