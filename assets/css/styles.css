@@ -1096,7 +1096,12 @@ body {
 .offer__note { color: var(--text-faint); font-size: .76rem; }
 .offer__note--off { color: var(--danger); }
 .offer__items { color: var(--text-muted); font-size: .78rem; }
-.offer__price { margin-inline-start: auto; text-align: end; display: grid; gap: 2px; }
+/* السومة ما تتقصّش: اسم باقة طويل كان يكسّر "6,500 دج" على زوج سطور
+   ويطيّح "ربحت" تحتها في تيليفون ضيّق. */
+.offer__price {
+  margin-inline-start: auto; text-align: end; display: grid; gap: 2px;
+  justify-items: end; white-space: nowrap; flex: none;
+}
 .offer__price b { font-size: 1rem; }
 .offer__old { color: var(--text-faint); font-size: .78rem; }
 .offer__save {
