@@ -12,6 +12,8 @@ export var PRODUCTS_EN = {
   'products.filterArchived': 'Archived',
   'products.filterAriaLabel': 'Filter by status',
 
+  'products.colSerial': '#',
+  'products.colSerial': '#',
   'products.colName': 'Product',
   'products.colType': 'Type',
   'products.colPrice': 'Price',

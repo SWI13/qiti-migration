@@ -46,6 +46,7 @@ function matchesListFilter(product) {
 }
 
 function sortValue(product, key) {
+  if (key === 'serial') return Number(product.serial) || 0;
   if (key === 'price') return Number(product.price) || 0;
   if (key === 'status') return statusOf(product);
   if (key === 'type') return product.type || '';
@@ -85,6 +86,12 @@ function productRowActions(product) {
 
 function productColumns() {
   return [
+    /* الرقم اللي تكتبو في تيليغرام: /restock 3 10. يبان هنا باش ما
+       تحتاجش تفتح /stock باش تعرفو، ويبقى هو هو مهما زدت منتجات. */
+    { key: 'serial', label: t('products.colSerial'), sortable: true, numeric: true,
+      render: function (row) {
+        return row.serial ? '<span class="product-serial">#' + Number(row.serial) + '</span>' : '—';
+      } },
     { key: 'name', label: t('products.colName'), sortable: true, render: nameCell },
     { key: 'type', label: t('products.colType'), sortable: true,
       render: function (row) { return esc(row.type || '—'); } },
@@ -349,7 +356,9 @@ export function renderProductEditor() {
   }
 
   root.innerHTML = shell(
-    product.name || t('campaigns.untitled'),
+    /* الرقم مع الاسم في العنوان — كي تكون فاتح المنتج وتحبّ تزوّدو من
+       تيليغرام، ما تحتاجش ترجع للائحة باش تشوف رقمو */
+    (product.serial ? '#' + Number(product.serial) + ' · ' : '') + (product.name || t('campaigns.untitled')),
     '<a class="btn btn--outline" href="#/products">' + esc(t('common.back')) + '</a>' +
     '<button class="btn btn--primary" data-act="save-product">' + esc(t('common.save')) + '</button>',
     tabsHtml({ id: 'prodTabs', tabs: tabs, active: activeTab }),

@@ -53,7 +53,7 @@
  */
 import {
   getOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
-  getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
+  resetStock,
   listOrders, listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
@@ -77,6 +77,9 @@ import {
   confirmOrder, acceptOrder, denyOrder, setDeliveryOutcome, receiveReturn, MAX_REASON_LENGTH,
 } from '../lib/decisions.mjs';
 import { logOrderCall, callsOf } from '../lib/calls.mjs';
+/* الطوق: هجرة العدّاد العام لمنتج حقيقي — تصرا مرّة وحدة وتنادى من
+   كل بلاصة يقدر يبدا منها المشغّل (شوف lib/legacy-stock.mjs) */
+import { ensureLegacyProduct } from '../lib/legacy-stock.mjs';
 import { telegram, repaintOrderQuietly } from '../lib/telegram.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
@@ -909,9 +912,10 @@ async function handleCommand(message) {
       '/categories — كل الفئات',
       '',
       '<b>المخزون</b>',
-      '/stock — الكميات الحالية',
-      '/restock — إضافة كمية بعد التموين',
-      '/setstock — تصحيح الكمية بالضبط',
+      '/stock — الكميات الحالية (مع رقم كل منتج)',
+      '/restock &lt;رقم&gt; &lt;كمية&gt; — إضافة كمية بعد التموين',
+      '/setstock &lt;رقم&gt; &lt;كمية&gt; — تصحيح الكمية بالضبط',
+      '<i>الرقم هو نفسو اللي يبان حذا المنتج في اللوحة، وما يتبدّلش.</i>',
       '',
       '<b>المال</b>',
       '/cost — سعر الشراء، الإعلانات، الإرجاع، التوصيل',
@@ -974,6 +978,11 @@ async function handleCommand(message) {
   }
 
   if (command === '/stock') {
+    /* الطوق كان مخزونو في عدّاد عام بلا منتج — الهجرة تصلّحو، وتصرا
+       مرّة وحدة (شوف lib/legacy-stock.mjs) */
+    await ensureLegacyProduct().catch((error) =>
+      console.error('Legacy product migration failed:', error.message));
+
     const [view, awaitingReturn] = await Promise.all([
       stockLines(), listAwaitingReturnReceipt(),
     ]);
@@ -991,15 +1000,25 @@ async function handleCommand(message) {
 
   if (command === '/restock' || command === '/setstock') {
     const isSet = command === '/setstock';
+
+    /*
+     * أهم سطر في هاذ الأمر.
+     *
+     * قبل، بلا منتجات في الكاتالوغ، /restock كان يكتب في العدّاد العام
+     * — الرقم يطلع في تيليغرام، وتحلّ اللوحة ما تلقى لا منتج لا كمية.
+     * الهجرة تصنع منتج الطوق وتحوّلّو الكمية، فالكتابة تصرا ديما في
+     * بلاصة تقدر تشوفها.
+     */
+    await ensureLegacyProduct().catch((error) =>
+      console.error('Legacy product migration failed:', error.message));
+
     const targets = await stockTargets();
 
-    /* بلا منتجات مسجّلة، نبقاو على العدّاد القديم — الصفحة القديمة
-       تاع الطوق مازالت تخدم عليه */
+    /* ما زالت ما كاينش حتى سلعة — نقولوها بالكلام بدل ما نكتبو في
+       عدّاد ما يبان في حتى بلاصة */
     if (!targets.length) {
-      const n = parseInt(arg, 10);
-      if (!Number.isFinite(n) || (isSet ? n < 0 : n <= 0)) return reply(`استعمل: ${command} ${isSet ? 50 : 20}`);
-      const stock = isSet ? await setStock(n) : await adjustStock(n);
-      return reply(`✅ ${isSet ? 'تسجّل' : 'تزوّد'} المخزون. الكمية الحالية: <b>${stock.qty}</b>`);
+      return reply('ما كاين حتى منتج بعد.\n'
+        + 'اكتب سطر واحد باش تصنع واحد — مثلاً: <code>عندي 9 طوق تتبّع، زيدو</code>');
     }
 
     /* منتج وحيد بفاريانت وحيد = ما نطلبوش رقم، الأمر يبقى /restock 10 */
@@ -1007,10 +1026,11 @@ async function handleCommand(message) {
     let target = null;
     let amountRaw = a;
     if (b !== undefined) {
-      const index = parseInt(a, 10);
-      target = targets.find((t) => t.index === index) ?? null;
+      /* الرقم يجي كيما يبان في /stock: "3" ولا "3.2" للفاريانتات */
+      const wanted = String(a).trim();
+      target = targets.find((t) => t.index === wanted) ?? null;
       amountRaw = b;
-      if (!target) return reply(`لم أجد الرقم <b>${esc(String(a))}</b>. راجع /stock للأرقام.`);
+      if (!target) return reply(`لم أجد الرقم <b>${esc(wanted)}</b>. راجع /stock للأرقام.`);
     } else if (targets.length === 1) {
       target = targets[0];
     } else {
@@ -1027,8 +1047,9 @@ async function handleCommand(message) {
       ? await setVariantStock(target.productId, target.sku, n)
       : await adjustVariantStock(target.productId, target.sku, n);
 
-    return reply(`✅ ${esc(target.productName)} — ${esc(target.label)}\n`
-      + `الكمية الحالية: <b>${updated.qty}</b>`);
+    return reply(`✅ <b>#${esc(String(target.index))}</b> ${esc(target.productName)} — ${esc(target.label)}\n`
+      + `الكمية الحالية: <b>${updated.qty}</b>\n`
+      + '<i>تشوفها في اللوحة تحت المنتج.</i>');
   }
 
   /*

@@ -308,6 +308,14 @@ textarea:focus, input:focus, select:focus {
 .dt-link:hover .dt-link__name { color: var(--accent); }
 .dt-link__name { font-weight: var(--fw-bold); font-size: var(--fs-body); }
 
+/* الرقم التسلسلي تاع المنتج — هو اللي يتكتب في /restock، فيتقرا رقم
+   ماشي نص: خط ثابت العرض باش الأعمدة توقف على خط واحد */
+.product-serial {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+}
+
 .data-table, .stock-table { width: 100%; border-collapse: collapse; margin-top: var(--sp-1); }
 .data-table  { min-width: 520px; }
 .stock-table { min-width: 460px; }
