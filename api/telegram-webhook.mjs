@@ -1,8 +1,13 @@
 /*
- * يستقبل نقرات الأزرار (تأكيد بالتيليفون / قبول / رفض / توصّل / رجعت /
- * استلمت الرجعة / تأكيد ولا إلغاء /clear)، جواب سبب الرفض، وأوامر
- * المخزون/التكاليف/حالة الطلبات (/state, /stock, /restock, /setstock,
- * /cost, /clear) من تيليغرام.
+ * يستقبل نقرات الأزرار (تأكيد بالتيليفون / عيّطتُ وما جاوبش / قبول /
+ * رفض / توصّل / رجعت / استلمت الرجعة / تأكيد ولا إلغاء /clear)، جواب
+ * سبب الرفض، وأوامر المخزون/التكاليف/حالة الطلبات (/state, /stock,
+ * /restock, /setstock, /cost, /clear) من تيليغرام.
+ *
+ * ⚠️ القرارات روحهم ما بقاوش هنا: قبول، رفض، نتيجة التوصيل واستلام
+ * الرجعة ولّاو في lib/decisions.mjs، على خاطر صفّ المكالمات في اللوحة
+ * يقرّر بنفسهم. هاذ الملف يقرا النقرة، ينادي القرار، ويجاوب الزرّ.
+ * والمكالمات تتسجّل في lib/calls.mjs — نفس السجلّ في الجهتين.
  *
  * ── تأكيد بالتيليفون (قبل القبول) ───────────────────────────────────
  *   البحث كامل يقول نفس الحاجة: الطلبات اللي تتبعث بلا مكالمة تأكيد
@@ -47,9 +52,8 @@
  *     -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
  */
 import {
-  getOrder, updateOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
+  getOrder, rememberReplyPrompt, resolveReplyPrompt, forgetReplyPrompt,
   getStock, adjustStock, setStock, markLowStockAlerted, resetStock,
-  getStockForOrder, adjustStockForOrder, markLowStockAlertedForOrder, stockCheckForOrder,
   listOrders, listPendingOrders, listAwaitingDelivery, listAwaitingReturnReceipt,
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
@@ -63,9 +67,17 @@ import { parseProductIntent } from '../lib/product-intent.mjs';
 /* عرض المخزون مشترك مع التقرير اليومي — رقمين مختلفين بنفس الاسم
    كانو يخرجو من زوج نسخ من نفس المنطق (شوف lib/stock-view.mjs) */
 import { stockTargets, stockLines } from '../lib/stock-view.mjs';
-import { ownerMessage, buttonsFor, esc, dz, elapsedLabel, costSnapshotOf, toE164Dz, dzTime } from '../lib/message.mjs';
-import { stockRefsForOrder } from '../lib/store.mjs';
-import { sendMetaEvent } from '../lib/meta.mjs';
+import { esc, dz, elapsedLabel, toE164Dz, dzTime } from '../lib/message.mjs';
+/*
+ * القرارات (قبول، رفض، توصيل، استلام الرجعة) ما بقاوش يسكنو هنا —
+ * اللوحة تقرّر تاني، فولّاو في lib/decisions.mjs. هنا يبقى غير شغل
+ * تيليغرام: تقرا النقرة، تنادي القرار، وتجاوب الزرّ.
+ */
+import {
+  confirmOrder, acceptOrder, denyOrder, setDeliveryOutcome, receiveReturn, MAX_REASON_LENGTH,
+} from '../lib/decisions.mjs';
+import { logOrderCall, callsOf } from '../lib/calls.mjs';
+import { telegram, repaintOrderQuietly } from '../lib/telegram.mjs';
 import {
   getProduct, listProducts, listStockFor, adjustVariantStock, setVariantStock,
   saveProduct, saveCategory, listCategories, availableSlug, deleteProduct,
@@ -74,61 +86,8 @@ import { guessPreset, findPreset } from '../lib/category-presets.mjs';
 import { siteUrl } from '../lib/site.mjs';
 import { toVercel } from '../lib/http.mjs';
 
-const TELEGRAM_TIMEOUT_MS = 10_000;
-const MAX_REASON_LENGTH = 200;
-
-async function telegram(method, payload) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not configured');
-
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
-  });
-
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.ok === false) {
-    throw new Error(`Telegram ${method} ${response.status}: ${result.description ?? 'unknown error'}`);
-  }
-  return result.result;
-}
-
 const displayName = (from) =>
   [from?.first_name, from?.last_name].filter(Boolean).join(' ') || 'مجهول';
-
-/**
- * يعاود يرسم رسالة الطلب من الطلب المخزّن (ماشي من نص تيليغرام) — هكذا
- * التنسيق يبقى مضبوط وما نعتمدوش على واش يرجّعلنا تيليغرام.
- */
-async function repaintOrder(chatId, record) {
-  if (!record?.messageId) return;
-  await telegram('editMessageText', {
-    chat_id: chatId,
-    message_id: record.messageId,
-    text: ownerMessage(record),
-    parse_mode: 'HTML',
-    disable_web_page_preview: true,
-    reply_markup: buttonsFor(record),
-  });
-}
-
-/** كي المخزون يهبط للحد أو تحتو، يتبعث تنبيه وحدة برك (ماشي في كل طلب) */
-async function checkLowStock(chatId, stock, order = null) {
-  if (!stock || stock.qty > stock.threshold || stock.lowStockAlerted) return;
-  /* نسمّيو الفاريانت باش تعرف أشمن مقاس خلص، ماشي "المخزون" برك */
-  const what = order?.variant?.options && Object.keys(order.variant.options).length
-    ? Object.values(order.variant.options).join(' / ')
-    : 'المنتج';
-  await telegram('sendMessage', {
-    chat_id: chatId,
-    text: `⚠️ <b>تنبيه مخزون</b>\n${esc(what)}: باقي <b>${stock.qty}</b> فقط — وقت التزويد!`,
-    parse_mode: 'HTML',
-  }).catch((error) => console.error('Low stock alert failed:', error.message));
-  await markLowStockAlertedForOrder(order, true)
-    .catch((error) => console.error('markLowStockAlerted failed:', error.message));
-}
 
 /** تأكيد/إلغاء /clear — فعل عام ماشي مربوط بطلب وحدو، علاش معزول برّا منطق الطلبات */
 async function handleClearConfirmation(query, confirmed) {
@@ -333,163 +292,83 @@ async function handleCallback(query) {
   const isDeliveryOutcome = action === 'del' || action === 'ret';
   const isReturnReceipt = action === 'rcv';
   const isConfirm = action === 'cnf';
-  if (!message || (!isDecision && !isDeliveryOutcome && !isReturnReceipt && !isConfirm)) return answer();
-
-  const order = orderId ? await getOrder(orderId).catch(() => null) : null;
-
-  /* قبول/رفض تقرّر من قبل — ما نعاودوش، ونقولو لللي نقر */
-  if (isDecision && order && order.status !== 'pending') {
-    const label = order.status === 'accepted' ? 'مقبول' : 'مرفوض';
-    return answer(`الطلب ${label} مسبقاً — ${order.actor ?? ''}`);
+  const isCallLog = action === 'cll';
+  if (!message || (!isDecision && !isDeliveryOutcome && !isReturnReceipt && !isConfirm && !isCallLog)) {
+    return answer();
   }
 
-  /* زر التوصيل/الرجوع يحتاج طلب مقبول وبلا نتيجة توصيل مسبقة */
-  if (isDeliveryOutcome && order) {
-    if (order.status !== 'accepted') return answer('الطلب لم يُقبل بعد.');
-    if (order.deliveryStatus) {
-      const label = order.deliveryStatus === 'delivered' ? 'وصل' : 'أُرجع';
-      return answer(`الطلب ${label} مسبقاً — ${order.deliveryActor ?? ''}`);
-    }
-  }
-
-  /* زر "استلمت الرجعة" يحتاج طلب "رجعت" وبلا استلام مسجّل من قبل */
-  if (isReturnReceipt && order) {
-    if (order.deliveryStatus !== 'returned') return answer('الطلب غير مسجّل كـ "رجعت".');
-    if (order.returnReceivedAt) return answer(`استُلمت مسبقاً — ${order.returnReceivedActor ?? ''}`);
-  }
+  /*
+   * من هنا لتحت، كل فعل ينادي lib/decisions.mjs ويترجم النتيجة لجواب
+   * زرّ. الفحوصات ("مقبول مسبقاً"، "المخزون ما يكفيش") ولّاو تمّة —
+   * اللوحة تحتاجهم كيما تيليغرام بالضبط، والفحص المكرّر هو اللي ينسى.
+   *
+   * `chatId` يجي من الرسالة روحها ماشي من البيئة: النقرة تقدر تجي من
+   * شات آخر، والرسم المجدّد لازم يصيب الرسالة اللي تنقرت.
+   */
+  const chatId = message.chat.id;
 
   /*
    * تأكيد بالتيليفون — يتسجّل برك، ما يقرّرش الطلب. الطلب يبقى pending
    * وأزرار القبول/الرفض تبقى، غير زر التأكيد يختفي.
    */
-  if (action === 'cnf') {
-    if (order && order.confirmedAt) return answer(`تمّ التأكيد مسبقاً — ${order.confirmedBy ?? ''}`);
-    try {
-      const updated = await updateOrder(orderId, {
-        confirmedAt: new Date().toISOString(), confirmedBy: who,
+  if (isConfirm) {
+    const result = await confirmOrder(orderId, { by: who, chatId })
+      .catch((error) => {
+        console.error('Confirm failed:', error.message, '| order:', orderId);
+        return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
       });
-      if (!updated) return answer('الطلب غير موجود.');
-      await repaintOrder(message.chat.id, updated);
-    } catch (error) {
-      console.error('Confirm failed:', error.message, '| order:', orderId);
-      return answer('حدث خطأ، أعد المحاولة.');
-    }
-    return answer('سُجِّل التأكيد 📞');
+    return answer(result.ok ? 'سُجِّل التأكيد 📞' : result.error);
+  }
+
+  /*
+   * "عيّطتُ وما جاوبش" — محاولة تتزاد للسجلّ، والمهلة الجاية تتحسب
+   * وحدها. باقي النتائج (مشغول، مطفي، طلب معاودة) في صفّ المكالمات
+   * في اللوحة؛ هنا النتيجة الأكثر تكراراً برك (شوف orderButtons).
+   */
+  if (isCallLog) {
+    const updated = await logOrderCall(orderId, { outcome: 'no-answer', by: who })
+      .catch((error) => {
+        console.error('Call log failed:', error.message, '| order:', orderId);
+        return null;
+      });
+    if (!updated) return answer('الطلب غير موجود.');
+    await repaintOrderQuietly(updated, chatId);
+    return answer(`سُجِّلت المحاولة ${callsOf(updated).length} 📵`);
   }
 
   if (action === 'ok') {
-    /*
-     * ما نقبلوش طلب المخزون ما يكفيهش — الطلب يبقى بلا قرار حتى تزوّدو.
-     *
-     * الطلب اللي فيه باقة يحتاج **كل** عناصرها: باقة فيها طوق ×2 وغطاء
-     * ×1 ما تتقبّلش إذا الغطاء خلص، حتى لو الطوق عندك بزّاف. الفحص
-     * يمرّ على كل السطور ويسمّي اللي ناقص.
-     */
-    if (order) {
-      const check = await stockCheckForOrder(order).catch(() => null);
-      if (check?.shortages?.length) {
-        const rows = await Promise.all(check.shortages.map(async (row) => {
-          const item = row.productId ? await getProduct(row.productId).catch(() => null) : null;
-          return `• ${esc(item?.name ?? 'المنتج')} — المتبقّي ${row.qty}، والطلب يحتاج ${row.needed}`;
-        }));
-        return answer(`🚫 المخزون غير كافٍ:\n${rows.join('\n')}\nأضف كمية بـ /restock.`);
-      }
-    }
-
-    try {
-      const updated = await updateOrder(orderId, {
-        status: 'accepted', actor: who, decidedAt: new Date().toISOString(), reason: null,
-        /* لقطة: واش هذا الطلب تأكّد بالتيليفون قبل ما يتقبّل؟ هذا اللي
-           يخلّينا من بعد نقارنو نسبة الرجعات مؤكّد ضدّ ماشي مؤكّد. */
-        confirmedBeforeAccept: Boolean(order?.confirmedAt),
+    const result = await acceptOrder(orderId, { by: who, chatId })
+      .catch((error) => {
+        console.error('Accept failed:', error.message, '| order:', orderId);
+        return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
       });
-      const record = updated ?? { ...order, messageId: message.message_id };
-      await repaintOrder(message.chat.id, record);
-
-      const stock = await adjustStockForOrder(record, -1).catch((error) => {
-        console.error('Stock decrement failed:', error.message, '| order:', orderId);
-        return null;
-      });
-      await checkLowStock(message.chat.id, stock, record);
-    } catch (error) {
-      console.error('Accept failed:', error.message, '| order:', orderId);
-    }
-    return answer('قُبِل الطلب ✅');
+    return answer(result.ok ? 'قُبِل الطلب ✅' : result.error);
   }
 
-  if (action === 'del' || action === 'ret') {
+  if (isDeliveryOutcome) {
     const deliveryStatus = action === 'del' ? 'delivered' : 'returned';
-    try {
-      /*
-       * لقطة التكاليف — هنا بالضبط، وقت ما الفلوس تتقرّر.
-       *
-       * بلاها، الربح يتحسب ديما بتكاليف اليوم: تبدّل سومة السلعة بـ
-       * /cost وتقارير الشهور اللي فاتو تتبدّل معاها. باللقطة، اللي
-       * تسجّل يبقى كيما هو.
-       */
-      const costs = await getCosts().catch(() => null);
-      const product = order?.productId ? await getProduct(order.productId).catch(() => null) : null;
-
-      /*
-       * تكلفة السلعة تتحسب على كل اللي في الطلب: المنتج، عناصر الباقة
-       * وحدة بوحدة، والعرض الإضافي. نجيبو منتجاتهم مرّة وحدة هنا باش
-       * اللقطة تكون كاملة — من بعد ما نقدروش نعرفو تكلفة كانت شحال.
-       */
-      const costById = new Map();
-      if (product) costById.set(product.id, product.unitCost);
-      for (const ref of stockRefsForOrder(order ?? {})) {
-        if (costById.has(ref.productId)) continue;
-        const item = await getProduct(ref.productId).catch(() => null);
-        costById.set(ref.productId, item?.unitCost ?? null);
-      }
-      const unitCostOf = (id) => costById.get(id) ?? null;
-
-      const updated = await updateOrder(orderId, {
-        deliveryStatus, deliveryActor: who, deliveryDecidedAt: new Date().toISOString(),
-        ...(costs ? { costSnapshot: costSnapshotOf(costs, product, { order, unitCostOf }) } : {}),
+    const result = await setDeliveryOutcome(orderId, deliveryStatus, { by: who, chatId })
+      .catch((error) => {
+        console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
+        return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
       });
-      if (!updated) return answer('الطلب غير موجود.');
-
-      /*
-       * "رجعت" ما تزيدش المخزون هنا — هذا غير يعني المُوصّل قالها رجعت،
-       * الطلبية فيزيائياً لسّا في الطريق لعندك. المخزون يتزاد غير كي
-       * تنقر "📥 استلمت الرجعة" (زر يبان بعد هذي النقرة).
-       */
-      await repaintOrder(message.chat.id, updated);
-
-      /*
-       * 💰 هنا برك نبعثو Purchase لميتا — كي الفلوس تدخل فعلاً، ماشي كي
-       * الطلب يتقبّل. هكذا الخوارزمية تتعلّم تجيب ناس **يخلّصو** ماشي
-       * ناس يعمّرو الفورم ويرفضو عند الباب.
-       */
-      if (deliveryStatus === 'delivered') {
-        const meta = await sendMetaEvent('Purchase', updated, { value: updated.total });
-        if (meta?.error) console.error('Meta CAPI Purchase failed:', meta.error, '| order:', orderId);
-      }
-    } catch (error) {
-      console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
-      return answer('حدث خطأ، أعد المحاولة.');
-    }
+    if (!result.ok) return answer(result.error);
     return answer(deliveryStatus === 'delivered' ? 'سُجِّل: وصل 📦' : 'سُجِّل: أُرجع مع الموصّل ↩️');
   }
 
-  if (action === 'rcv') {
-    try {
-      const updated = await updateOrder(orderId, {
-        returnReceivedAt: new Date().toISOString(), returnReceivedActor: who,
+  if (isReturnReceipt) {
+    const result = await receiveReturn(orderId, { by: who, chatId })
+      .catch((error) => {
+        console.error('Return-receipt update failed:', error.message, '| order:', orderId);
+        return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
       });
-      if (!updated) return answer('الطلب غير موجود.');
+    return answer(result.ok ? 'أُضيفت للمخزون 📥' : result.error);
+  }
 
-      await repaintOrder(message.chat.id, updated);
-
-      /* دروك فعلاً بين يديك — تزيد للمخزون */
-      await adjustStockForOrder(updated, 1).catch((error) =>
-        console.error('Restock after receiving return failed:', error.message, '| order:', orderId));
-    } catch (error) {
-      console.error('Return-receipt update failed:', error.message, '| order:', orderId);
-      return answer('حدث خطأ، أعد المحاولة.');
-    }
-    return answer('أُضيفت للمخزون 📥');
+  /* الرفض وحدو ما يتقرّرش هنا — يحتاج سبب، والسبب يجي في رسالة أخرى */
+  const order = orderId ? await getOrder(orderId).catch(() => null) : null;
+  if (order && order.status !== 'pending') {
+    return answer(`الطلب ${order.status === 'accepted' ? 'مقبول' : 'مرفوض'} مسبقاً — ${order.actor ?? ''}`);
   }
 
   /*
@@ -523,13 +402,10 @@ async function handleReply(message) {
   if (!reason) return;
 
   try {
-    const updated = await updateOrder(orderId, {
-      status: 'denied',
-      actor: displayName(message.from),
-      reason,
-      decidedAt: new Date().toISOString(),
+    const result = await denyOrder(orderId, {
+      by: displayName(message.from), reason, chatId: message.chat.id,
     });
-    await repaintOrder(message.chat.id, updated);
+    if (!result.ok) throw new Error(result.error);
 
     /* ننظّفو: رسالة السؤال وجواب السبب ما بقاوش يلزمو، الحالة بانت في الطلب */
     await telegram('deleteMessage', { chat_id: message.chat.id, message_id: promptId }).catch(() => {});
@@ -559,8 +435,14 @@ async function buildStateMessage() {
   ]);
 
   const isOld = (order) => Date.now() - new Date(order.createdAt).getTime() > 24 * 60 * 60 * 1000;
+  /* عدد المحاولات مع كل سطر: "طلب من 3 أيام" ما تعني نفس الحاجة كي
+     تكون عيّطتلو 4 مرّات وكي ما تكون عيّطتلو حتى مرّة */
+  const tries = (order) => {
+    const count = callsOf(order).length;
+    return count ? ` 📵${count}` : '';
+  };
   const line = (order) =>
-    `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} (${elapsedLabel(order.createdAt)})${isOld(order) ? ' ⚠️' : ''}`;
+    `• ${esc(order.name)} — ${esc(order.wilaya)} — ${dz(order.total ?? 0)} (${elapsedLabel(order.createdAt)})${tries(order)}${isOld(order) ? ' ⚠️' : ''}`;
   const section = (emoji, title, list) => {
     const lines = [`${emoji} <b>${title} — ${list.length} طلب</b>`];
     lines.push(...(list.length ? list.map(line) : ['لا شيء هنا ✅']));

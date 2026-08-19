@@ -5,6 +5,9 @@ import { icon } from './icon.js';
 
 export var NAV = [
   { view: 'dashboard', group: null, label: 'nav.dashboard', icon: 'dashboard' },
+  /* الصفّ فوق الطلبات قصداً: هذي البلاصة اللي تخدم منها كل صباح،
+     ولائحة الطلبات هي الأرشيف اللي تعاود ليه كي تحتاج */
+  { view: 'queue', group: null, label: 'nav.queue', icon: 'queue', badge: 'queueDue' },
   { view: 'orders', group: null, label: 'nav.orders', icon: 'orders', badge: 'pendingOrders' },
   { view: 'campaigns', group: 'content', label: 'nav.campaigns', icon: 'campaigns' },
   { view: 'media', group: 'content', label: 'nav.media', icon: 'media' },

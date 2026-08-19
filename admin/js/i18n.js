@@ -6,6 +6,7 @@ import { PRODUCTS_EN } from './strings/products.en.js';
 import { CATEGORIES_EN } from './strings/categories.en.js';
 import { MEDIA_EN } from './strings/media.en.js';
 import { ORDERS_EN } from './strings/orders.en.js';
+import { QUEUE_EN } from './strings/queue.en.js';
 import { DASHBOARD_EN } from './strings/dashboard.en.js';
 import { STATE_EN } from './strings/state.en.js';
 
@@ -13,7 +14,7 @@ var STRINGS_EN = Object.assign(
   {},
   COMMON_EN, NAV_EN, LOGIN_EN,
   CAMPAIGNS_EN, PRODUCTS_EN, CATEGORIES_EN, MEDIA_EN,
-  ORDERS_EN, DASHBOARD_EN, STATE_EN,
+  ORDERS_EN, QUEUE_EN, DASHBOARD_EN, STATE_EN,
 );
 
 export function t(key, vars) {

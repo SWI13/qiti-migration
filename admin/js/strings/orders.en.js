@@ -1,7 +1,10 @@
 
 export var ORDERS_EN = {
   'orders.title': 'Orders',
-  'orders.readonlyHint': 'Orders are accepted, denied, and marked delivered from Telegram — this list is read-only.',
+  'orders.readonlyHint': 'This list is the archive and is read-only — calls and decisions happen in the call queue, or from the Telegram message.',
+  'orders.callAttempts': 'Call attempts',
+  'orders.callAttempt': '{when} · {outcome}{note}',
+  'orders.callNever': 'Never called',
   'orders.emptyTitle': 'No orders yet',
   'orders.emptyBody': 'Orders placed by customers will show up here.',
   'orders.emptyFilteredTitle': 'No matching orders',

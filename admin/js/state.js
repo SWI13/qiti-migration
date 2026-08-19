@@ -10,6 +10,11 @@ export var state = {
   orders: [],
   leads: [],
   pendingOrders: 0,
+  /* صفّ المكالمات: السطور، عدّاد كل حالة، والرقم اللي يبان في البادج
+     (اللي يستنّى دروك — بلا اللي عندو موعد في المستقبل) */
+  queue: [],
+  queueCounts: null,
+  queueDue: 0,
   dashboard: null,
   dashboardDays: 30,
   draft: null,

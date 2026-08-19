@@ -6,6 +6,7 @@ export var NAV_EN = {
   'nav.group.content': 'Content',
   'nav.group.store': 'Store',
   'nav.dashboard': 'Dashboard',
+  'nav.queue': 'Call queue',
   'nav.orders': 'Orders',
   'nav.campaigns': 'Campaigns',
   'nav.products': 'Products',

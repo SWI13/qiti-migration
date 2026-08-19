@@ -22,6 +22,17 @@ var STATUS_OPTIONS = [
   { value: 'denied', label: 'orders.statusDenied' },
 ];
 
+/* أسماء نتائج المكالمة — نفس النصوص تاع صفّ المكالمات، باش السطر
+   اللي تقراه هنا يقول نفس الكلمة اللي نقرت عليها تمّة */
+var CALL_OUTCOME_KEY = {
+  reached: 'queue.outcomeReached',
+  'no-answer': 'queue.outcomeNoAnswer',
+  busy: 'queue.outcomeBusy',
+  off: 'queue.outcomeOff',
+  callback: 'queue.outcomeCallback',
+  wrong: 'queue.outcomeWrong',
+};
+
 function bucketOf(order) {
   if (order.isLead) return 'lead';
   if (order.status === 'accepted' && order.deliveryStatus) return order.deliveryStatus;
@@ -236,9 +247,23 @@ function orderDetail(order) {
       row(t('orders.shippingFee'), order.shippingFee == null ? '' : esc(fmtMoney(order.shippingFee))) +
     '</dl>';
 
+  /* سجلّ المكالمات كامل — الصفّ يوري آخر وحدة برك، وهنا تشوف الرحلة
+     كاملة: علاش هذا الطلب تأخّر، وواش دار اللي كان قبلك */
+  var calls = Array.isArray(order.calls) ? order.calls : [];
+  var callsRow = calls.length
+    ? row(t('orders.callAttempts'), calls.map(function (call) {
+      return esc(t('orders.callAttempt', {
+        when: fmtDateTime(call.at),
+        outcome: CALL_OUTCOME_KEY[call.outcome] ? t(CALL_OUTCOME_KEY[call.outcome]) : call.outcome,
+        note: call.note ? ' — “' + call.note + '”' : '',
+      }));
+    }).join('<br>'))
+    : '';
+
   var decisionDl =
     '<dl>' +
       row(t('orders.decision'), statusBadge(order)) +
+      callsRow +
       (order.actor && order.decidedAt ? row(t('orders.decision'), esc(t('orders.decidedBy', { who: order.actor, when: fmtDateTime(order.decidedAt) }))) : '') +
       row(t('orders.deniedReason'), order.reason ? esc(order.reason) : '') +
       (order.confirmedAt ? row('', esc(t('orders.confirmedByPhone', { who: order.confirmedBy || '', when: fmtDateTime(order.confirmedAt) }))) : '') +

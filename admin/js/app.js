@@ -42,6 +42,15 @@ export async function boot() {
     } catch (error) {
       state.pendingOrders = 0;
     }
+
+    /* بادج الصفّ: اللي يستنّى مكالمة ولا قرار دروك. منفصل على عدّاد
+       الطلبات المعلّقة — عشرين طلب معلّق فيهم ثلاثة عندهم موعد بعد
+       ساعتين ماشي نفس الشغل. */
+    try {
+      state.queueDue = (await api('queue.count')).count;
+    } catch (error) {
+      state.queueDue = 0;
+    }
   }
 
   await route();

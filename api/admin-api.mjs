@@ -20,7 +20,14 @@ import {
 import { CATEGORY_PRESETS } from '../lib/category-presets.mjs';
 import { listMedia, deleteMedia } from '../lib/media.mjs';
 import { listOrders, listPendingOrders } from '../lib/store.mjs';
-import { listLeads } from '../lib/leads.mjs';
+import { listLeads, listOpenLeads, logLeadCall, dismissLead } from '../lib/leads.mjs';
+import {
+  logOrderCall, sortQueue, queueStateOf, queueCounts, attemptCount, isCallOutcome,
+} from '../lib/calls.mjs';
+import {
+  acceptOrder, denyOrder, confirmOrder, setDeliveryOutcome, receiveReturn, DASHBOARD_ACTOR,
+} from '../lib/decisions.mjs';
+import { repaintOrderQuietly } from '../lib/telegram.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
@@ -36,6 +43,38 @@ const ok = (data) => json(200, data);
 /* رسالة الخطأ هنا ديماً موجّهة للمشغّل (دارجة) — تجي من catalog.mjs
    ولا من هنا روحنا، عمرها ما تكون تفاصيل تقنية خام */
 const bad = (message) => json(400, { error: message });
+
+/*
+ * القرار الجاي من lib/decisions.mjs يرجع `{ ok, error }` بدل ما يرمي —
+ * الفشل المتوقّع (مقبول مسبقاً، المخزون ما يكفيش) ماشي خطأ برنامج،
+ * وله رسالة مكتوبة للمشغّل. نترجموه هنا لجواب HTTP.
+ */
+const decide = (result) => (result.ok ? ok({ order: result.order }) : bad(result.error));
+
+/**
+ * يزيد على السجلّ الحسابات اللي تحتاجها الواجهة — الحالة في الصفّ وعدد
+ * المحاولات.
+ *
+ * ⚠️ يتحسبو هنا وماشي في المتصفّح: الترتيب والفلترة والبادج كامل يتبنو
+ * على نفس الحساب، ولو ينحسب في زوج بلاصات يوصل نهار يقولو حاجتين
+ * مختلفين على نفس السطر.
+ */
+const decorate = (record, isLead = false, now = Date.now()) => {
+  const row = isLead
+    ? { ...record, isLead: true, kind: 'lead', id: `lead:${record.phone}`, total: record.cartTotal ?? 0 }
+    : { ...record, kind: 'order' };
+  return { ...row, queueState: queueStateOf(row, now), attempts: attemptCount(row) };
+};
+
+/** الصفّ كامل: طلبات بلا قرار + leads مفتوحين، مرتّبين بالأولوية */
+async function queueRows() {
+  const [orders, leads] = await Promise.all([listPendingOrders(), listOpenLeads()]);
+  const now = Date.now();
+  const rows = orders.map((order) => decorate(order, false, now))
+    .concat(leads.map((lead) => decorate(lead, true, now)))
+    .filter((row) => row.queueState !== 'closed');
+  return sortQueue(rows, now);
+}
 
 /*
  * سجلّ الأكشنات. كل وحدة تاخذ (body, request) وترجع Response جاهزة.
@@ -163,11 +202,71 @@ const ACTIONS = {
   'media.delete': async (body) => ok({ deleted: await deleteMedia(body.id) }),
 
   /* بلا فلاتر — القائمة نفسها اللي يستعملها /state في تيليغرام، اللوحة
-     تفلتر/ترتّب من جهتها. قراءة برك: القبول/الرفض/التوصيل يبقاو من تيليغرام
-     باش ما نكرّروش منطق المخزون/الإشعارات في زوج بلاصات. */
+     تفلتر/ترتّب من جهتها. صفحة الطلبات تبقى قراءة برك: الشغل (مكالمة،
+     قبول، رفض) يصرا في صفّ المكالمات تحت، ماشي في لائحة الأرشيف. */
   'orders.list': async () => ok({ orders: await listOrders() }),
   /* بادج الشريط الجانبي — خفيفة، بلا ما تجيب الأرشيف كامل */
   'orders.pendingCount': async () => ok({ count: (await listPendingOrders()).length }),
+
+  /*
+   * ── صفّ المكالمات ────────────────────────────────────────────────
+   *
+   * كل شي يستنّى مكالمة ولا قرار، في لائحة وحدة مرتّبة: الطلبات بلا
+   * قرار + الـ leads المفتوحين. الحساب (وقتاش المعاودة، قداش محاولة،
+   * واش وصل لبلاصة القرار) يجي كامل من lib/calls.mjs — نفس الحساب
+   * اللي يشوفو تيليغرام، باش الرقمين ما يختلفوش عمرهم.
+   *
+   * ⚠️ السطور اللي حالتها `closed` تتفلتر هنا وماشي في المتصفّح: هي
+   * الفرق بين "صفّ يفرغ" و"لائحة تكبر"، وهذا هو معنى الميزة كاملة.
+   */
+  'queue.list': async () => {
+    const rows = await queueRows();
+    return ok({ rows, counts: queueCounts(rows) });
+  },
+
+  /* بادج القائمة الجانبية — الشغل اللي يستنّاك دروك، بلا اللي عندو موعد */
+  'queue.count': async () => {
+    const counts = queueCounts(await queueRows());
+    return ok({ count: counts.confirmed + counts.due + counts.stalled, counts });
+  },
+
+  /*
+   * يسجّل محاولة مكالمة. `kind` يفرّق بين طلب و lead — الزوج عندهم
+   * نفس سجلّ المحاولات، بصح ما يتخزّنوش في نفس البلاصة (المفتاح تاع
+   * الـ lead هو الرقم).
+   */
+  'queue.logCall': async (body) => {
+    if (!isCallOutcome(body.outcome)) return bad('نتيجة مكالمة غير معروفة.');
+
+    const input = { outcome: body.outcome, by: DASHBOARD_ACTOR, note: body.note, callbackAt: body.callbackAt };
+    const updated = body.kind === 'lead'
+      ? await logLeadCall(body.phone, input)
+      : await logOrderCall(body.id, input);
+    if (!updated) return bad('ما لقيناش هذا السطر — عاود حمّل الصفحة.');
+
+    /* الطلب برك عندو رسالة في تيليغرام تتعاود ترسم — الـ lead عندو
+       رسالتو الخاصة، وما نحبّوش نبدّلوها على كل محاولة. */
+    if (body.kind !== 'lead') await repaintOrderQuietly(updated);
+
+    return ok({ row: decorate(updated, body.kind === 'lead') });
+  },
+
+  /* lead ما تنفعش فيه مكالمة (رقم غالط، ولا كمّل المحاولات) — يخرج من الصفّ */
+  'queue.dismissLead': async (body) => ok({ lead: await dismissLead(body.phone) }),
+
+  /*
+   * ── القرارات ─────────────────────────────────────────────────────
+   *
+   * نفس الفنكشنات اللي ينادي عليهم زرّ تيليغرام (lib/decisions.mjs):
+   * نفس فحص المخزون، نفس لقطة التكاليف، نفس الرسم المجدّد للرسالة.
+   * الفرق الوحيد هو اللي نقر.
+   */
+  'orders.confirm': async (body) => decide(await confirmOrder(body.id, { by: DASHBOARD_ACTOR })),
+  'orders.accept': async (body) => decide(await acceptOrder(body.id, { by: DASHBOARD_ACTOR })),
+  'orders.deny': async (body) => decide(await denyOrder(body.id, { by: DASHBOARD_ACTOR, reason: body.reason })),
+  'orders.delivery': async (body) =>
+    decide(await setDeliveryOutcome(body.id, body.outcome, { by: DASHBOARD_ACTOR })),
+  'orders.returnReceived': async (body) => decide(await receiveReturn(body.id, { by: DASHBOARD_ACTOR })),
 
   /*
    * الطلبات اللي ما كملوش — يبانو في نفس صفحة الطلبات بحالة "lead".

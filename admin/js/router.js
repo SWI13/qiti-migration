@@ -10,6 +10,7 @@ import { renderProductList, renderProductEditor } from './pages/products.js';
 import { renderCategories } from './pages/categories.js';
 import { renderMedia } from './pages/media.js';
 import { renderOrderList } from './pages/orders.js';
+import { renderQueue, reloadQueue } from './pages/queue.js';
 
 export { NAV };
 
@@ -17,6 +18,7 @@ var root = document.getElementById('adminRoot');
 
 var VIEW_TITLE = {
   dashboard: 'nav.dashboard',
+  queue: 'nav.queue',
   orders: 'nav.orders',
   campaigns: 'nav.campaigns',
   products: 'nav.products',
@@ -28,7 +30,7 @@ function loadingTitle() {
   return t(VIEW_TITLE[state.view] || 'nav.dashboard');
 }
 
-var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, orders: true, products: true, campaigns: true, categories: true };
+var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, queue: true, orders: true, products: true, campaigns: true, categories: true };
 
 function loadingActions() {
   if (state.id || !LIST_VIEWS_WITH_ACTIONS[state.view]) return '';
@@ -38,7 +40,7 @@ function loadingActions() {
 function loadingBody() {
   if (state.view === 'dashboard') return skeletonDashboard();
   if (state.id) return skeletonEditor();
-  if (state.view === 'orders') return skeletonTable(8, 4);
+  if (state.view === 'orders' || state.view === 'queue') return skeletonTable(8, 4);
   if (state.view === 'media') return skeletonGrid(8);
   return skeletonList();
 }
@@ -91,6 +93,12 @@ export async function route() {
     if (state.view === 'products') {
       state.products = (await api('products.list')).products;
       renderProductList();
+      return;
+    }
+
+    if (state.view === 'queue') {
+      await reloadQueue();
+      renderQueue();
       return;
     }
 

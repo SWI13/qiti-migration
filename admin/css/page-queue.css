@@ -1,0 +1,134 @@
+/* ==========================================================================
+   صفّ المكالمات
+   بطاقات ماشي جدول: كل سطر هو شغل يتدار، ماشي معلومة تتقرا. علاش
+   الأزرار كبار ومفرّقين في مجموعات (تعيّط / تسجّل النتيجة / تقرّر) —
+   اليد تلقى الزرّ بلا ما العين تقرا، وهذا هو الفرق كي تكون تخدم
+   مايتين سطر في النهار.
+
+   شريط اللون على اليسار هو الحالة: العين تفرز اللائحة بلا ما تقرا
+   حتى كلمة.
+   ========================================================================== */
+
+.queue-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+.queue-count {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-4);
+  text-align: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--st-neutral);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.queue-count:hover { background: var(--bg-gray); }
+.queue-count.is-active { border-color: var(--accent); }
+.queue-count:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.queue-count__n {
+  font-size: var(--fs-page);
+  font-weight: var(--fw-black);
+  line-height: var(--lh-tight);
+}
+
+.queue-count__label {
+  font-size: var(--fs-micro);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.queue-count--confirmed { border-inline-start-color: var(--st-success); }
+.queue-count--due       { border-inline-start-color: var(--st-info); }
+.queue-count--stalled   { border-inline-start-color: var(--st-warn); }
+.queue-count--waiting   { border-inline-start-color: var(--st-neutral); }
+
+/* ── السطر ────────────────────────────────────────────────────────── */
+
+.queue-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.queue-row {
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--st-neutral);
+  border-radius: var(--r-md);
+}
+
+.queue-row--confirmed { border-inline-start-color: var(--st-success); }
+.queue-row--due       { border-inline-start-color: var(--st-info); }
+.queue-row--stalled   { border-inline-start-color: var(--st-warn); }
+
+/* اللي ينتظر موعدو ماشي شغل دروك — يبان أهدى بلا ما يختفي */
+.queue-row--waiting { opacity: .72; }
+
+.queue-row__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.queue-row__name {
+  margin: 0;
+  font-size: var(--fs-card);
+  font-weight: var(--fw-bold);
+}
+
+/* عمر الطلب يمشي للطرف الآخر — "قداش وهو يستنّى" أهم سؤال في اللائحة */
+.queue-row__age {
+  margin-inline-start: auto;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+}
+
+.queue-row__meta,
+.queue-row__calls,
+.queue-row__next {
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+  line-height: var(--lh-body);
+}
+
+.queue-row__calls { color: var(--text); }
+.queue-row__note { font-style: italic; color: var(--text-muted); }
+
+.queue-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+/* المجموعات مفرّقة قصداً: تعيّط، تسجّل، تقرّر. زرّ "رفض" جنب زرّ
+   "ما جاوبش" = نقرة غالطة في الوقت اللي تكون فيه مستعجل. */
+.queue-row__group { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.queue-row__group:last-child { margin-inline-start: auto; }
+
+.badge--queue-confirmed { background: var(--st-success);      color: var(--st-on-solid); }
+.badge--queue-due       { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--queue-stalled   { background: var(--st-warn-soft);    color: var(--st-warn); }
+.badge--queue-waiting   { background: var(--st-neutral-soft); color: var(--st-neutral); }
+
+@media (max-width: 860px) {
+  .queue-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .queue-row__actions { gap: var(--sp-3); }
+  .queue-row__group { width: 100%; }
+  .queue-row__group:last-child { margin-inline-start: 0; }
+  .queue-row__group .btn { flex: 1 1 auto; justify-content: center; }
+}

@@ -77,6 +77,16 @@ The dashboard is one request, not six. Six round trips on a bad connection is tw
 
 Campaign preview calls the same `renderSections`/`renderPage` the server does. A separate preview drifts, and then you ship a page you never actually saw.
 
+### Call queue
+
+Accept/decline in Telegram works at twenty orders a day. At two hundred the messages scroll away, and "no answer, third try" ends up living in someone's head instead of in the shop.
+
+`/admin#/queue` is that state written down. Every pending order and every unfinished form sits in one list, oldest first, with what happened on each call: who rang, when, and how it went — no answer, busy, phone off, asked me to call back, answered, wrong number. Logging an outcome schedules the next try from the outcome itself: busy comes back in fifteen minutes, no-answer backs off 45 minutes, then longer each time, and a customer who names a time gets that time instead.
+
+Rows sort by what deserves attention, not by when the order arrived: confirmed by phone first (one tap from money), then calls that are due, then orders that ran out of tries, then the ones with a future appointment. After `MAX_ATTEMPTS` an order stops coming back to the top and becomes a decision instead of another call — without that ceiling, the number nobody ever answers outlives every order that could have sold.
+
+The queue accepts and denies too. That logic lives in `lib/decisions.mjs` and both surfaces call it, so the dashboard's accept runs the same stock check, writes the same cost snapshot, and repaints the same Telegram message a button tap would. Attempts show up in the order message as well, and Telegram keeps a one-tap "called, no answer" button for the outcome that happens most.
+
 Numbers in those shots are fake, there's no live store in the environment I take screenshots in.
 
 ## Telegram
@@ -118,6 +128,8 @@ If the bot goes quiet, check the webhook before reading any code. `GET /api/tele
 ## Site, bot and admin on the same data
 
 There's one store behind all three. `api/order` writes the order to Redis and then messages Telegram. A button tap goes to `api/telegram-webhook`, which updates that same record and repaints the message. The admin reads the same keys through `api/admin-api`. Nothing has its own copy, so nothing can disagree.
+
+Decisions are one implementation for the same reason. Accept, deny, delivery outcome and return receipt used to live inside the Telegram click handler; they now live in `lib/decisions.mjs`, and the webhook and the admin both call it. Each of those does four things — write the record, move stock, snapshot costs, fire the Meta event — and a second copy would have skipped one of them within a month.
 
 Stock works the same way. It's one number per variant, and `/stock`, the low-stock card on the dashboard, the accept button's check, and `/restock` all read and write that one number. This wasn't true early on. There were two counters, an old global one and the per-variant one, and `/restock` was updating the wrong one while the dashboard read the other.
 
