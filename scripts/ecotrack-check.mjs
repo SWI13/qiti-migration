@@ -16,7 +16,7 @@
 import {
   configured, validateToken, listWilayas, listCommunes, listDesks,
   createParcel, deleteParcel, parcelFor,
-} from '../lib/ecotrack.mjs';
+} from '../lib/ecotrack/client.mjs';
 
 const line = (label, value) => console.log(`${label.padEnd(22)} ${value}`);
 
