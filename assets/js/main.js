@@ -304,6 +304,8 @@
       }
 
       var render = function (rows) {
+        /* بلا بلديات (الموصّل ماشي مضبوط) الحقل يرجع نص حرّ بدل ما
+           يبقى قائمة فارغة ما تتعمّرش — الزبونة تكمّل طلبها. */
         if (!rows.length) return fallbackToText();
         var desk = currentShipping() === 'desk';
         var usable = desk ? rows.filter(function (row) { return row.desk; }) : rows;
@@ -315,7 +317,7 @@
 
       if (communeCache[id]) return render(communeCache[id]);
 
-      fetch('/?communes=' + id, { headers: { accept: 'application/json' } })
+      fetch('/api/render?communes=' + id, { headers: { accept: 'application/json' } })
         .then(function (res) { return res.json(); })
         .then(function (data) {
           var rows = (data && data.communes) || [];
