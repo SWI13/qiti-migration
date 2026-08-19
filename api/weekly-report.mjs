@@ -13,7 +13,7 @@
  * عليه الفنكشنز الأخرى، بلا ما نعاودو نخترعوه.
  *
  * تقدر تشغّلو باليد للتجريب:
- *   curl "https://<موقعك>.netlify.app/api/weekly-report?key=<SECRET>"
+ *   curl "https://<موقعك>/api/weekly-report?key=<SECRET>"
  */
 import { listOrdersForDay, algiersDate } from '../lib/store.mjs';
 import { dz, esc, goodsTotal } from '../lib/message.mjs';

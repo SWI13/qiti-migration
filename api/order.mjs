@@ -31,6 +31,8 @@ import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
 import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
 import { toVercel } from '../lib/http.mjs';
+import { claim, release } from '../lib/locks.mjs';
+import { hit, requestIp, tooManyRequests } from '../lib/rate-limit.mjs';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -110,7 +112,20 @@ function validate(order) {
 
   if (name.length < 3 || name.length > 80) return { error: 'الاسم ماشي صحيح.' };
   if (!/^0[5-7]\d{8}$/.test(phone)) return { error: 'رقم الهاتف ماشي صحيح.' };
-  if (!wilaya || wilaya.length > 40) return { error: 'الولاية ماشي صحيحة.' };
+  /*
+   * ⚠️ الاسم لازم يكون وحدة من الـ58، ماشي أي نص طولو تحت 40 حرف.
+   *
+   * قبل، الفحص كان `isServed(wilaya)` وحدو — و`isServed` تمرّ على
+   * `rateFor` اللي ترجّع DEFAULT_RATE لأي اسم ما تعرفوش. يعني
+   * "لا-وجود" ولا `"x"` كانو يعدّيو، والطلب يتخزّن بتسعيرة 600
+   * افتراضية. ما يبانش غلط حتى ساعة إنشاء الطردة، وتمّة `wilayaId()`
+   * ترجّع null والموصّل يردّها بـ "الولاية غير معروفة" — بعد ما
+   * تكون قبلتي الطلب، نقّصتي المخزون، وعيّطتي للزبونة.
+   *
+   * التسعيرة الافتراضية تبقى كيما هي لولاية **معروفة** ما وصلاتناش
+   * سومتها — هذاك هو معناها، ماشي "اقبل أي نص".
+   */
+  if (!wilaya || !wilayaId(wilaya)) return { error: 'الولاية ماشي صحيحة.' };
   /* DHD ما توصّلش لثلاث ولايات. القبول ونحنا نعرفو بلّي ما نقدروش
      نوصّلو = مكالمة اعتذار من بعد، وزبون يحكي عليها. */
   if (!isServed(wilaya)) return { error: 'ما نوصلوش لهذي الولاية حالياً. اتصل بينا ونشوفو حل.' };
@@ -189,16 +204,28 @@ async function acceptUpsell(payload) {
   const orderId = String(payload.orderId ?? '').slice(0, 64);
   if (!orderId) return json(400, { error: 'الطلب ماشي معروف.' });
 
+  /* ضغطتين سراع (شبكة بطيئة، الزبونة تعاود تنقر) كانو يزيدو زوج سطور
+     على نفس الطلب ويضاعفو المجموع — الفحص تحت يقرا قبل ما يكتب. */
+  if (!await claim(orderId, 'upsell')) {
+    return json(409, { error: 'العرض راه يتزاد دروك.' });
+  }
+
+  /* الرفض المتوقّع يحلّ القفل: ما تبدّل والو، فالإعادة لازم تخدم */
+  const refuse = async (status, body) => {
+    await release(orderId, 'upsell');
+    return json(status, body);
+  };
+
   const order = await getOrder(orderId);
-  if (!order) return json(404, { error: 'الطلب ماشي موجود.' });
-  if (order.status !== 'pending') return json(409, { error: 'الطلب تقرّر فيه من قبل.' });
+  if (!order) return refuse(404, { error: 'الطلب ماشي موجود.' });
+  if (order.status !== 'pending') return refuse(409, { error: 'الطلب تقرّر فيه من قبل.' });
   if ((order.lines ?? []).some((line) => line.kind === 'upsell')) {
-    return json(200, { ok: true, total: order.total, already: true });
+    return refuse(200, { ok: true, total: order.total, already: true });
   }
 
   const campaign = order.campaignId ? await getCampaign(order.campaignId).catch(() => null) : null;
   const line = await upsellLineFor(campaign);
-  if (!line) return json(409, { error: 'العرض ماشي مفعّل.' });
+  if (!line) return refuse(409, { error: 'العرض ماشي مفعّل.' });
 
   const lines = [...(order.lines ?? []), line];
   const total = linesTotal(lines) + (order.shippingFee ?? 0);
@@ -243,11 +270,36 @@ async function handler(request) {
   /* فخّ البوتات: حقل مخبّي، البشر ما يعمّروهش. نجاوبو بنجاح باش البوت ما يعاودش. */
   if (payload.website) return json(200, { ok: true });
 
+  /*
+   * تحديد المعدّل بالـ IP — قبل أي كتابة وأي نداء برّاني.
+   *
+   * ⚠️ فخّ البوتات فوق يشدّ الزحف الغبي برك. اللي يشوف الفورم مرّة
+   * وحدة يعرف يتخطّاه، وبعدها ولا حاجة توقفو من يغرق الگروب بطلبات
+   * مزوّرة — والطلبات الحقيقية تضيع بيناتهم.
+   */
+  const ip = requestIp(request);
+  const ipLimit = await hit('order', ip);
+  if (!ipLimit.allowed) {
+    console.warn('Rate limit hit:', ipLimit.count, 'orders from', ip);
+    return tooManyRequests(ipLimit.retryAfter);
+  }
+
   /* ضغطة "زيدها" بعد الطلب — ما تعاودش تمرّ على التحقّق تاع الفورم */
   if (payload.action === 'upsell') return acceptUpsell(payload);
 
   const { order, error } = validate(payload);
   if (error) return json(400, { error });
+
+  /*
+   * والرقم تاني: IP يتبدّل (4G يعطي واحد جديد كل شوية)، والرقم لا.
+   * الحدّ هنا أضيق — الزبونة اللي تعاود على خاطر ما شافتش شاشة النجاح
+   * تدير زوج محاولات، ماشي أربعة.
+   */
+  const phoneLimit = await hit('order-phone', order.phone);
+  if (!phoneLimit.allowed) {
+    console.warn('Rate limit hit:', phoneLimit.count, 'orders for phone', order.phone);
+    return tooManyRequests(phoneLimit.retryAfter, 'سجّلنا طلبك من قبل. نتصلو بيك قريباً.');
+  }
 
   const now = new Date();
   const attribution = sanitizeAttribution(payload.attribution);
@@ -413,6 +465,10 @@ async function handler(request) {
     confirmedBy: null,
     confirmedBeforeAccept: null,
     messageId: null,
+    /* رسالة تيليغرام ما وصلاتش — الطلب يبقى صحيح، بصح لازم يبان
+       للمشغّل بلاصة ما (شوف الجواب على ownerResult تحت). */
+    notifyError: null,
+    notifyErrorAt: null,
     deliveryStatus: null,
     deliveryActor: null,
     deliveryDecidedAt: null,
@@ -438,10 +494,18 @@ async function handler(request) {
    * نسجّلو الطلب قبل ما نبعثو: حتى لو تيليغرام طاح، الطلب يبقى محفوظ
    * ويبان في تقرير آخر النهار.
    */
+  /*
+   * ⚠️ التخزين هو الحاجة الوحيدة اللي فشلها يخصّر الطلب.
+   *
+   * قبل، الفشل كان يتسجّل في اللوغ والفنكشن تكمّل وترجّع 200 — الزبونة
+   * تشوف "تسجّل طلبك" وما تسجّل والو. دروك نرجّعو 503: ما تكتب حتى
+   * حاجة، فالإعادة ما تدير تكرار.
+   */
   try {
     await saveOrder(record);
   } catch (err) {
     console.error('Failed to persist order:', err.message, '| order:', JSON.stringify(record));
+    return json(503, { error: 'ما قدرناش نسجّلو الطلب دروك. عاود حاول أو اتصل بينا مباشرة.' });
   }
 
   /*
@@ -479,16 +543,32 @@ async function handler(request) {
   const meta = metaResult.status === 'fulfilled' ? metaResult.value : { error: metaResult.reason?.message };
   if (meta?.error) console.error('Meta CAPI Lead failed:', meta.error, '| order:', record.id);
 
+  /*
+   * ⚠️ تيليغرام طبقة إشعار، ماشي جزء من الطلب.
+   *
+   * قبل، فشلو كان يرجّع 502 بـ "ما قدرناش نسجّلو الطلب" — والطلب راه
+   * **مسجّل** فوق بسطرين. الزبونة تقرا "عاود حاول" وتبعث مرّة ثانية،
+   * فيولّي عندك زوج طلبات على نفس السلعة بزوج أرقام مختلفين. يعني
+   * انقطاع عند تيليغرام كان يولّد طلبات مكرّرة بدل ما يمنع وحدة.
+   *
+   * دروك الجواب نجاح (الطلب محفوظ فعلاً)، والفشل يتعلّم على السجلّ:
+   * `notifyError` يخلّي التقرير اليومي والصفّ يبيّنو الطلب اللي عمرها
+   * ما وصلات رسالتو، بدل ما يضيع في اللوغ.
+   */
   if (ownerResult.status === 'rejected') {
-    /* الطلب يبقى في اللوغ وفي التخزين حتى إذا تيليغرام فشل — ما نخسروش زبون. */
-    console.error('Telegram notification failed:', ownerResult.reason.message, '| order:', JSON.stringify(record));
-    return json(502, { error: 'ما قدرناش نسجّلو الطلب دروك. عاود حاول أو اتصل بينا مباشرة.' });
+    console.error('Telegram notification failed:', ownerResult.reason.message, '| order:', record.id);
+    await updateOrder(record.id, {
+      notifyError: String(ownerResult.reason.message).slice(0, 300),
+      notifyErrorAt: new Date().toISOString(),
+    }).catch((err) => console.error('Failed to store notify error:', err.message));
+
+    return json(200, { ok: true, id: record.id });
   }
 
   /* نخزّنو message_id باش الويبهوك يقدر يبدّل نفس الرسالة كي تنقر على زر */
   const messageId = ownerResult.value?.message_id ?? null;
   if (messageId) {
-    await updateOrder(record.id, { messageId }).catch((err) =>
+    await updateOrder(record.id, { messageId, notifyError: null, notifyErrorAt: null }).catch((err) =>
       console.error('Failed to store message id:', err.message),
     );
   }

@@ -14,7 +14,7 @@ export var CAMPAIGNS_EN = {
   'campaigns.name': 'Campaign name',
   'campaigns.nameHint': 'Internal only — customers never see this',
   'campaigns.slug': 'Slug',
-  'campaigns.slugHint': 'qitishop.netlify.app/<slug>',
+  'campaigns.slugHint': 'qiti.vercel.app/<slug>',
   'campaigns.selectProduct': '— Select a product —',
   'campaigns.product': 'Product',
   'campaigns.seoTitle': 'Google title',

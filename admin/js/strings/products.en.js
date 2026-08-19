@@ -13,7 +13,6 @@ export var PRODUCTS_EN = {
   'products.filterAriaLabel': 'Filter by status',
 
   'products.colSerial': '#',
-  'products.colSerial': '#',
   'products.colName': 'Product',
   'products.colType': 'Type',
   'products.colPrice': 'Price',
@@ -30,7 +29,7 @@ export var PRODUCTS_EN = {
   'products.groupBasics': 'Basics',
   'products.name': 'Product name',
   'products.slug': 'Slug',
-  'products.slugHint': 'qitishop.netlify.app/p/<slug>',
+  'products.slugHint': 'qiti.vercel.app/p/<slug>',
   'products.shortDescription': 'Short description',
   'products.shortDescriptionHint': 'Max 300 characters — used in listings and previews',
   'products.description': 'Full description',

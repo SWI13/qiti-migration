@@ -26,6 +26,7 @@ import {
 import { sanitizeAttribution, channelKey, channelLabel } from '../lib/attribution.mjs';
 import { getProduct } from '../lib/catalog.mjs';
 import { toVercel } from '../lib/http.mjs';
+import { hit, requestIp, tooManyRequests } from '../lib/rate-limit.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -48,6 +49,14 @@ async function handler(request) {
 
   /* فخّ البوتات — نفس الحقل المخبّي تاع الطلب. نجاوبو بنجاح باش ما يعاودش. */
   if (payload.website) return json(200, { ok: true });
+
+  /*
+   * الحدّ هنا أوسع من تاع الطلب بقصد: الفورم يبعث lead على كل تبديل
+   * في الرقم، فالزبونة الحقيقية تدير عدّة نداءات في جلسة وحدة. اللي
+   * يهمّنا هو نمنعو سيل الآلاف، ماشي نضيّقو على واحد يصحّح رقمو.
+   */
+  const leadLimit = await hit('lead', requestIp(request));
+  if (!leadLimit.allowed) return tooManyRequests(leadLimit.retryAfter);
 
   const phone = normalizeDzPhone(payload.phone);
   /* رقم ماشي صحيح = الزبون ما زال يكتب. ماشي خطأ، وما كاين والو نخزّنوه. */

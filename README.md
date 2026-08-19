@@ -143,7 +143,9 @@ Commands only answer in the chat set as `TELEGRAM_CHAT_ID`.
 
 Reports come in on their own: one at midnight with the day, one on Monday with the week. The parcel events land in the same chat as they happen: gone out, moved, delivered with the profit on it, returned with the loss broken down line by line, or refused by the courier with the reason and the command to try again. Each of those can be switched off on its own, since a notification for every movement is a notification nobody reads.
 
-If the bot goes quiet, check the webhook before reading any code. `GET /api/telegram-webhook?setup` re-registers it and tells you what it set. That's been the problem nearly every time.
+If the bot goes quiet, check the webhook before reading any code. `GET /api/telegram-webhook?setup&key=<TELEGRAM_WEBHOOK_SECRET>` re-registers it and tells you what it set. That's been the problem nearly every time.
+
+The key isn't ceremony. Re-registering passes `drop_pending_updates`, so an open endpoint let anyone throw away button taps that were queued while a function was cold — accepts and delivery outcomes included.
 
 ## The courier
 

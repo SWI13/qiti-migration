@@ -8,7 +8,7 @@
  * فنحسبو التاريخ من ساعة لور (23:00 تاع البارح) باش نجيبو النهار الصح.
  *
  * تقدر تشغّلو باليد للتجريب:
- *   curl "https://<موقعك>.netlify.app/api/daily-report?key=<SECRET>"
+ *   curl "https://<موقعك>/api/daily-report?key=<SECRET>"
  */
 import {
   listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts,
@@ -67,7 +67,7 @@ export function buildReport(day, orders, awaiting = [], awaitingReturn = [], sto
     /*
      * الربح الصافي التقديري: ربح الطلبات اللي توصّلت، ناقص خسارة الرجعة
      * تاع الطلبات اللي رجعت. مبني على costs (من getCosts في store.mjs —
-     * تتبدّل بـ /cost في تيليغرام) + COURIER_COST الثابتة في message.mjs.
+     * تتبدّل بـ /cost في تيليغرام، وفيها تكلفة التوصيل تاني).
      */
     const profit = costs
       ? delivered.reduce((sum, o) => sum + profitFor(o, costs), 0)

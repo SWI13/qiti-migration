@@ -33,6 +33,9 @@ import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/in
 import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { dashboardSummary } from '../lib/analytics.mjs';
+import { getSettings, saveSettings, NOTIFY_EVENTS } from '../lib/settings.mjs';
+import { cancelShipment, sendShipment } from '../lib/ecotrack/shipments.mjs';
+import { shipmentCancelled, shipmentCreated } from '../lib/notify.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
@@ -293,6 +296,39 @@ const ACTIONS = {
     summary: await dashboardSummary({ days: Number(body.days) || 30 }),
   }),
 
+  /*
+   * ── إعدادات المحل ────────────────────────────────────────────────
+   *
+   * ⚠️ `saveSettings` كانت موجودة وما عندهاش حتى نادي: لا صفحة في
+   * اللوحة، لا أكشن هنا، لا أمر في تيليغرام. يعني كل حاجة مبنية
+   * عليها كانت مقفولة على قيمتها الافتراضية — الإرسال التلقائي ما
+   * ينطفاش، نسبة الرجعة محبوسة في 50%، وكل مفاتيح الإشعارات ميّتة.
+   * الكود يقرا الإعدادات في ستّ بلايص، وحتى واحد ما كان يقدر يكتبها.
+   */
+  'settings.get': async () => ok({ settings: await getSettings(), events: NOTIFY_EVENTS }),
+
+  'settings.save': async (body) => ok({ settings: await saveSettings(body.settings ?? body) }),
+
+  /*
+   * إلغاء الطردة — نفس الملاحظة: `cancelShipment` كانت مكتوبة ومختبرة
+   * وما توصلهاش حتى نقرة. المشغّل اللي يقبل طلب بالغلط والإرسال
+   * التلقائي خدّام كان يلقى روحو بطردة عند الموصّل بلا زرّ يوقّفها.
+   */
+  'orders.cancelShipment': async (body) => {
+    const result = await cancelShipment(body.id, { by: DASHBOARD_ACTOR });
+    if (!result.ok) return bad(result.error);
+    await shipmentCancelled(result.order).catch(() => {});
+    return ok({ order: result.order });
+  },
+
+  /* إعادة إرسال طردة طاحت — الزرّ اللي يقابل رسالة الخطأ في تيليغرام */
+  'orders.ship': async (body) => {
+    const result = await sendShipment(body.id, { by: DASHBOARD_ACTOR });
+    if (!result.ok) return bad(result.error);
+    if (!result.already) await shipmentCreated(result.order).catch(() => {});
+    return ok({ order: result.order, tracking: result.tracking, already: Boolean(result.already) });
+  },
+
   'stock.set': async (body) => ok({
     stock: await setVariantStock(
       body.productId,
@@ -334,8 +370,13 @@ async function handler(request) {
     return bad('Invalid request — expected JSON.');
   }
 
-  const run = ACTIONS[body?.action];
-  if (!run) return bad(`Unknown action: ${body?.action}`);
+  /* ⚠️ `hasOwn` ماشي زينة: `ACTIONS['constructor']` ولا `ACTIONS['toString']`
+     يرجّعو فنكشن موروثة من Object، فنداء بـ action:"constructor" كان
+     ينفّذها ويرجّع حاجة ماشي Response — والجسر يطيح بـ 500 غامض بدل
+     "أكشن ما نعرفوهش". */
+  const action = typeof body?.action === 'string' ? body.action : '';
+  const run = Object.hasOwn(ACTIONS, action) ? ACTIONS[action] : null;
+  if (!run) return bad(`Unknown action: ${action}`);
 
   try {
     return await run(body, request);

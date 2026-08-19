@@ -186,6 +186,65 @@ function lowStockCard(summary) {
   return rowListCard(t('dashboard.lowStock'), rows);
 }
 
+/*
+ * "واش يستنّاك" — فوق كلش، قبل أي رقم.
+ *
+ * ⚠️ الفرق مع بطاقات الـ KPI تحت: هاذي حوايج **تتدار**، ماذوك حوايج
+ * تتعرف. المشغّل اللي يفتح اللوحة الصباح يسأل سؤال واحد — "واش لازم
+ * ندير دروك؟" — وكانت اللوحة تجاوبو بمداخيل الشهر.
+ *
+ * البطاقة تختفي كي ما يكون والو: صفّ فاضي ديما بايّن يعلّم العين
+ * تتخطّاه، وبعدها ما يبانش حتى كي يعمّر.
+ */
+function actionRequiredCard(summary) {
+  var a = summary.actionRequired;
+  if (!a || !a.total) return '';
+
+  var items = [
+    { n: a.pendingDecision, label: t('action.pendingDecision'), href: '#/queue', tone: 'warn' },
+    { n: a.unnotified, label: t('action.unnotified'), href: '#/orders', tone: 'bad' },
+    { n: a.shipmentFailed, label: t('action.shipmentFailed'), href: '#/orders', tone: 'bad' },
+    { n: a.awaitingReturnReceipt, label: t('action.awaitingReturn'), href: '#/orders', tone: 'warn' },
+    { n: a.oversold, label: t('action.oversold'), href: '#/products', tone: 'bad' },
+    { n: a.outOfStock, label: t('action.outOfStock'), href: '#/products', tone: 'bad' },
+    { n: a.lowStock, label: t('action.lowStock'), href: '#/products', tone: 'warn' },
+  ].filter(function (item) { return item.n > 0; });
+
+  var rows = items.map(function (item) {
+    return '<a class="row-item row-item--order" href="' + esc(item.href) + '">' +
+      '<div><div class="row-item__name">' + esc(item.label) + '</div></div>' +
+      '<div class="row-item__amount stock-' + esc(item.tone === 'bad' ? 'low' : 'warn') + '">' +
+        esc(String(item.n)) +
+      '</div>' +
+    '</a>';
+  }).join('');
+
+  return rowListCard(t('action.title'), rows);
+}
+
+/*
+ * المخزون المحجوز — اللي عندك مقابل اللي وعدت بيه.
+ *
+ * ⚠️ المخزون ينقص وقت القبول، ماشي وقت الطلب. صحيح في الدفع عند
+ * الاستلام، بصح معناه "عندك 10" وانت عندك 8 طلبات تستنّى على نفس
+ * السلعة. البطاقة تبان غير كي يكون كاين حجز فعلاً.
+ */
+function reservedCard(summary) {
+  var rows = (summary.reserved || []).filter(function (row) { return row.committed > 0; });
+  if (!rows.length) return '';
+
+  var html = rows.map(function (row) {
+    var short = row.available < 0;
+    return '<a class="row-item row-item--order" href="' + esc(row.productId ? '#/products/' + row.productId : '#/products') + '">' +
+      '<div><div class="row-item__name">' + esc(row.productName || t('dashboard.legacyProduct')) + '</div>' +
+      '<div class="row-item__meta">' + esc(t('stock.onHandCommitted', { onHand: row.onHand, committed: row.committed })) + '</div></div>' +
+      '<div class="row-item__amount' + (short ? ' stock-low' : '') + '">' + esc(String(row.available)) + '</div>' +
+    '</a>';
+  }).join('');
+
+  return rowListCard(t('stock.availableTitle'), html);
+}
+
 function recentOrdersCard(summary) {
   var rows = (summary.recentOrders || []).map(function (o) {
     return '<a class="row-item row-item--order" href="#/orders">' +
@@ -216,10 +275,15 @@ export function renderDashboard() {
       variant: 'empty', title: t('dashboard.emptyTitle'), body: t('dashboard.emptyBody'),
     }) + '</div>';
   } else {
-    body = kpiGrid(summary) +
+    /* "واش يستنّاك" فوق الأرقام: الجواب على السؤال اللي يفتح بيه
+       المشغّل اللوحة، قبل الأرقام اللي يقلّب عليها كي يخلص شغلو */
+    var attention = actionRequiredCard(summary);
+    body = (attention ? '<div style="margin-bottom:14px">' + attention + '</div>' : '') +
+      kpiGrid(summary) +
       '<div class="dash-grid" style="margin-top:14px">' + revenueChartCard(summary) + ordersChartCard(summary) + '</div>' +
       '<div class="dash-grid" style="margin-top:14px">' + categoryChartCard(summary) + topProductsCard(summary) + '</div>' +
       '<div class="dash-grid" style="margin-top:14px">' + campaignsCard(summary) + lowStockCard(summary) + '</div>' +
+      (reservedCard(summary) ? '<div style="margin-top:14px">' + reservedCard(summary) + '</div>' : '') +
       (offersCard(summary) ? '<div style="margin-top:14px">' + offersCard(summary) + '</div>' : '') +
       '<div style="margin-top:14px">' + recentOrdersCard(summary) + '</div>';
   }

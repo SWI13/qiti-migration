@@ -14,8 +14,11 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, '..', '..');
 
+/* ملفات مساعدة، ماشي سويتات — تتستورد من غيرها وما تخرجش PASS/FAIL */
+const HELPERS = new Set(['all.mjs', 'fake-redis.mjs']);
+
 const suites = readdirSync(here)
-  .filter((name) => name.endsWith('.mjs') && name !== 'all.mjs')
+  .filter((name) => name.endsWith('.mjs') && !HELPERS.has(name))
   .sort();
 
 /* فحص تغطية حقول اللوحة يعيش برّا verify/ — بصح لازم يجري معاهم */

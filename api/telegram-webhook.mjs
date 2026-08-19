@@ -48,7 +48,7 @@
  *
  * ── تشبيك الـ webhook (مرّة وحدة بعد الـ deploy) ─────────────────────
  *   curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
- *     -d "url=https://<موقعك>.netlify.app/api/telegram-webhook" \
+ *     -d "url=https://<موقعك>/api/telegram-webhook" \
  *     -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
  */
 import {
@@ -86,7 +86,21 @@ import {
   saveProduct, saveCategory, listCategories, availableSlug, deleteProduct,
 } from '../lib/catalog.mjs';
 import { guessPreset, findPreset } from '../lib/category-presets.mjs';
+/*
+ * ⚠️ هاذو كانو مستعملين في /ship و/sync وما كانوش مستوردين أصلاً.
+ *
+ * ESM في وضع صارم: نداء اسم ما تعرّفش يرمي ReferenceError وقت التشغيل
+ * (ماشي وقت التحليل — `node --check` يعدّي عادي، علاش عاش العطب).
+ * والـ try/catch الكبير في `handler` يبلع الخطأ ويرجّع 200 لتيليغرام.
+ * النتيجة اللي شافها المشغّل: تكتب /ship ولا /sync ويجيك **سكات
+ * كامل** — لا طردة، لا رسالة خطأ، لا حتى علامة بلّي صرا شي.
+ */
+import { sendShipment, cancelShipment } from '../lib/ecotrack/shipments.mjs';
+import { syncOpenShipments, retryFailedShipments } from '../lib/ecotrack/sync.mjs';
+import { shipmentCreated, shipmentCancelled } from '../lib/notify.mjs';
+import { getSettings, saveSettings } from '../lib/settings.mjs';
 import { siteUrl } from '../lib/site.mjs';
+import { authorized as cronAuthorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const displayName = (from) =>
@@ -917,8 +931,21 @@ async function handleCommand(message) {
       '/setstock &lt;رقم&gt; &lt;كمية&gt; — تصحيح الكمية بالضبط',
       '<i>الرقم هو نفسو اللي يبان حذا المنتج في اللوحة، وما يتبدّلش.</i>',
       '',
+      /*
+       * ⚠️ /ship و/sync كانو موجودين وما مذكورينش هنا — يعني ميزة
+       * مبنية ومختبرة وما حدّ يعرف بيها. اللائحة هنا هي الوثيقة
+       * الوحيدة اللي يقراها المشغّل.
+       */
+      '<b>الشحن</b>',
+      '/ship &lt;رقم الطلب&gt; — يبعث الطردة بيدك',
+      '/cancel &lt;رقم الطلب&gt; — يلغي الطردة (المخزون ما يرجعش وحدو)',
+      '/sync — يسحب حالات الطرود من الموصّل دروك',
+      '',
       '<b>المال</b>',
       '/cost — سعر الشراء، الإعلانات، الإرجاع، التوصيل',
+      '',
+      '<b>الإعدادات</b>',
+      '/settings — الإرسال التلقائي، نسبة الرجعة، تكاليفها',
       '',
       '<b>الزبائن</b>',
       '/block · /unblock · /blocked',
@@ -983,7 +1010,10 @@ async function handleCommand(message) {
    */
   if (command === '/ship') {
     const orderId = arg;
-    if (!orderId) return reply('اكتب رقم الطلب: <code>/ship QT-1042</code>');
+    /* ⚠️ المثال كان <code>QT-1042</code> — وشكل ما كانش عمرو موجود.
+       الـ id الحقيقي هو YYMMDD-xxxxx (شوف newOrderId في store.mjs)،
+       فاللي ينسخ المثال يلقى "الطلب غير موجود" وما يفهمش علاش. */
+    if (!orderId) return reply('اكتب رقم الطلب: <code>/ship 260819-a1b2c</code>');
 
     const result = await sendShipment(orderId, { by: displayName(message.from) });
     if (!result.ok) return reply(`⚠️ ما تبعثش: ${esc(result.error)}`);
@@ -1150,6 +1180,83 @@ async function handleCommand(message) {
     const costs = await setCost(field.key, n);
     return reply(`✅ سُجِّل. ${field.label}: <b>${dz(costs[field.key])}</b>`);
   }
+
+  /*
+   * ── /settings ────────────────────────────────────────────────────
+   *
+   * ⚠️ الإعدادات كانت تتقرا في ستّ بلايص وما عندها حتى كاتب: لا صفحة
+   * في اللوحة، لا أمر هنا. الإرسال التلقائي ما ينطفاش، ونسبة الرجعة
+   * محبوسة في 50% مهما كان اتفاقك مع الموصّل. هاذ الأمر يفتحها.
+   */
+  if (command === '/settings') {
+    const FIELDS = {
+      autoship: 'autoShip',
+      returnship: 'returnShipPercent',
+      returnproduct: 'returnIncludesProduct',
+      returnextra: 'returnExtraCost',
+    };
+
+    if (!arg) {
+      const settings = await getSettings();
+      return reply([
+        '⚙️ <b>إعدادات المحل</b>',
+        '',
+        `إرسال الطردة تلقائياً عند القبول: <b>${settings.autoShip ? 'مفعّل' : 'مطفي'}</b>`,
+        `حصّة الموصّل على الرجعة: <b>${settings.returnShipPercent}%</b> من سومة التوصيل`,
+        `سومة السلعة تتحسب في الرجعة: <b>${settings.returnIncludesProduct ? 'نعم' : 'لا'}</b>`,
+        `تكلفة رجعة ثابتة زايدة: <b>${dz(settings.returnExtraCost)}</b>`,
+        '',
+        '<b>بدّلها:</b>',
+        '<code>/settings autoship off</code>',
+        '<code>/settings returnship 40</code>',
+        '<code>/settings returnproduct on</code>',
+        '<code>/settings returnextra 100</code>',
+      ].join('\n'));
+    }
+
+    const key = FIELDS[String(arg).toLowerCase()];
+    const raw = parts[2];
+    if (!key || raw === undefined) {
+      return reply('استعمل: /settings autoship off — /settings returnship 40 — /settings returnproduct on — /settings returnextra 100');
+    }
+
+    /* on/off للمفاتيح، رقم للباقي — نفس الشكل اللي يستنّاه اللي كتب /cost */
+    const boolean = key === 'autoShip' || key === 'returnIncludesProduct';
+    let value;
+    if (boolean) {
+      const on = ['on', 'yes', '1', 'نعم'].includes(String(raw).toLowerCase());
+      const off = ['off', 'no', '0', 'لا'].includes(String(raw).toLowerCase());
+      if (!on && !off) return reply('اكتب <code>on</code> ولا <code>off</code>.');
+      value = on;
+    } else {
+      value = parseInt(raw, 10);
+      if (!Number.isFinite(value) || value < 0) return reply('اكتب رقم موجب.');
+    }
+
+    const saved = await saveSettings({ [key]: value });
+    const shown = boolean ? (saved[key] ? 'مفعّل' : 'مطفي') : saved[key];
+    return reply(`✅ سُجِّل. <b>${esc(arg)}</b>: <b>${esc(String(shown))}</b>`);
+  }
+
+  /*
+   * ── /cancel ──────────────────────────────────────────────────────
+   *
+   * قبلتي طلب بالغلط والإرسال التلقائي خدّام؟ الطردة راهي عند الموصّل
+   * وما كانش كيفاش توقّفها — `cancelShipment` كانت مكتوبة وما توصلهاش
+   * حتى نقرة.
+   *
+   * ⚠️ ما تمسّش المخزون ولا حالة الطلب: تلغي الطردة برك. المخزون
+   * يرجع كي ترفض الطلب ولا تسجّل الرجعة — بلاصة وحدة تحرّكو، ماشي زوج.
+   */
+  if (command === '/cancel') {
+    if (!arg) return reply('اكتب رقم الطلب: <code>/cancel 260819-a1b2c</code>');
+
+    const result = await cancelShipment(arg, { by: displayName(message.from) });
+    if (!result.ok) return reply(`⚠️ ما تلغاتش: ${esc(result.error)}`);
+
+    await shipmentCancelled(result.order).catch(() => {});
+    return reply('🚫 الطردة تلغات. المخزون ما رجعش — ارفض الطلب ولا سجّل الرجعة باش يرجع.');
+  }
 }
 
 /*
@@ -1187,6 +1294,25 @@ async function setupWebhook() {
 
 async function handler(request) {
   if (request.method === 'GET' && new URL(request.url).searchParams.has('setup')) {
+    /*
+     * ⚠️ كان مفتوح للعالم كامل.
+     *
+     * التعليق فوق يقول "الاستدعاء آمن حتى لو عمومي: ديما يسجّل نفس
+     * الرابط بنفس الـ secret" — وهذا صحيح على الرابط، بصح ناقص حاجة:
+     * `drop_pending_updates: true`. أي واحد يعرف الرابط يقدر ينادي
+     * عليه في حلقة ويرمي كل التحديثات اللي مستنّية — يعني نقرات
+     * "قبول" و"رجعت" حقيقية تتمسح قبل ما توصل. مفتاح واحد يقفل
+     * الباب، وهو موجود أصلاً في البيئة.
+     *
+     * نفس شكل التشغيل اليدوي تاع التقارير: ?key=<TELEGRAM_WEBHOOK_SECRET>
+     */
+    if (!cronAuthorized(request)) {
+      return new Response(JSON.stringify({ ok: false, error: 'setup requires ?key=<TELEGRAM_WEBHOOK_SECRET>' }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
     try {
       const result = await setupWebhook();
       return new Response(JSON.stringify(result), {

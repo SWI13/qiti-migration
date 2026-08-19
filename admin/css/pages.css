@@ -150,6 +150,9 @@
    الصنف ميّت برّا .stock-table — الرقم كان يبان عادي حتى كي يكون تحت
    العتبة، وهي بالضبط المعلومة اللي البطاقة موجودة عليها */
 .row-item__amount.stock-low { color: var(--st-danger); }
+/* بطاقة "واش يستنّاك" تفرّق بين اللي يخسّر فلوس دروك (أحمر) واللي
+   يستاهل نظرة اليوم (تحذير) — لون واحد للزوج يخلّي العين تسوّيهم */
+.row-item__amount.stock-warn { color: var(--st-warn); }
 
 .order-detail dl { display: grid; grid-template-columns: auto 1fr; gap: 7px var(--sp-4); font-size: var(--fs-label); align-items: center; }
 .order-detail dt { color: var(--text-muted); font-weight: var(--fw-medium); }

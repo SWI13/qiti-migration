@@ -35,6 +35,29 @@ export var DASHBOARD_EN = {
   'dashboard.upsellRevenue': 'Upsell revenue',
   'dashboard.upsellPerOrder': '{amount} per delivered order',
   'dashboard.lowStock': 'Low stock',
+
+  /*
+   * ── مفردات "واش يستنّاك" ─────────────────────────────────────────
+   * كل سطر يقول **فعل**، ماشي حالة: "waiting for confirmation" ماشي
+   * "pending". المشغّل يقرا السطر ويعرف واش يدير بلا ما يترجم.
+   */
+  'action.title': 'Needs your attention',
+  'action.pendingDecision': 'Orders waiting for confirmation',
+  'action.unnotified': 'Orders that never reached Telegram',
+  'action.shipmentFailed': 'Shipments the carrier rejected',
+  'action.awaitingReturn': 'Returns not yet back in the shop',
+  'action.oversold': 'Products promised beyond stock',
+  'action.outOfStock': 'Products out of stock',
+  'action.lowStock': 'Products low on stock',
+
+  /*
+   * ⚠️ "Available" ماشي "Quantity": الكمية هي اللي في الرفّ، والمتوفّر
+   * هو اللي تقدر تبيعو دروك (ناقص اللي وعدت بيه في طلبات ما تقرّرش
+   * فيها). خلط الزوج هو اللي يخلّي القبول يتردّ بعد ما تكون قلتي
+   * للزبونة "خدّامة".
+   */
+  'stock.availableTitle': 'Available to promise',
+  'stock.onHandCommitted': '{onHand} on hand · {committed} reserved for pending orders',
   'dashboard.recentOrders': 'Recent orders',
   /* الطلبات اللي جات من الصفحة الستاتيك قبل ما يولّي الطوق منتج
      حقيقي — الاسم يبان كيما هو دروك، وهذا يبقى للطلبات القديمة */
