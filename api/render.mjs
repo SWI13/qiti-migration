@@ -157,9 +157,19 @@ async function communesResponse(wilayaId) {
   const geo = await getGeo().catch(() => null);
   const rows = communesOf(geo, wilayaId).map((row) => ({ name: row.name, desk: row.desk }));
 
-  return json({ wilaya: wilayaId, communes: rows }, 200, {
-    'cache-control': 'public, s-maxage=86400, stale-while-revalidate=604800',
-  });
+  /*
+   * ⚠️ لائحة فارغة ما تتخبّاش.
+   *
+   * أوّل نداء صرا قبل ما يتحطّو متغيّرات الموصّل، فرجع فارغ — والـ CDN
+   * خبّاه ليوم كامل. من بعد ما تصلّح الإعداد، الصفحة تبقى تشوف الفراغ
+   * والسبب يبان كأنّو في الكود. الجواب الفارغ دروك ما يتخبّاش، والمعمّر
+   * برك يتخبّى.
+   */
+  const cache = rows.length
+    ? 'public, s-maxage=86400, stale-while-revalidate=604800'
+    : 'no-store';
+
+  return json({ wilaya: wilayaId, communes: rows }, 200, { 'cache-control': cache });
 }
 
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), {
