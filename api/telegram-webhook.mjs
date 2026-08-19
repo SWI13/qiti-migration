@@ -159,25 +159,56 @@ async function handleVoidConfirmation(query, kind, target, answer) {
     return answer('ليست لديك الصلاحية.');
   }
 
-  const edit = (text) => telegram('editMessageText', {
+  const edit = (text, keyboard = null) => telegram('editMessageText', {
     chat_id: message.chat.id, message_id: message.message_id, text, parse_mode: 'HTML',
-  }).catch(() => {});
+    ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+  }).catch((error) => console.error('/void repaint failed:', error.message));
 
   if (kind === 'vdn') {
     await edit('❌ تراجعت — ما تمسح والو.');
     return answer('تمّ التراجع ✅');
   }
 
+  /*
+   * "🗑️ هذا" على طلب من اللائحة — نبدّلو نفس الرسالة لتأكيد طلب واحد
+   * بدل ما نبعثو رسالة جديدة، باش اللائحة ما تبقاش وراه وينقر فيها
+   * مرّة ثانية على طلب راح.
+   */
+  if (kind === 'vds') {
+    const order = await getOrder(target).catch(() => null);
+    if (!order) {
+      await edit(`ما لقيتش الطلب <code>${esc(target)}</code> — يمكن تمسح خلاص.`);
+      return answer('الطلب غير موجود.');
+    }
+
+    await edit(voidConfirmText([order]), voidConfirmKeyboard(`vdo:${order.id}`, 'امحي هذا'));
+    return answer();
+  }
+
   try {
     if (kind === 'vdo') {
       const result = await purgeOrder(target, { by: who });
-      if (!result.ok) return answer(result.error);
+
+      /*
+       * ⚠️ الفشل يتكتب في الرسالة، ماشي في الـ toast وحدو: الـ toast
+       * يطير في ثانيتين، والمشغّل يبقى يشوف نفس الرسالة بأزرارها
+       * ويحسب النقرة ما وصلتش. الرسالة اللي تقول علاش تبقى.
+       */
+      if (!result.ok) {
+        await edit(L_VOID_FAILED(target, result.error));
+        return answer(result.error);
+      }
+
       await edit(L_VOID_DONE([result], who, { phone: result.order.phone }));
       return answer('تمسح 🗑️');
     }
 
     const { ok, error, purged, failed } = await purgeOrdersByPhone(target, { by: who });
-    if (!ok && !purged.length) return answer(error ?? failed[0]?.error ?? 'ما تمسح والو.');
+    if (!ok && !purged.length) {
+      const why = error ?? failed[0]?.error ?? 'ما تمسح والو.';
+      await edit(L_VOID_FAILED(target, why));
+      return answer(why);
+    }
 
     /* السلّة المفتوحة تاع نفس الرقم تمشي معاهم — وإلا الزبون يرجع
        يتنبّه عليه في /leads وطلباتو راهم ممسوحين */
@@ -188,9 +219,19 @@ async function handleVoidConfirmation(query, kind, target, answer) {
     return answer(`تمسحو ${purged.length} 🗑️`);
   } catch (error) {
     console.error('/void failed:', error.message, '| target:', target);
+    await edit(L_VOID_FAILED(target, 'خطأ داخلي — شوف اللوغ.'));
     return answer('حدث خطأ، أعد المحاولة.');
   }
 }
+
+const L_VOID_FAILED = (target, why) => [
+  '⚠️ <b>ما تمسحش</b>',
+  '',
+  `<code>${esc(target)}</code>`,
+  esc(why),
+  '',
+  'الطلب باقي كيما كان — ما تبدّل فيه والو.',
+].join('\n');
 
 /*
  * واش رايح يصرا كي ينقر "نعم" — مكتوب قبل، ماشي بعد.
@@ -214,6 +255,70 @@ const voidPlan = (orders) => {
     '3️⃣ محو الطلب من التخزين',
   ];
 };
+
+/* حالة الطلب في كلمة — تبان في زرّ الاختيار وفي اللائحة */
+const ORDER_STATE = (order) => {
+  if (order.returnReceivedAt) return 'رجعت واستُلمت';
+  if (order.deliveryStatus === 'delivered') return 'وصل';
+  if (order.deliveryStatus === 'returned') return 'رجع';
+  if (order.status === 'accepted') return 'مقبول';
+  if (order.status === 'denied') return 'مرفوض';
+  return 'معلّق';
+};
+
+/* نص التأكيد — نفس الواحد لطلب وحدو ولكل طلبات رقم */
+const voidConfirmText = (orders, { phone = null } = {}) => [
+  '⚠️ <b>متأكد؟</b>',
+  '',
+  ...(phone
+    ? [`سيمحي <b>${orders.length}</b> طلب تاع <code>${esc(phone)}</code> نهائياً:`]
+    : [`سيمحي الطلب <code>${esc(orders[0].id)}</code> نهائياً`,
+      `الزبون: ${esc(orders[0].name ?? '')} · <code>${esc(orders[0].phone ?? '')}</code>`]),
+  ...(phone ? orders.map((order) =>
+    `• <code>${esc(order.id)}</code> — ${esc(order.name ?? '')} · ${esc(ORDER_STATE(order))}`) : []),
+  '',
+  ...voidPlan(orders),
+  '',
+  'لا يمكن التراجع!',
+].join('\n');
+
+const voidConfirmKeyboard = (yesData, yesLabel) => [[
+  { text: `✅ نعم، ${yesLabel}`, callback_data: yesData },
+  { text: '❌ لا، تراجعت', callback_data: 'vdn:' },
+]];
+
+/*
+ * ── لائحة الاختيار ───────────────────────────────────────────────
+ *
+ * ⚠️ الزبون عندو 3 طلبات وانت تحب تمحي وحد — التأكيد الواحد اللي
+ * يمحي الكل يخلّيك تمحي زوج طلبات صحاح باش تحيّد واحد غالط. اللائحة
+ * تعطي زرّ لكل طلب، وزرّ "الكل" يبقى موجود كي يكون هو المقصود فعلاً.
+ *
+ * الحدّ 8 طلبات: `callback_data` محدود بـ 64 بايت (وهذا يكفي)، بصح
+ * كيبورد فيه 20 زرّ ما يتقراش في التيليفون. اللي عندو أكثر يمحي
+ * دفعة ويعاود.
+ */
+const VOID_PICK_LIMIT = 8;
+
+const voidPickText = (orders, phone) => [
+  `🗑️ <b>${orders.length}</b> طلب بالرقم <code>${esc(phone)}</code>`,
+  '',
+  ...orders.slice(0, VOID_PICK_LIMIT).map((order) =>
+    `• <code>${esc(order.id)}</code> — ${esc(order.name ?? '')} · ${esc(ORDER_STATE(order))} · ${dz(order.total ?? 0)}`),
+  ...(orders.length > VOID_PICK_LIMIT
+    ? ['', `⚠️ نوريو أوّل ${VOID_PICK_LIMIT} برك — امحي منهم وعاود الأمر.`] : []),
+  '',
+  'اختار أشمن طلب تمحي — ولا امحيهم كامل.',
+].join('\n');
+
+const voidPickKeyboard = (orders, phone) => [
+  ...orders.slice(0, VOID_PICK_LIMIT).map((order) => ([{
+    text: `🗑️ ${order.id} · ${ORDER_STATE(order)}`,
+    callback_data: `vds:${order.id}`,
+  }])),
+  [{ text: `🧹 امحيهم كامل (${orders.length})`, callback_data: `vdp:${phone}` }],
+  [{ text: '❌ لا، تراجعت', callback_data: 'vdn:' }],
+];
 
 /* واش صرا للطردة في كل طلب — كلمة وحدة يفهمها المشغّل */
 const SHIPMENT_RESULT = {
@@ -405,7 +510,7 @@ async function handleCallback(query) {
   }
 
   /* محو نهائي — `orderId` هنا يكون id تاع طلب ولا رقم هاتف حسب الفعل */
-  if (action === 'vdo' || action === 'vdp' || action === 'vdn') {
+  if (action === 'vdo' || action === 'vdp' || action === 'vds' || action === 'vdn') {
     if (!message) return;
     return handleVoidConfirmation(query, action, orderId, answer);
   }
@@ -1446,25 +1551,25 @@ async function handleCommand(message) {
       const found = await listOrdersByPhone(phone).catch(() => []);
       if (!found.length) return reply(`ما لقيت حتى طلب بالرقم <code>${esc(phone)}</code>.`);
 
+      /*
+       * ⚠️ زبون عندو أكثر من طلب: نوريو لائحة بزرّ لكل طلب بدل تأكيد
+       * واحد يمحي الكل. الرقم وحدو ما يقولش أشمن طلب غالط، والمحو
+       * الجماعي على نيّة "نحيّد واحد" يمسح طلبات صحاح.
+       */
+      if (found.length > 1) {
+        return telegram('sendMessage', {
+          chat_id: message.chat.id,
+          text: voidPickText(found, phone),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: voidPickKeyboard(found, phone) },
+        }).catch((error) => console.error('/void list failed:', error.message));
+      }
+
       return telegram('sendMessage', {
         chat_id: message.chat.id,
-        text: [
-          '⚠️ <b>متأكد؟</b>',
-          '',
-          `سيمحي <b>${found.length}</b> طلب تاع <code>${esc(phone)}</code> نهائياً:`,
-          ...found.map((order) => `• <code>${esc(order.id)}</code> — ${esc(order.name ?? '')}`),
-          '',
-          ...voidPlan(found),
-          '',
-          'وتاريخ الزبون وسلّتو المفتوحة يمشيو معاهم. لا يمكن التراجع!',
-        ].join('\n'),
+        text: voidConfirmText(found, { phone }),
         parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: `✅ نعم، امحي ${found.length}`, callback_data: `vdp:${phone}` },
-            { text: '❌ لا، تراجعت', callback_data: 'vdn:' },
-          ]],
-        },
+        reply_markup: { inline_keyboard: voidConfirmKeyboard(`vdp:${phone}`, 'امحيه') },
       }).catch((error) => console.error('/void prompt failed:', error.message));
     }
 
@@ -1473,23 +1578,9 @@ async function handleCommand(message) {
 
     return telegram('sendMessage', {
       chat_id: message.chat.id,
-      text: [
-        '⚠️ <b>متأكد؟</b>',
-        '',
-        `سيمحي الطلب <code>${esc(order.id)}</code> نهائياً`,
-        `الزبون: ${esc(order.name ?? '')} · <code>${esc(order.phone ?? '')}</code>`,
-        '',
-        ...voidPlan([order]),
-        '',
-        'ما يبقى منّو والو — لا في اللوحة لا في التقارير. لا يمكن التراجع!',
-      ].join('\n'),
+      text: voidConfirmText([order]),
       parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '✅ نعم، امحيه', callback_data: `vdo:${order.id}` },
-          { text: '❌ لا، تراجعت', callback_data: 'vdn:' },
-        ]],
-      },
+      reply_markup: { inline_keyboard: voidConfirmKeyboard(`vdo:${order.id}`, 'امحيه') },
     }).catch((error) => console.error('/void prompt failed:', error.message));
   }
 
