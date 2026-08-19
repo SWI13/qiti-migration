@@ -185,17 +185,23 @@ async function handleVoidConfirmation(query, kind, target, answer) {
     return answer();
   }
 
+  /* `vdf` = امحي بلا ما تلمس الطردة — المخرج كي الموصّل يرفض */
+  const forced = kind === 'vdf' || kind === 'vdpf';
+  const byPhone = kind === 'vdp' || kind === 'vdpf';
+
   try {
-    if (kind === 'vdo') {
-      const result = await purgeOrder(target, { by: who });
+    if (!byPhone) {
+      const result = await purgeOrder(target, { by: who, skipShipment: forced });
 
       /*
        * ⚠️ الفشل يتكتب في الرسالة، ماشي في الـ toast وحدو: الـ toast
        * يطير في ثانيتين، والمشغّل يبقى يشوف نفس الرسالة بأزرارها
-       * ويحسب النقرة ما وصلتش. الرسالة اللي تقول علاش تبقى.
+       * ويحسب النقرة ما وصلتش. الرسالة اللي تقول علاش تبقى، ومعاها
+       * زرّ يخرّجو من الحبسة.
        */
       if (!result.ok) {
-        await edit(L_VOID_FAILED(target, result.error));
+        await edit(L_VOID_FAILED(target, result.error, result.tracking),
+          result.tracking ? voidForceKeyboard(`vdf:${target}`) : null);
         return answer(result.error);
       }
 
@@ -203,10 +209,12 @@ async function handleVoidConfirmation(query, kind, target, answer) {
       return answer('تمسح 🗑️');
     }
 
-    const { ok, error, purged, failed } = await purgeOrdersByPhone(target, { by: who });
+    const { ok, error, purged, failed } = await purgeOrdersByPhone(target,
+      { by: who, skipShipment: forced });
     if (!ok && !purged.length) {
       const why = error ?? failed[0]?.error ?? 'ما تمسح والو.';
-      await edit(L_VOID_FAILED(target, why));
+      await edit(L_VOID_FAILED(target, why, failed.length ? 'كاين' : null),
+        failed.length ? voidForceKeyboard(`vdpf:${target}`) : null);
       return answer(why);
     }
 
@@ -224,14 +232,30 @@ async function handleVoidConfirmation(query, kind, target, answer) {
   }
 }
 
-const L_VOID_FAILED = (target, why) => [
+const L_VOID_FAILED = (target, why, tracking = null) => [
   '⚠️ <b>ما تمسحش</b>',
   '',
   `<code>${esc(target)}</code>`,
   esc(why),
   '',
   'الطلب باقي كيما كان — ما تبدّل فيه والو.',
+  ...(tracking ? [
+    '',
+    'الموصّل رفض يلغي الطردة. تقدر تمحي الطلب من عندنا وتتكفّل',
+    'بالطردة من لوحة الموصّل بيدك — المخزون يرجع كيما العادة.',
+    ...(tracking !== 'كاين' ? [`الطردة: <code>${esc(tracking)}</code>`] : []),
+  ] : []),
 ].join('\n');
+
+/*
+ * ⚠️ زرّ واحد برك، ومكتوب فيه واش رايح يبقى معلّق: المحو القسري
+ * يخلّي طردة ماشية بلا سجلّ عندنا. اللي ينقرو لازم يعرف بلّي
+ * الطردة ولّات مسؤوليتو عند الموصّل.
+ */
+const voidForceKeyboard = (data) => [
+  [{ text: '🗑️ امحي بلا ما تلغي الطردة', callback_data: data }],
+  [{ text: '❌ خلّي كلش', callback_data: 'vdn:' }],
+];
 
 /*
  * واش رايح يصرا كي ينقر "نعم" — مكتوب قبل، ماشي بعد.
@@ -325,6 +349,7 @@ const SHIPMENT_RESULT = {
   cancelled: 'الطردة تمسحت عند الموصّل',
   return_asked: 'طلبنا رجعة الطردة',
   final: '⚠️ الطردة كملت — ما تلغاتش',
+  skipped: '⚠️ الطردة باقية عند الموصّل — تكفّل بيها من لوحتو',
   none: null,
 };
 
@@ -510,7 +535,8 @@ async function handleCallback(query) {
   }
 
   /* محو نهائي — `orderId` هنا يكون id تاع طلب ولا رقم هاتف حسب الفعل */
-  if (action === 'vdo' || action === 'vdp' || action === 'vds' || action === 'vdn') {
+  if (action === 'vdo' || action === 'vdp' || action === 'vds' || action === 'vdf'
+      || action === 'vdpf' || action === 'vdn') {
     if (!message) return;
     return handleVoidConfirmation(query, action, orderId, answer);
   }

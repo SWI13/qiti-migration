@@ -302,6 +302,28 @@ ok('الطلب يبقى كي الطردة ما تلغاتش', Boolean(await getO
 ok('والرسالة تقول علاش',
   lastText('editMessageText').includes('ما تمسحش'), lastText('editMessageText').slice(0, 60));
 
+/*
+ * ⚠️ المخرج: الموصّل يقدر يرفض الزوج — الحذف وطلب الرجعة
+ * ("Le retour ne peut pas être demandé"). بلا هاذ الزرّ، الطلب
+ * يقعد محبوس للأبد على حاجة ما تتصلّحش من عندنا.
+ */
+const forceButtons = buttons();
+ok('يعطي زرّ محو بلا إلغاء الطردة',
+  forceButtons.some((b) => b.callback_data === `vdf:${stuck.id}`),
+  forceButtons.map((b) => b.callback_data).join(' '));
+ok('والزرّ مكتوب فيه بلّي الطردة تبقى',
+  forceButtons.some((b) => String(b.text).includes('بلا ما تلغي الطردة')));
+
+const stockBeforeForce = await qty();
+sent = [];
+await tap(`vdf:${stuck.id}`);
+ok('المحو القسري يمحي الطلب', (await getOrder(stuck.id)) == null);
+ok('والمخزون يرجع كيما العادة', (await qty()) === stockBeforeForce + 1,
+  `${stockBeforeForce} → ${await qty()}`);
+ok('والنتيجة تفكّر بلّي الطردة باقية',
+  lastText('editMessageText').includes('باقية عند الموصّل'),
+  lastText('editMessageText').slice(0, 80));
+
 globalThis.fetch = okFetch;
 delete process.env.ECOTRACK_URL;
 delete process.env.ECOTRACK_TOKEN;
