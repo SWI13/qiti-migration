@@ -77,6 +77,20 @@ The dashboard is one request, not six. Six round trips on a bad connection is tw
 
 Campaign preview calls the same `renderSections`/`renderPage` the server does. A separate preview drifts, and then you ship a page you never actually saw.
 
+### Product serials
+
+Every product carries a small number — `#1`, `#2` — assigned once at creation and never reused. It shows next to the product in the admin and in `/stock`, and it's what `/restock 3 10` addresses. Products with variants get `3.1`, `3.2`.
+
+The numbers used to come from the product's position in a name-sorted list, so adding a product or renaming one silently shifted them: the same command you typed yesterday restocked a different item today, with no error to notice.
+
+### The collar's stock
+
+`index.html` is the first landing page in this repo — older than the catalog. Orders from it carry no `productId`, so its stock lived in a single global counter instead of a product's stock row. You could `/restock 20`, watch the number go up, open the admin, and find neither the product nor the quantity. Nothing was broken; the quantity was real but had nothing to hang on, and the admin lists products.
+
+A one-time migration creates a real `Qiti Collar` product, moves the counter's quantity and threshold into its stock row, and zeroes the counter. `api/order.mjs` attaches that product to orders from the static page, so accepting an order decrements the same number the admin shows. Pricing stays on the old path on purpose: the price is baked into the static HTML, and computing from the catalog would let the page show one number while the courier collects another.
+
+The product is created as a draft — the static page is still what customers buy from, and an active product would put a second page selling the same collar at `/p/qiti-collar`. Publish it when you retire the static page.
+
 ### Call queue
 
 Accept/decline in Telegram works at twenty orders a day. At two hundred the messages scroll away, and "no answer, third try" ends up living in someone's head instead of in the shop.

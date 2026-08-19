@@ -36,9 +36,11 @@ export var DASHBOARD_EN = {
   'dashboard.upsellPerOrder': '{amount} per delivered order',
   'dashboard.lowStock': 'Low stock',
   'dashboard.recentOrders': 'Recent orders',
-  'dashboard.legacyProduct': 'Legacy landing page',
+  /* الطلبات اللي جات من الصفحة الستاتيك قبل ما يولّي الطوق منتج
+     حقيقي — الاسم يبان كيما هو دروك، وهذا يبقى للطلبات القديمة */
+  'dashboard.legacyProduct': 'Qiti Collar',
   'dashboard.uncategorized': 'Uncategorized',
-  'dashboard.legacyStock': 'Legacy stock counter',
+  'dashboard.legacyStock': 'Qiti Collar (old counter)',
   'dashboard.emptyTitle': 'No activity yet',
   'dashboard.emptyBody': 'Orders and visits will show up here once your store starts getting traffic.',
   'dashboard.noDataTitle': 'Nothing here yet',

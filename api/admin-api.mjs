@@ -28,6 +28,7 @@ import {
   acceptOrder, denyOrder, confirmOrder, setDeliveryOutcome, receiveReturn, DASHBOARD_ACTOR,
 } from '../lib/decisions.mjs';
 import { repaintOrderQuietly } from '../lib/telegram.mjs';
+import { ensureLegacyProduct } from '../lib/legacy-stock.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
@@ -108,7 +109,16 @@ const ACTIONS = {
     return ok({ campaign: await saveCampaign({ ...campaign, status }) });
   },
 
-  'products.list': async () => ok({ products: await listProducts() }),
+  /*
+   * الهجرة تتنادى هنا بقصد: هذي أوّل بلاصة يمشي ليها المشغّل كي يسأل
+   * "وين راه مخزون الطوق؟". تصرا مرّة وحدة، ومن بعدها هذا النداء
+   * يولّي قراية مفتاح وحدة (شوف lib/legacy-stock.mjs).
+   */
+  'products.list': async () => {
+    await ensureLegacyProduct().catch((error) =>
+      console.error('Legacy product migration failed:', error.message));
+    return ok({ products: await listProducts() });
+  },
 
   /* المخزون تاع كل فاريانت معاه — اللوحة تعرض الجدول بلا طلب ثاني */
   'products.get': async (body) => {

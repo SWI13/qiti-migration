@@ -23,6 +23,8 @@ import { ownerMessage, orderButtons, buttonsFor, toE164Dz, totalFor, totalWith }
 import { convertLead, sweepLeads } from '../lib/leads.mjs';
 import { getProduct, getCampaign, matchVariant, variantPrice, SIMPLE_SKU } from '../lib/catalog.mjs';
 import { findBundle, upsellOf, linesTotal } from '../lib/offers.mjs';
+/* منتج الصفحة الستاتيك — الطلب الجاي منها ما فيهش productId */
+import { legacyProduct } from '../lib/legacy-stock.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
@@ -268,6 +270,21 @@ async function handler(request) {
       })
     : null;
 
+  /*
+   * الصفحة الستاتيك ما تبعثش productId، فالطلب كان يوصل بلا منتج —
+   * ومخزونو ينقص من عدّاد عام ما يبان في اللوحة (شوف lib/legacy-stock.mjs).
+   * دروك نعلّقوه بمنتج الطوق الحقيقي، فالقبول ينقّص نفس الرقم اللي
+   * تشوفو في اللوحة، والتقارير تعرف اسم السلعة وتكلفتها.
+   *
+   * ⚠️ للمخزون والتقارير برك — السومة تبقى تتحسب بالطريق القديم تحت.
+   * السومة مكتوبة في الـ HTML الستاتيك، فلو نحسبو بسومة المنتج
+   * وتبدّلها من اللوحة، الصفحة توري رقم والمُوصّل يجبى رقم آخر.
+   */
+  const stockProduct = product ?? await legacyProduct().catch((err) => {
+    console.error('Legacy product lookup failed:', err.message);
+    return null;
+  });
+
   let variant = null;
   if (product) {
     variant = matchVariant(product, payload.options ?? {});
@@ -306,9 +323,11 @@ async function handler(request) {
     ? [bundleLine]
     : [{
         kind: 'product',
-        productId: product?.id ?? null,
+        /* منتج الصفحة الستاتيك يدخل هنا كي ما يجيش productId — هذا
+           السطر هو مصدر مراجع المخزون (شوف orderStockRefs) */
+        productId: stockProduct?.id ?? null,
         sku: variant?.sku ?? SIMPLE_SKU,
-        name: product?.name ?? null,
+        name: stockProduct?.name ?? null,
         qty: order.qty,
         unitPrice,
         lineTotal: unitPrice === null ? null : unitPrice * order.qty,
@@ -366,8 +385,8 @@ async function handler(request) {
      * لو خزّنا الإشارة برك، تبديل سومة المنتج غداً يعاود يكتب تاريخ
      * الطلبيات القديمة ويخرّب حساب الربح تاع الشهر اللي فات.
      */
-    productId: product?.id ?? null,
-    productName: product?.name ?? null,
+    productId: stockProduct?.id ?? null,
+    productName: stockProduct?.name ?? null,
     campaignId,
     variant: variant ? { sku: variant.sku, options: variant.options } : null,
     unitPrice: bundleLine ? bundleLine.unitPrice : unitPrice,
