@@ -281,6 +281,10 @@
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
     wilayaSelect.addEventListener('change', updateSummary);
+    wilayaSelect.addEventListener('change', function () { fillCommunes(currentWilayaId()); });
+    shipInputs.forEach(function (el) {
+      el.addEventListener('change', function () { fillCommunes(currentWilayaId()); });
+    });
     form.querySelectorAll('input[name="offer"]').forEach(function (el) {
       el.addEventListener('change', updateSummary);
     });
@@ -289,6 +293,51 @@
     });
     updateSummary();
 
+    var communeSelect = document.getElementById('fCommune');
+    var communeCache = {};
+
+    function fillCommunes(id) {
+      if (!communeSelect || communeSelect.tagName !== 'SELECT') return;
+      if (!id) {
+        communeSelect.innerHTML = '<option value="">اختر الولاية أولاً</option>';
+        return;
+      }
+
+      var render = function (rows) {
+        if (!rows.length) return fallbackToText();
+        var desk = currentShipping() === 'desk';
+        var usable = desk ? rows.filter(function (row) { return row.desk; }) : rows;
+        if (!usable.length) usable = rows;
+        communeSelect.innerHTML = '<option value="">اختر البلدية</option>' + usable.map(function (row) {
+          return '<option value="' + row.name + '">' + row.name + (row.desk ? ' — مكتب' : '') + '</option>';
+        }).join('');
+      };
+
+      if (communeCache[id]) return render(communeCache[id]);
+
+      fetch('/?communes=' + id, { headers: { accept: 'application/json' } })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var rows = (data && data.communes) || [];
+          communeCache[id] = rows;
+          render(rows);
+        })
+        .catch(fallbackToText);
+    }
+
+    function fallbackToText() {
+      if (!communeSelect || communeSelect.tagName !== 'SELECT') return;
+      var input = document.createElement('input');
+      input.id = 'fCommune';
+      input.name = 'commune';
+      input.className = 'input';
+      input.type = 'text';
+      input.required = true;
+      input.placeholder = 'اكتب اسم البلدية';
+      communeSelect.parentNode.replaceChild(input, communeSelect);
+      communeSelect = input;
+    }
+
     var validators = {
       fName: function (v) { return v.trim().length >= 3 ? '' : 'دخّل الاسم الكامل من فضلك.'; },
       fPhone: function (v) {
@@ -296,7 +345,7 @@
         return /^0[5-7][0-9]{8}$/.test(digits) ? '' : 'دخّل رقم هاتف صحيح (مثال: 0555123456).';
       },
       fWilaya: function (v) { return v ? '' : 'اختر الولاية.'; },
-      fCommune: function (v) { return v.trim().length >= 2 ? '' : 'دخّل اسم البلدية.'; }
+      fCommune: function (v) { return v.trim().length >= 2 ? '' : 'اختر البلدية.'; }
     };
 
     var PROG_FIELDS = ['fName', 'fPhone', 'fWilaya', 'fCommune'];

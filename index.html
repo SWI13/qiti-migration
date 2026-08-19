@@ -159,7 +159,9 @@
 
         <div class="field">
           <label for="fCommune">البلدية</label>
-          <input id="fCommune" name="commune" class="input" type="text" required placeholder="اكتب اسم البلدية">
+          <select id="fCommune" name="commune" class="input" required data-communes>
+            <option value="">اختر الولاية أولاً</option>
+          </select>
           <p class="err" data-err-for="fCommune"></p>
         </div>
 

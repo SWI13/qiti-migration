@@ -22,6 +22,7 @@
 import { resolveRoute, getCampaign, getProduct, getCategory, listProducts, listStockFor } from '../lib/catalog.mjs';
 import { renderSections, priceViewFor } from '../lib/render/index.mjs';
 import { offerProductIds } from '../lib/offers.mjs';
+import { getGeo, communesOf } from '../lib/ecotrack/geo.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
 import { esc, escAttr, dz } from '../lib/render/html.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -87,6 +88,16 @@ async function handler(request) {
   const path = pathOf(request);
   const origin = new URL(request.url).origin;
 
+  /*
+   * بلديات ولاية وحدة — الفورم ينداها كي الزبونة تختار الولاية.
+   *
+   * علاش هنا وماشي فنكشن جديدة: حصّة الفنكشنات في Vercel محدودة،
+   * وهاذ الجواب صغير وثابت. علاش ماشي محقونة في الصفحة: 1542 بلدية
+   * تثقّل كل صفحة على شبكة بطيئة، والزبونة تحتاج ولاية وحدة.
+   */
+  const geoWilaya = new URL(request.url).searchParams.get('communes');
+  if (geoWilaya) return communesResponse(Number(geoWilaya));
+
   let route;
   try {
     route = await resolveRoute(path);
@@ -134,6 +145,28 @@ async function handler(request) {
  * منتجات الباقات والعرض الإضافي — نجيبوهم مرّة وحدة قبل العرض، باش
  * القسم يكتب أسماءهم وسومهم. حملة بلا عروض ما تديرش حتى رحلة للتخزين.
  */
+/*
+ * أسماء البلديات كيما يكتبها الموصّل — هي اللي تتخزّن مع الطلب.
+ * كاش طويل: القائمة ما تتبدّلش، والـ CDN يجاوب بدلنا.
+ */
+async function communesResponse(wilayaId) {
+  if (!Number.isInteger(wilayaId) || wilayaId < 1 || wilayaId > 58) {
+    return json({ error: 'wilaya' }, 400);
+  }
+
+  const geo = await getGeo().catch(() => null);
+  const rows = communesOf(geo, wilayaId).map((row) => ({ name: row.name, desk: row.desk }));
+
+  return json({ wilaya: wilayaId, communes: rows }, 200, {
+    'cache-control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+  });
+}
+
+const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
+});
+
 async function loadOfferProducts(campaign) {
   const ids = offerProductIds(campaign);
   if (!ids.length) return {};

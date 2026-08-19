@@ -1,0 +1,1202 @@
+<title>Running Qiti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────
+   Inherited from the shop's own stylesheet (assets/css/styles.css):
+   warm ink, warm greys, the orange the storefront already uses. The
+   handbook should feel like it belongs to the thing it documents. */
+:root {
+  --ground:      #FBF9F7;
+  --surface:     #FFFFFF;
+  --surface-2:   #F5F1ED;
+  --ink:         #14110F;
+  --muted:       #6E645B;
+  --faint:       #948A80;
+  --line:        rgba(20, 17, 15, .12);
+  --line-soft:   rgba(20, 17, 15, .07);
+  --accent:      #F0570F;
+  --accent-soft: #FFF4EC;
+  --good:        #15803D;
+  --good-soft:   #ECFDF3;
+  --warn:        #B45309;
+  --warn-soft:   #FFF7ED;
+  --bad:         #C0393E;
+  --bad-soft:    #FEF2F2;
+
+  --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --body: 'IBM Plex Sans Arabic', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --measure: 68ch;
+  --rail: 274px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #131110;
+    --surface:     #1A1715;
+    --surface-2:   #221E1B;
+    --ink:         #F6F2EE;
+    --muted:       #A69C93;
+    --faint:       #7E756D;
+    --line:        rgba(255, 255, 255, .14);
+    --line-soft:   rgba(255, 255, 255, .07);
+    --accent:      #FF8A50;
+    --accent-soft: rgba(255, 138, 80, .12);
+    --good:        #56D68B;
+    --good-soft:   rgba(86, 214, 139, .12);
+    --warn:        #E9A23B;
+    --warn-soft:   rgba(233, 162, 59, .12);
+    --bad:         #FF7B7F;
+    --bad-soft:    rgba(255, 123, 127, .12);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #131110;
+  --surface:     #1A1715;
+  --surface-2:   #221E1B;
+  --ink:         #F6F2EE;
+  --muted:       #A69C93;
+  --faint:       #7E756D;
+  --line:        rgba(255, 255, 255, .14);
+  --line-soft:   rgba(255, 255, 255, .07);
+  --accent:      #FF8A50;
+  --accent-soft: rgba(255, 138, 80, .12);
+  --good:        #56D68B;
+  --good-soft:   rgba(86, 214, 139, .12);
+  --warn:        #E9A23B;
+  --warn-soft:   rgba(233, 162, 59, .12);
+  --bad:         #FF7B7F;
+  --bad-soft:    rgba(255, 123, 127, .12);
+}
+
+/* ── base ───────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--display);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.015em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+p, ul, ol { margin: 0; }
+ul, ol { padding-inline-start: 1.15rem; }
+li { margin-block: .3rem; }
+li::marker { color: var(--faint); }
+
+code, kbd, samp { font-family: var(--mono); font-size: .88em; }
+
+/* ── masthead ───────────────────────────────────────────────────── */
+.masthead {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.masthead__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.25rem, 4vw, 3rem) clamp(2rem, 4vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .74rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.masthead h1 {
+  font-size: clamp(2.4rem, 6vw, 3.9rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  max-width: 16ch;
+}
+
+.masthead__lede {
+  max-width: 58ch;
+  font-size: 1.08rem;
+  color: var(--muted);
+}
+
+.masthead__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--faint);
+}
+.masthead__facts b { color: var(--ink); font-weight: 500; }
+
+/* ── layout ─────────────────────────────────────────────────────── */
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 clamp(1.25rem, 4vw, 3rem) 6rem;
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  padding-block: 2.75rem 2rem;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.rail__label {
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: .9rem;
+}
+
+.rail ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: part;
+}
+
+.rail a {
+  display: grid;
+  grid-template-columns: 2.1rem 1fr;
+  gap: .35rem;
+  padding: .32rem 0;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: .89rem;
+  line-height: 1.35;
+  border-top: 1px solid var(--line-soft);
+}
+.rail li:first-child a { border-top: 0; }
+.rail a::before {
+  counter-increment: part;
+  content: counter(part, decimal-leading-zero);
+  font-family: var(--mono);
+  font-size: .74rem;
+  color: var(--faint);
+  padding-top: .12rem;
+}
+.rail a:hover { color: var(--ink); }
+.rail a.is-active { color: var(--accent); }
+.rail a.is-active::before { color: var(--accent); }
+
+.body { padding-block: 2.75rem 0; min-width: 0; }
+
+/* ── sections ───────────────────────────────────────────────────── */
+.part {
+  scroll-margin-top: 1.5rem;
+  padding-block: 2.25rem 2.75rem;
+  border-top: 1px solid var(--line);
+}
+.part:first-child { border-top: 0; padding-top: .5rem; }
+
+.part__head {
+  display: flex;
+  align-items: baseline;
+  gap: .85rem;
+  margin-bottom: 1.5rem;
+}
+
+.part__num {
+  font-family: var(--mono);
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--accent);
+  padding-top: .2rem;
+}
+
+.part h2 { font-size: clamp(1.5rem, 3vw, 1.95rem); }
+
+.stack { display: flex; flex-direction: column; gap: 1.1rem; max-width: var(--measure); }
+.stack--wide { max-width: none; }
+
+.lede { font-size: 1.03rem; color: var(--muted); }
+
+h3 {
+  font-size: 1.06rem;
+  margin-top: 1.1rem;
+  letter-spacing: -.005em;
+}
+
+h4 {
+  font-family: var(--body);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ── flow diagram ───────────────────────────────────────────────── */
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.flow__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.node {
+  padding: .3rem .6rem;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.node--start { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.node--good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.node--bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+
+.flow__arrow { color: var(--faint); }
+.flow__tap {
+  font-size: .76rem;
+  color: var(--muted);
+  padding: .15rem .45rem;
+  border-bottom: 2px solid var(--accent);
+}
+.flow__indent { padding-inline-start: 2.2rem; }
+
+/* ── command entries ────────────────────────────────────────────── */
+.cmds {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.cmd {
+  display: grid;
+  grid-template-columns: minmax(190px, 16rem) minmax(0, 1fr);
+  gap: .4rem 1.5rem;
+  padding: .95rem 1.1rem;
+  border-top: 1px solid var(--line-soft);
+}
+.cmd:first-child { border-top: 0; }
+.cmd--danger { background: var(--bad-soft); }
+
+.cmd__name {
+  font-family: var(--mono);
+  font-size: .87rem;
+  font-weight: 500;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.cmd--danger .cmd__name { color: var(--bad); }
+
+.cmd__what { font-size: .95rem; }
+.cmd__eg {
+  grid-column: 2;
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--muted);
+}
+.cmd__eg b { color: var(--ink); font-weight: 500; }
+
+/* ── tables ─────────────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+th, td {
+  text-align: start;
+  padding: .7rem 1rem;
+  border-top: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+thead th {
+  border-top: 0;
+  font-family: var(--body);
+  font-size: .73rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+td code { color: var(--accent); }
+
+.pill {
+  display: inline-block;
+  padding: .1rem .5rem;
+  border-radius: 100px;
+  font-family: var(--mono);
+  font-size: .76rem;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.pill--good { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.pill--warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill--bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.pill--live { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* ── callouts ───────────────────────────────────────────────────── */
+.note {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  padding: .95rem 1.1rem;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--muted);
+  max-width: var(--measure);
+}
+.note--rule { border-inline-start-color: var(--accent); }
+.note--stop { border-inline-start-color: var(--bad); background: var(--bad-soft); }
+.note--ask { border-inline-start-color: var(--warn); }
+
+.note__title {
+  font-family: var(--body);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.note--rule .note__title { color: var(--accent); }
+.note--stop .note__title { color: var(--bad); }
+.note--ask .note__title { color: var(--warn); }
+.note p { font-size: .95rem; }
+
+/* ── telegram sample ────────────────────────────────────────────── */
+.chat {
+  max-width: 30rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: .92rem;
+  line-height: 1.75;
+  direction: rtl;
+  text-align: start;
+}
+.chat__line { display: block; }
+.chat__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .85rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--line);
+}
+.chat__btn {
+  padding: .3rem .65rem;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: .82rem;
+  color: var(--ink);
+}
+
+/* ── steps ──────────────────────────────────────────────────────── */
+.steps { counter-reset: step; display: flex; flex-direction: column; gap: 1rem; max-width: var(--measure); }
+.step { display: grid; grid-template-columns: 1.9rem minmax(0, 1fr); gap: .9rem; }
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--accent);
+  padding-top: .18rem;
+}
+.step__body { display: flex; flex-direction: column; gap: .3rem; }
+.step__title { font-weight: 600; }
+.step__title span { color: var(--muted); font-weight: 400; }
+
+/* ── footer ─────────────────────────────────────────────────────── */
+.colophon {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2rem clamp(1.25rem, 4vw, 3rem) 4rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 2rem;
+}
+
+/* ── responsive ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .rail {
+    position: static;
+    max-height: none;
+    padding-block: 2rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail ol { columns: 2; column-gap: 1.5rem; }
+  .body { padding-top: 1.5rem; }
+  .cmd { grid-template-columns: minmax(0, 1fr); }
+  .cmd__eg { grid-column: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
+</style>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <div class="eyebrow">Operator handbook</div>
+    <h1>Running Qiti, start to competent</h1>
+    <p class="masthead__lede">
+      Qiti is a cash-on-delivery shop. A customer fills a form on a landing page, the order lands in
+      Telegram within seconds, someone calls to confirm it, and a courier collects the money at the
+      door. This handbook is everything that person needs to do the job — read it once end to end,
+      then keep it open for the reference parts.
+    </p>
+    <div class="masthead__facts">
+      <span>Two surfaces: <b>Telegram</b> + <b>the dashboard</b></span>
+      <span>One dataset behind both</span>
+      <span>Money counts only when <b>delivered</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Contents">
+    <div class="rail__label">Contents</div>
+    <ol>
+      <li><a href="#model">How the shop works</a></li>
+      <li><a href="#setup">Getting your access</a></li>
+      <li><a href="#lifecycle">The life of an order</a></li>
+      <li><a href="#day">Your day, hour by hour</a></li>
+      <li><a href="#queue">The call queue</a></li>
+      <li><a href="#telegram">Telegram reference</a></li>
+      <li><a href="#stock">Stock</a></li>
+      <li><a href="#money">The money</a></li>
+      <li><a href="#customers">Customers</a></li>
+      <li><a href="#catalog">Products and pages</a></li>
+      <li><a href="#rules">Rules that keep it honest</a></li>
+      <li><a href="#broken">When something looks broken</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main class="body">
+
+    <!-- 1 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="model">
+      <div class="part__head"><span class="part__num">01</span><h2>How the shop works</h2></div>
+      <div class="stack">
+        <p class="lede">
+          Four things happen, in this order, for every sale. Nothing else in this handbook makes
+          sense until this does.
+        </p>
+        <ol>
+          <li><b>The page takes the order.</b> A customer on a landing page fills in name, phone, wilaya, commune, and confirms. No payment online — this is cash on delivery.</li>
+          <li><b>Telegram gets a message.</b> Within a second or two, the order appears in the shop's Telegram group as a card with buttons.</li>
+          <li><b>Someone calls the customer.</b> Confirming by phone before shipping is the single biggest thing that stops returns. The dashboard tracks these calls.</li>
+          <li><b>A courier delivers and collects the cash.</b> Days later you record what happened — delivered, or returned.</li>
+        </ol>
+        <p>
+          <b>Telegram is where the shop is run.</b> It's fast, it's on your phone, and it's where
+          orders arrive. <b>The dashboard is where the shop is seen</b> — the call queue, the
+          archive, the numbers, the products and pages. They read and write the same data, so an
+          accept in one shows up in the other. Neither has its own private copy of anything.
+        </p>
+        <div class="note note--rule">
+          <span class="note__title">The one number to remember</span>
+          <p>An accepted order is not money. Revenue counts a sale only after you mark it
+          <b>delivered</b>. An order can be accepted, shipped, and refused at the door — that's a
+          loss, not a sale, and the reports are built to tell you the difference.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="setup">
+      <div class="part__head"><span class="part__num">02</span><h2>Getting your access</h2></div>
+      <div class="steps">
+        <div class="step">
+          <div class="step__body">
+            <div class="step__title">Join the Telegram group <span>— ask the owner for the invite</span></div>
+            <p>Every order, every stock alert, and the nightly report land here. The bot only answers
+            inside this one group; a private chat with it does nothing.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step__body">
+            <div class="step__title">Open the dashboard <span>— <code>/admin</code> on the shop's domain</span></div>
+            <p>Log in with the password, then the 6-digit code the bot posts in the group. That's
+            why group access comes first — no group, no login. The session lasts 7 days, then asks
+            again.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step__body">
+            <div class="step__title">Send <code>/help</code> in the group</div>
+            <p>The bot replies with every command it knows. Sending a command by itself, with no
+            arguments, explains how to use it — that's the fastest way to check yourself.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step__body">
+            <div class="step__title">Read part 3 and part 4 before touching anything</div>
+            <p>They're the job. Everything after them is reference you can look up while working.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="lifecycle">
+      <div class="part__head"><span class="part__num">03</span><h2>The life of an order</h2></div>
+      <div class="stack stack--wide">
+        <p class="lede">
+          Every order walks this path. The buttons live on the order's Telegram message, and the
+          message rewrites itself after each tap — so the last version you see in the chat is always
+          the current truth.
+        </p>
+
+        <div class="flow" role="img" aria-label="Order flow: pending goes to accepted then delivered or returned; returned goes to stock only after you confirm receipt; pending can also go to denied.">
+          <div class="flow__row">
+            <span class="node node--start">pending</span>
+            <span class="flow__arrow">→</span>
+            <span class="flow__tap">✅ قبول الطلب</span>
+            <span class="flow__arrow">→</span>
+            <span class="node">accepted</span>
+            <span class="flow__arrow">→</span>
+            <span class="flow__tap">📦 وصلت</span>
+            <span class="flow__arrow">→</span>
+            <span class="node node--good">delivered — revenue</span>
+          </div>
+          <div class="flow__row flow__indent">
+            <span class="flow__arrow">↳</span>
+            <span class="flow__tap">↩️ أُرجعت</span>
+            <span class="flow__arrow">→</span>
+            <span class="node node--bad">returned — loss</span>
+            <span class="flow__arrow">→</span>
+            <span class="flow__tap">📥 استلمتُ الإرجاع</span>
+            <span class="flow__arrow">→</span>
+            <span class="node">back in stock</span>
+          </div>
+          <div class="flow__row">
+            <span class="node node--start">pending</span>
+            <span class="flow__arrow">→</span>
+            <span class="flow__tap">❌ رفض الطلب</span>
+            <span class="flow__arrow">→</span>
+            <span class="node node--bad">denied — reason required</span>
+          </div>
+        </div>
+
+        <h3>What each step actually does</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Step</th><th>Stock</th><th>Money</th><th>Watch out</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="pill pill--live">Accept</span></td>
+                <td>Drops immediately, by the ordered quantity</td>
+                <td>Nothing yet</td>
+                <td>Refused if stock is short — the order stays undecided instead of going out with goods you don't have</td>
+              </tr>
+              <tr>
+                <td><span class="pill pill--bad">Deny</span></td>
+                <td>Untouched</td>
+                <td>Nothing</td>
+                <td>The bot asks why. Reply to its message with a real reason — it goes into the reports</td>
+              </tr>
+              <tr>
+                <td><span class="pill pill--good">Delivered</span></td>
+                <td>Already gone</td>
+                <td>Counts as revenue, and profit is locked in at today's costs</td>
+                <td>Only tap this when the courier confirms the customer paid</td>
+              </tr>
+              <tr>
+                <td><span class="pill pill--bad">Returned</span></td>
+                <td>Still gone — on purpose</td>
+                <td>Records the return loss straight away</td>
+                <td>This means the courier turned around. The goods are not back yet</td>
+              </tr>
+              <tr>
+                <td><span class="pill">Return received</span></td>
+                <td>Goes back up</td>
+                <td>No change</td>
+                <td>Tap only with the item physically in your hands, which can be a week later</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note note--rule">
+          <span class="note__title">Why returned and received are two taps</span>
+          <p>The money is lost the moment the courier turns around, but the item isn't back on the
+          shelf for days. One tap for each keeps both numbers honest: the report shows the loss today,
+          and stock only rises when you can actually ship the thing again.</p>
+        </div>
+
+        <h3>What an order looks like in Telegram</h3>
+        <div class="chat">
+          <span class="chat__line"><b>🟢 طلب جديد — Qiti</b></span>
+          <span class="chat__line">كريم بلحاج</span>
+          <span class="chat__line">📞 +213661445566</span>
+          <span class="chat__line">📍 وهران / السانيا</span>
+          <span class="chat__line">🚚 إلى المنزل 600 دج — الكمية ×1</span>
+          <span class="chat__line"><b>المجموع: 4500 دج</b> — نقداً عند الاستلام</span>
+          <span class="chat__line">📵 <b>2 محاولات</b> — آخر وحدة: ما جاوبش · منذ 3 ساعة</span>
+          <div class="chat__btns">
+            <span class="chat__btn">📞 أكّدتُ هاتفياً</span>
+            <span class="chat__btn">📵 عيّطتُ — ما جاوبش</span>
+            <span class="chat__btn">✅ قبول الطلب</span>
+            <span class="chat__btn">❌ رفض الطلب</span>
+            <span class="chat__btn">💬 واتساب</span>
+          </div>
+        </div>
+        <p>
+          The phone number is plain text on purpose — Telegram makes it tappable, so you call
+          straight from the message. Tap <b>📞 أكّدتُ هاتفياً</b> after the customer confirms on the
+          phone; it doesn't accept the order, it just records that the call happened, which is what
+          later tells you whether confirming is worth the time.
+        </p>
+      </div>
+    </section>
+
+    <!-- 4 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="day">
+      <div class="part__head"><span class="part__num">04</span><h2>Your day, hour by hour</h2></div>
+      <div class="stack">
+        <h3>Morning — clear the queue</h3>
+        <p>
+          Open <b>Call queue</b> in the dashboard and work top to bottom. The order of the list is
+          the order of the work: customers who already said yes, then calls that are due, then
+          orders that ran out of tries and need a decision instead of another call.
+        </p>
+        <ul>
+          <li>Call the number. Log what happened with the buttons on the row — <b>never</b> in your head.</li>
+          <li>Customer confirms → log <b>Answered</b>, then <b>Accept</b>.</li>
+          <li>No answer, busy, phone off → log it. The next attempt schedules itself and the row leaves your list until then.</li>
+          <li>"Call me after five" → <b>Other outcome…</b> and set the time they gave you.</li>
+        </ul>
+
+        <h3>Through the day — orders as they land</h3>
+        <p>
+          New orders appear in Telegram and in the queue at the same moment. Handle them from
+          whichever is in your hand. Call first, then accept or deny; don't accept a batch and
+          "call them later".
+        </p>
+
+        <h3>As couriers report back</h3>
+        <p>
+          Open the order's message in Telegram and tap <b>📦 وصلت</b> or <b>↩️ أُرجعت</b>. When a
+          returned parcel physically reaches the shop, tap <b>📥 استلمتُ الإرجاع</b> so stock goes
+          back up. Use <code>/state</code> to see everything still in transit.
+        </p>
+
+        <h3>End of day</h3>
+        <p>
+          At midnight the bot posts the day's report by itself: orders, accepted, denied, delivered,
+          returned, real revenue, estimated profit, the deny reasons, anything still waiting, unfinished
+          forms and stock. You don't have to wait for it — <code>/state</code> gives you the live
+          version any time. On Sunday night a weekly report follows.
+        </p>
+
+        <div class="note">
+          <span class="note__title">A good day, in one line</span>
+          <p>Queue empty or scheduled, every call logged, every delivered order marked the day the
+          courier reports it, and no order older than 24 hours sitting undecided.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="queue">
+      <div class="part__head"><span class="part__num">05</span><h2>The call queue</h2></div>
+      <div class="stack stack--wide">
+        <p class="lede">
+          <code>/admin#/queue</code>. Everything waiting on a call or a decision, oldest first. This
+          is the page you work from; the Orders page is the archive you look things up in.
+        </p>
+
+        <h3>The four states</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>State</th><th>Means</th><th>Do</th></tr></thead>
+            <tbody>
+              <tr><td><span class="pill pill--good">Confirmed by phone</span></td><td>Customer said yes on the call</td><td>Accept it. This is the closest thing to money on the page</td></tr>
+              <tr><td><span class="pill pill--live">Needs a call</span></td><td>Never called, or the scheduled time has passed</td><td>Call, then log the outcome</td></tr>
+              <tr><td><span class="pill pill--warn">Out of tries</span></td><td>Five attempts, or a wrong number</td><td>Decide — accept and ship blind, or deny with the reason</td></tr>
+              <tr><td><span class="pill">Scheduled</span></td><td>Has a future callback time</td><td>Nothing. It comes back to the top by itself</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>The outcomes, and what each one schedules</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Outcome</th><th>Next try</th><th>Use when</th></tr></thead>
+            <tbody>
+              <tr><td>Answered — confirmed</td><td>No next try</td><td>They confirmed the order on the phone</td></tr>
+              <tr><td>No answer</td><td>45 min, then longer each time</td><td>Rang out</td></tr>
+              <tr><td>Busy</td><td>15 min</td><td>Engaged — the phone is in their hand right now</td></tr>
+              <tr><td>Phone off</td><td>3 h, then longer</td><td>Off or unreachable</td></tr>
+              <tr><td>Asked me to call back</td><td>The time they gave you</td><td>They answered but can't talk</td></tr>
+              <tr><td>Wrong number</td><td>Stops calling</td><td>Not the customer, or a bad number</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          After five attempts an order stops returning to the top and becomes <b>Out of tries</b>.
+          That ceiling exists so the customer who never answers doesn't push down orders that could
+          still sell. Add a note when something matters for next time — "wants the blue one", "asked
+          for Friday" — it stays with the order forever and shows up on the Orders page.
+        </p>
+        <p>
+          Rows tagged <b>Unfinished order</b> are people who typed their phone number on the page but
+          never confirmed. They're worth calling — they were buying a minute ago — but there's no
+          order to accept, so the only action is <b>Drop from queue</b> once you're done with them.
+        </p>
+      </div>
+    </section>
+
+    <!-- 6 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="telegram">
+      <div class="part__head"><span class="part__num">06</span><h2>Telegram reference</h2></div>
+      <div class="stack stack--wide">
+        <p class="lede">
+          Commands only work in the shop's group. Send any of them alone and the bot explains it.
+        </p>
+
+        <h4>Orders</h4>
+        <div class="cmds">
+          <div class="cmd">
+            <span class="cmd__name">/state</span>
+            <span class="cmd__what">Everything not closed yet: undecided orders, orders in transit, returns not back at the shop. Orders older than 24 h are flagged ⚠️, and the call count shows as 📵3.</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/leads</span>
+            <span class="cmd__what">People who entered a phone number and never finished the form.</span>
+          </div>
+        </div>
+
+        <h4>Stock</h4>
+        <div class="cmds">
+          <div class="cmd">
+            <span class="cmd__name">/stock</span>
+            <span class="cmd__what">Every product and variant with its quantity and its number. ⚠️ marks anything at or below its alert threshold.</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/restock &lt;number&gt; &lt;qty&gt;</span>
+            <span class="cmd__what">Adds to what's there, after a delivery from your supplier.</span>
+            <span class="cmd__eg"><b>/restock 3 20</b> — twenty more of product #3</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/setstock &lt;number&gt; &lt;qty&gt;</span>
+            <span class="cmd__what">Sets the exact number, for corrections after a count.</span>
+            <span class="cmd__eg"><b>/setstock 3 12</b> — product #3 is now exactly twelve</span>
+          </div>
+        </div>
+
+        <h4>Money</h4>
+        <div class="cmds">
+          <div class="cmd">
+            <span class="cmd__name">/cost</span>
+            <span class="cmd__what">Shows the four numbers profit is calculated from.</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/cost product|ads|returns|courier &lt;amount&gt;</span>
+            <span class="cmd__what">Changes one of them, no redeploy needed.</span>
+            <span class="cmd__eg"><b>/cost ads 350</b> — advertising cost per order is now 350 DZD</span>
+          </div>
+        </div>
+
+        <h4>Customers</h4>
+        <div class="cmds">
+          <div class="cmd">
+            <span class="cmd__name">/block &lt;phone&gt; [reason]</span>
+            <span class="cmd__what">Flags a number. Their orders still arrive, but marked — you decide, the bot doesn't block silently.</span>
+            <span class="cmd__eg"><b>/block 0661445566 refused three times</b></span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/unblock &lt;phone&gt;</span>
+            <span class="cmd__what">Removes the flag.</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/blocked</span>
+            <span class="cmd__what">The whole list.</span>
+          </div>
+        </div>
+
+        <h4>Catalog</h4>
+        <div class="cmds">
+          <div class="cmd">
+            <span class="cmd__name">plain message</span>
+            <span class="cmd__what">Describe new stock in your own words and the bot reads it, shows you what it understood, and waits for your confirmation before writing anything.</span>
+            <span class="cmd__eg"><b>عندي 9 أطواق تتبّع، أضف المنتج والفئة</b> · <b>add Toji outfit 4500 da x10 cost 2200</b></span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/newproduct</span>
+            <span class="cmd__what">The same thing in a strict format, when you'd rather not rely on the bot guessing.</span>
+          </div>
+          <div class="cmd">
+            <span class="cmd__name">/newcategory · /categories</span>
+            <span class="cmd__what">Create a category, or list them all.</span>
+          </div>
+        </div>
+
+        <h4>Dangerous</h4>
+        <div class="cmds">
+          <div class="cmd cmd--danger">
+            <span class="cmd__name">/clear</span>
+            <span class="cmd__what">Deletes every order and resets stock to zero. It asks twice. There is no undo and no backup — never run it unless the owner told you to, in writing.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="stock">
+      <div class="part__head"><span class="part__num">07</span><h2>Stock</h2></div>
+      <div class="stack">
+        <p class="lede">
+          One number per product, per variant. The dashboard, <code>/stock</code>, the accept button's
+          check and <code>/restock</code> all read and write that same number — there is no second
+          counter to reconcile.
+        </p>
+
+        <h3>Serials</h3>
+        <p>
+          Every product has a small number — <code>#1</code>, <code>#2</code> — assigned once and
+          never reused. It's shown beside the product in the dashboard and in <code>/stock</code>,
+          and it's what you type in <code>/restock</code>. A product with variants gets
+          <code>3.1</code>, <code>3.2</code>, one per size or colour.
+        </p>
+        <p>
+          Restocking the wrong item is the easiest mistake to make here, so check the number in
+          <code>/stock</code> before typing it, and read the bot's reply — it names the product it
+          just changed.
+        </p>
+
+        <h3>Low stock</h3>
+        <p>
+          When a variant drops to its alert threshold, the bot posts one warning — once, not on every
+          order — and the dashboard shows a Low stock card. The warning re-arms after you restock
+          above the threshold.
+        </p>
+
+        <h3>When accept is refused</h3>
+        <p>
+          If stock won't cover the order, the accept tap is rejected and the bot names what's short.
+          The order stays undecided. Restock, then accept. Bundles need every item in them: a bundle
+          of a collar ×2 and a cover ×1 can't be accepted if covers are out, however many collars
+          you have.
+        </p>
+      </div>
+    </section>
+
+    <!-- 8 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="money">
+      <div class="part__head"><span class="part__num">08</span><h2>The money</h2></div>
+      <div class="stack">
+        <p class="lede">
+          Revenue counts <b>delivered orders only</b>. Accepted and in transit is not revenue —
+          it's stock that has left the building.
+        </p>
+
+        <h3>Profit</h3>
+        <p>
+          <code>profit = order total − goods cost × qty − advertising − courier cost</code>, and a
+          returned order counts as a straight loss of the return-loss figure. All four inputs come
+          from <code>/cost</code>, so you can change them from your phone.
+        </p>
+        <p>
+          Courier cost defaults to zero because in cash on delivery the customer pays the delivery
+          fee — it never comes out of your margin. Set it only if the shop is paying for delivery
+          itself.
+        </p>
+
+        <div class="note note--rule">
+          <span class="note__title">Costs are frozen at the outcome</span>
+          <p>The moment you mark an order delivered or returned, today's costs are copied onto that
+          order. Change a supplier price next month and last month's profit stays exactly what it was.
+          This is why you should mark outcomes on the day they happen, not in a batch at month end.</p>
+        </div>
+
+        <h3>What the delivery fee is not</h3>
+        <p>
+          The order total includes the delivery fee, and that money goes to the courier. It is
+          excluded from revenue and profit everywhere. Don't add it back by hand in any calculation
+          you do outside the system.
+        </p>
+      </div>
+    </section>
+
+    <!-- 9 ─────────────────────────────────────────────────────── -->
+    <section class="part" id="customers">
+      <div class="part__head"><span class="part__num">09</span><h2>Customers</h2></div>
+      <div class="stack">
+        <h3>Unfinished orders</h3>
+        <p>
+          When someone types a valid phone number and then leaves without confirming, the shop keeps
+          it as an unfinished order and tells you a couple of minutes later. That message updates
+          itself as they fill in more fields, and turns into "✅ أكمل الطلب" if they come back and
+          finish. Call these people — they were buying minutes ago. They expire on their own after
+          30 days.
+        </p>
+
+        <h3>History and flags</h3>
+        <p>
+          Each order message carries what the shop knows about that phone number: past deliveries,
+          past denials, past returns. <b>⚠️ زبون له سوابق</b> means the number has refused or returned
+          before — call before shipping, don't refuse on sight. <b>✅ زبون موثوق</b> is the opposite,
+          and a good reason to accept quickly.
+        </p>
+
+        <h3>The block list</h3>
+        <p>
+          <code>/block</code> flags a number for good reason — a repeat refuser, someone abusive.
+          Blocked numbers can still order and their orders still arrive; they're just marked so you
+          see it before deciding. Nothing is blocked silently, because a silent block loses customers
+          you never find out about.
+        </p>
+      </div>
+    </section>
+
+    <!-- 10 ────────────────────────────────────────────────────── -->
+    <section class="part" id="catalog">
+      <div class="part__head"><span class="part__num">10</span><h2>Products and pages</h2></div>
+      <div class="stack">
+        <p class="lede">
+          A <b>product</b> is the thing you ship — price, cost, variants, stock. A <b>campaign</b> is
+          a landing page that sells it. One product can have several pages pointed at it.
+        </p>
+
+        <h3>Adding a product</h3>
+        <p>
+          Fastest from Telegram: describe the delivery in plain language and confirm what the bot
+          understood. Or in the dashboard: <b>Products → New</b>, then fill name, slug, price, unit
+          cost, and any options like size or colour. Every variant gets its own stock row.
+        </p>
+
+        <h3>Building a page</h3>
+        <p>
+          <b>Campaigns → New</b>, pick the product, then <b>Load starter sections</b> for a working
+          page you edit section by section. The live preview renders through exactly the same code as
+          the real page, so what you see is what visitors get. The page is invisible until you
+          <b>Publish</b> it; publishing needs no deploy — save and the next visitor has it.
+        </p>
+        <p>
+          The slug is the URL. Keep it short and stable — it goes in ads and on packaging, and
+          changing it later breaks every link already printed.
+        </p>
+
+        <div class="note note--ask">
+          <span class="note__title">Ask before you do these</span>
+          <p>Changing a price, publishing or unpublishing a page, deleting anything, or editing the
+          original collar landing page. Prices are printed in ads; a page that vanishes is money
+          already spent on traffic.</p>
+        </div>
+
+        <h3>Deleting</h3>
+        <p>
+          A product with orders in its history can't be deleted, and shouldn't be — its old orders
+          would lose their name in every report. Archive it instead: it leaves the store and keeps
+          its numbers.
+        </p>
+      </div>
+    </section>
+
+    <!-- 11 ────────────────────────────────────────────────────── -->
+    <section class="part" id="rules">
+      <div class="part__head"><span class="part__num">11</span><h2>Rules that keep it honest</h2></div>
+      <div class="stack">
+        <div class="note note--rule">
+          <span class="note__title">Rule 1 — log the call, always</span>
+          <p>An unlogged call is a call nobody else can see. "No answer, third try" has to be in the
+          system, not in your memory, or the next person starts from zero.</p>
+        </div>
+        <div class="note note--rule">
+          <span class="note__title">Rule 2 — deny with a real reason</span>
+          <p>"Never answered after five tries" and "too expensive" are different problems with
+          different fixes. "No" tells you nothing next month.</p>
+        </div>
+        <div class="note note--rule">
+          <span class="note__title">Rule 3 — mark outcomes the day they happen</span>
+          <p>Delivered and returned both freeze costs at the moment you tap. Batching a week of
+          outcomes on Friday puts Friday's costs on Monday's sales.</p>
+        </div>
+        <div class="note note--rule">
+          <span class="note__title">Rule 4 — received means in your hands</span>
+          <p>Tapping 📥 استلمتُ الإرجاع before the parcel is physically back makes the shop think it
+          can sell something that's still in a van.</p>
+        </div>
+        <div class="note note--stop">
+          <span class="note__title">Never</span>
+          <p>Run <code>/clear</code>. Accept an order the stock can't cover by restocking a number
+          you didn't count. Edit the original collar landing page's price in the dashboard — that
+          price is baked into the page, and changing one side makes the page show one number while
+          the courier collects another.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 ────────────────────────────────────────────────────── -->
+    <section class="part" id="broken">
+      <div class="part__head"><span class="part__num">12</span><h2>When something looks broken</h2></div>
+      <div class="stack stack--wide">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Symptom</th><th>Almost always</th><th>Do</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Buttons do nothing, commands are ignored, but new orders still arrive</td>
+                <td>The bot's webhook lost its registration</td>
+                <td>Open <code>/api/telegram-webhook?setup</code> on the shop's domain. It re-registers and tells you what it set. Anything you typed while it was down is discarded — send it again</td>
+              </tr>
+              <tr>
+                <td>A quantity in Telegram doesn't match the dashboard</td>
+                <td>You're looking at two different variants</td>
+                <td>Check the serial in <code>/stock</code> against the number in the dashboard. Same number means same row</td>
+              </tr>
+              <tr>
+                <td>Login says the session expired</td>
+                <td>Seven days passed</td>
+                <td>Log in again — password, then the code in the group</td>
+              </tr>
+              <tr>
+                <td>An order you accepted doesn't appear in revenue</td>
+                <td>It isn't delivered yet</td>
+                <td>Nothing is wrong. Revenue waits for 📦 وصلت</td>
+              </tr>
+              <tr>
+                <td>The queue shows nothing but you know orders are waiting</td>
+                <td>They're scheduled, not missing</td>
+                <td>Switch the filter to the whole queue and check the Scheduled column</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Anything not on this list, or anything involving money already collected — tell the owner
+          before you touch it. A wrong guess in a live shop costs real orders.
+        </p>
+      </div>
+    </section>
+
+    <!-- 13 ────────────────────────────────────────────────────── -->
+    <section class="part" id="glossary">
+      <div class="part__head"><span class="part__num">13</span><h2>Glossary</h2></div>
+      <div class="stack stack--wide">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>COD</td><td>Cash on delivery. The customer pays the courier at the door; nothing is paid online</td></tr>
+              <tr><td>Pending</td><td>Order received, no accept or deny decision yet</td></tr>
+              <tr><td>Accepted</td><td>Approved for shipping. Stock has already dropped</td></tr>
+              <tr><td>Denied</td><td>Refused by you, with a reason. Stock untouched</td></tr>
+              <tr><td>Delivered</td><td>Customer paid. The only state that counts as revenue</td></tr>
+              <tr><td>Returned</td><td>Courier came back with it. Loss recorded now, stock later</td></tr>
+              <tr><td>Lead / unfinished order</td><td>Someone who entered a phone number and never confirmed</td></tr>
+              <tr><td>Serial</td><td>A product's permanent number — <code>#3</code>, or <code>3.2</code> for a variant</td></tr>
+              <tr><td>Variant</td><td>One size or colour of a product. Each has its own stock</td></tr>
+              <tr><td>Bundle</td><td>Several items sold as one line. Needs all of them in stock</td></tr>
+              <tr><td>Upsell</td><td>An extra offered at checkout, tracked separately so you can see if it works</td></tr>
+              <tr><td>Campaign</td><td>A landing page. Lives at its slug, publishes without a deploy</td></tr>
+              <tr><td>Wilaya / commune</td><td>Province and municipality — they set the delivery fee</td></tr>
+              <tr><td>Threshold</td><td>The quantity at which a variant starts warning you it's low</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="colophon">
+  <span>Qiti operator handbook</span>
+  <span>Two surfaces, one dataset</span>
+  <span>Read parts 3–5 first; the rest is reference</span>
+</footer>
+
+<script>
+/* Marks the part you're reading in the contents rail. Purely an aid —
+   the page works untouched without it. */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var byId = {};
+  links.forEach(function (link) { byId[link.getAttribute('href').slice(1)] = link; });
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      links.forEach(function (link) { link.classList.remove('is-active'); });
+      var active = byId[entry.target.id];
+      if (active) active.classList.add('is-active');
+    });
+  }, { rootMargin: '-10% 0px -75% 0px' });
+
+  document.querySelectorAll('.part').forEach(function (part) { observer.observe(part); });
+})();
+</script>
