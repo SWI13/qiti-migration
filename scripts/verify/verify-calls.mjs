@@ -118,7 +118,16 @@ ok('المقرّر ما يتعدّش', counts.total === 5);
 
 console.log('\n══ 5. الرسالة في تيليغرام ══');
 ok('بلا مكالمات — بلا سطر زائد', callSummaryLines(pending()).length === 0);
-const lines = callSummaryLines({ ...after(pending(), ['no-answer', 'busy']) });
+/*
+ * ⚠️ هنا بالذات نستعملو الوقت الحقيقي، ماشي NOW الثابت.
+ *
+ * callSummaryLines تقارن nextCallAt مع Date.now() — هي اللي تقرّر واش
+ * الموعد مازال جاي ولا فات. بالثابت، الفحص كان ينجح في الصباح ويطيح
+ * بعد 10:15 UTC تاع 19 أوت: الموعد يولّي في الماضي والسطر ما يبانش،
+ * والفنكشن راهي صحيحة. باقي الملف يبقى على NOW — حساب المواعيد
+ * والترتيب لازمهم وقت ثابت.
+ */
+const lines = callSummaryLines(after(pending(), ['no-answer', 'busy'], Date.now()));
 ok('عدد المحاولات يبان', lines[0].includes('2'));
 ok('آخر نتيجة تبان بالكلام', lines[0].includes(CALL_OUTCOME_LABEL.busy));
 ok('الموعد الجاي يبان', lines.some((line) => line.includes('المعاودة')));
