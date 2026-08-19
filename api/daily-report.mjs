@@ -10,7 +10,10 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>.netlify.app/api/daily-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts } from '../lib/store.mjs';
+import {
+  listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts,
+  rebuildOpenIndex,
+} from '../lib/store.mjs';
 import { stockLines } from '../lib/stock-view.mjs';
 import { dz, esc, profitFor, goodsTotal } from '../lib/message.mjs';
 import { listOpenLeads, sweepLeads } from '../lib/leads.mjs';
@@ -167,6 +170,17 @@ async function handler(request) {
      * يبانش في التقرير كأنّو ما تعالجش وهو راه تبعث توّ.
      */
     await sweepLeads().catch(() => {});
+
+    /*
+     * إعادة بناء فهرس الطلبات المفتوحة، مرّة في النهار.
+     *
+     * الفهرس يتحدّث مع كل كتابة، فنظرياً يبقى مضبوط. عملياً، كتابة
+     * تقدر تطيح بين تسجيل الطلب وتسجيلو في الفهرس (الشبكة، الفنكشن
+     * توقّفت). هنا المسح الكامل يصير مرّة وحدة في 24 ساعة ويصلّح أي
+     * انحراف — بدل ما نخلّيو صفّ المكالمات يمسح الأرشيف في كل نقرة.
+     */
+    await rebuildOpenIndex().catch((error) =>
+      console.error('Open-order index rebuild failed:', error.message));
 
     const orders = await listOrdersForDay(dayJustEnded);
     const [awaiting, awaitingReturn, stock, costs, openLeads] = await Promise.all([
