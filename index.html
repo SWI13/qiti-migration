@@ -11,14 +11,14 @@
 <meta property="og:type" content="product">
 <meta property="og:title" content="Qiti — طوق ذكي GPS للقطط">
 <meta property="og:description" content="3900 دج · الدفع عند الاستلام · توصيل لـ 58 ولاية">
-<meta property="og:image" content="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=1200&q=70&auto=format&fit=crop">
+<meta property="og:image" content="https://qiti.vercel.app/assets/img/e91c-cat.jpg">
 
 <!--
-  الصور من مضيف برّاني — preconnect يبدا المصافحة قبل ما يوصل الوسم،
-  ويربح ~200ms على 3G. ⚠️ بدّلهم بصور المنتج الحقيقية كي يخدم رفع
-  الصور (BLOB_READ_WRITE_TOKEN) — صور ستوك تبان ستوك، والزبون يحسّها.
+  صور المنتج راهي مرفوعة مع الموقع (assets/img) — نفس صور المتجر الرسمي
+  تاع hoco E91C. محليّة = بلا DNS برّاني وبلا preconnect، والكتابة العربية
+  فوقهم مكتوبة بـ CSS (.shot__cap) ماشي محروقة في الصورة، باش تتبدّل بلا
+  ما تعاود تصنع صورة.
 -->
-<link rel="preconnect" href="https://images.unsplash.com" crossorigin>
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
@@ -56,16 +56,19 @@
        اللي تحسب في وقت التحميل، والباقي يجي كي يزحلق. -->
   <div class="shots" id="shots">
     <div class="shot">
-      <img src="https://images.unsplash.com/photo-1695217150778-b4bfb5795e4a?w=800&q=70&auto=format&fit=crop"
-           alt="قطّة لابسة طوق Qiti الذكي" width="800" height="800" fetchpriority="high" decoding="async">
+      <img src="assets/img/e91c-cat.jpg"
+           alt="قطّة لابسة طوق Qiti الذكي في الحديقة" width="800" height="800" fetchpriority="high" decoding="async">
+      <p class="shot__cap">قطّك لن يضيع بعد اليوم</p>
     </div>
     <div class="shot">
-      <img src="https://images.unsplash.com/photo-1683047482345-360f43d3fcf0?w=800&q=70&auto=format&fit=crop"
-           alt="الطوق من قريب" width="800" height="800" loading="lazy" decoding="async">
+      <img src="assets/img/e91c-tracker.jpg"
+           alt="طوق Qiti من قريب — 22 غرام" width="800" height="800" loading="lazy" decoding="async">
+      <p class="shot__cap">22 غرام برك · عام كامل بشحنة</p>
     </div>
     <div class="shot">
-      <img src="https://images.unsplash.com/photo-1595232170847-da4cab9e63ce?w=800&q=70&auto=format&fit=crop"
-           alt="التطبيق يبيّن مكان القطّة" width="800" height="800" loading="lazy" decoding="async">
+      <img src="assets/img/e91c-dog.jpg"
+           alt="كلب لابس طوق Qiti الذكي" width="800" height="800" loading="lazy" decoding="async">
+      <p class="shot__cap">يخدم للقطط والكلاب</p>
     </div>
   </div>
 
