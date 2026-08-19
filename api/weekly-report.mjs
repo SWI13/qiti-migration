@@ -15,7 +15,7 @@
  * تقدر تشغّلو باليد للتجريب:
  *   curl "https://<موقعك>/api/weekly-report?key=<SECRET>"
  */
-import { listOrdersForDay, algiersDate } from '../lib/store.mjs';
+import { listOrdersForDay, algiersDate, countsInBooks } from '../lib/store.mjs';
 import { dz, esc, goodsTotal } from '../lib/message.mjs';
 import { authorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -111,7 +111,8 @@ async function handler(request) {
 
   try {
     const ordersByDay = await Promise.all(days.map((day) => listOrdersForDay(day)));
-    const orders = ordersByDay.flat();
+    /* الملغى من الدفاتر ما يدخلش التقرير — نفس الفلترة تاع اللوحة بالضبط */
+    const orders = ordersByDay.flat().filter(countsInBooks);
     const report = buildWeeklyReport(weekStart, weekEnd, orders);
     await sendTelegram(report);
     console.log(`Weekly report sent for ${weekStart} → ${weekEnd}: ${orders.length} orders`);

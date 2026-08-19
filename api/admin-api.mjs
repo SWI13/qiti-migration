@@ -26,15 +26,17 @@ import {
 } from '../lib/calls.mjs';
 import {
   acceptOrder, denyOrder, confirmOrder, setDeliveryOutcome, receiveReturn, DASHBOARD_ACTOR,
+  voidOrder, unvoidOrder,
 } from '../lib/decisions.mjs';
 import { repaintOrderQuietly } from '../lib/telegram.mjs';
 import { ensureLegacyProduct } from '../lib/legacy-stock.mjs';
 import { renderSections, priceViewFor, blankSectionsFor } from '../lib/render/index.mjs';
 import { offerProductIds } from '../lib/offers.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
-import { dashboardSummary } from '../lib/analytics.mjs';
+import { dashboardSummary, clearDashboardCache } from '../lib/analytics.mjs';
 import { getSettings, saveSettings, NOTIFY_EVENTS } from '../lib/settings.mjs';
 import { cancelShipment, sendShipment } from '../lib/ecotrack/shipments.mjs';
+import { syncOpenShipments, retryFailedShipments } from '../lib/ecotrack/sync.mjs';
 import { shipmentCancelled, shipmentCreated } from '../lib/notify.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -337,6 +339,52 @@ const ACTIONS = {
       body.threshold != null ? Number(body.threshold) : undefined,
     ),
   }),
+
+  /*
+   * ── زرّ "زامن" ───────────────────────────────────────────────────
+   *
+   * ⚠️ هذا الزرّ كان مكتوب في README وفي تعليق sync.mjs روحو ("ثلاث
+   * لحظات: الكرون، /sync، وزرّ زامن في اللوحة") وما كانش موجود. يعني
+   * الطردة اللي وصلت عند الموصّل الصباح ما تدخلش في الربح حتى نصف
+   * الليل، ولا حتى تكتب /sync في تيليغرام — واللوحة ما تعطيش طريقة.
+   *
+   * نرميو الكاش بعدها: بلاه تنقر، الطرود تتحدّث، والصفحة توري نفس
+   * الأرقام لدقيقة — فتحسب الزرّ ما خدمش.
+   */
+  'shipments.sync': async () => {
+    const sync = await syncOpenShipments({ actor: DASHBOARD_ACTOR });
+    if (sync.skipped) return bad('الربط مع الموصّل غير مضبوط.');
+
+    const retry = await retryFailedShipments({ by: DASHBOARD_ACTOR });
+    clearDashboardCache();
+
+    return ok({
+      checked: sync.checked ?? 0,
+      changed: sync.changed ?? 0,
+      outcomes: sync.outcomes ?? 0,
+      retried: retry.retried ?? 0,
+      sent: retry.sent ?? 0,
+    });
+  },
+
+  /*
+   * ── إخراج طلب من الدفاتر ─────────────────────────────────────────
+   * طلب تجريبي، ولا نتيجة توصيل تسجّلت بالغلط. السجلّ يبقى، الأرقام
+   * تنساه. شوف voidOrder في decisions.mjs.
+   */
+  'orders.void': async (body) => {
+    const result = await voidOrder(body.id, { by: DASHBOARD_ACTOR, reason: body.reason });
+    if (!result.ok) return bad(result.error);
+    clearDashboardCache();
+    return ok({ order: result.order });
+  },
+
+  'orders.unvoid': async (body) => {
+    const result = await unvoidOrder(body.id, { by: DASHBOARD_ACTOR });
+    if (!result.ok) return bad(result.error);
+    clearDashboardCache();
+    return ok({ order: result.order });
+  },
 
   /* أقسام فارغة جاهزة حسب نوع المنتج — تخدم كي اللوحة تبدا حملة جديدة */
   'sections.blank': async (body) => ok({ sections: blankSectionsFor(body.type) }),

@@ -11,7 +11,7 @@
  *   curl "https://<موقعك>/api/daily-report?key=<SECRET>"
  */
 import {
-  listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts,
+  listOrdersForDay, algiersDate, listAwaitingDelivery, listAwaitingReturnReceipt, getCosts, countsInBooks,
   rebuildOpenIndex,
 } from '../lib/store.mjs';
 import { stockLines } from '../lib/stock-view.mjs';
@@ -191,7 +191,8 @@ async function handler(request) {
     await rebuildOpenIndex().catch((error) =>
       console.error('Open-order index rebuild failed:', error.message));
 
-    const orders = await listOrdersForDay(dayJustEnded);
+    /* الملغى من الدفاتر ما يدخلش التقرير — نفس الفلترة تاع اللوحة بالضبط */
+    const orders = (await listOrdersForDay(dayJustEnded)).filter(countsInBooks);
     const [awaiting, awaitingReturn, stock, costs, openLeads] = await Promise.all([
       listAwaitingDelivery(), listAwaitingReturnReceipt(),
       /* أرقام /restock ما تنفعش في تقرير — والتقص باش التقرير يبقى

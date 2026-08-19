@@ -56,6 +56,15 @@ export var DASHBOARD_EN = {
    * فيها). خلط الزوج هو اللي يخلّي القبول يتردّ بعد ما تكون قلتي
    * للزبونة "خدّامة".
    */
+  /*
+   * المزامنة. النصّ يقول واش صرا فعلاً، ماشي "تمّ" — المشغّل ينقر باش
+   * يعرف واش تبدّل، والجواب "نجح" ما يقول والو.
+   */
+  'sync.button': 'Sync carrier',
+  'sync.running': 'Syncing…',
+  'sync.moved': '{changed} parcel(s) moved · {outcomes} closed',
+  'sync.quiet': 'Checked {checked} parcel(s) — nothing changed',
+
   'stock.availableTitle': 'Available to promise',
   'stock.onHandCommitted': '{onHand} on hand · {committed} reserved for pending orders',
   'dashboard.recentOrders': 'Recent orders',

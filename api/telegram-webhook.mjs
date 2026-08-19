@@ -58,9 +58,10 @@ import {
   getCosts, setCost, clearAllOrders, clearAllReplyPrompts,
   blockPhone, unblockPhone, listBlocked, normalizeDzPhone,
   saveProductDraft, getProductDraft, forgetProductDraft,
+  listOrdersByPhone,
 } from '../lib/store.mjs';
 import {
-  listOpenLeads, getLead, markLeadContacted, dismissLead, updateLead,
+  listOpenLeads, getLead, markLeadContacted, dismissLead, updateLead, forgetLead,
   completeness, leadMessage, LEAD_FIELDS,
 } from '../lib/leads.mjs';
 import { parseProductIntent } from '../lib/product-intent.mjs';
@@ -75,6 +76,7 @@ import { esc, dz, elapsedLabel, toE164Dz, dzTime } from '../lib/message.mjs';
  */
 import {
   confirmOrder, acceptOrder, denyOrder, setDeliveryOutcome, receiveReturn, MAX_REASON_LENGTH,
+  unvoidOrder, purgeOrder, purgeOrdersByPhone,
 } from '../lib/decisions.mjs';
 import { logOrderCall, callsOf } from '../lib/calls.mjs';
 /* الطوق: هجرة العدّاد العام لمنتج حقيقي — تصرا مرّة وحدة وتنادى من
@@ -99,6 +101,7 @@ import { sendShipment, cancelShipment } from '../lib/ecotrack/shipments.mjs';
 import { syncOpenShipments, retryFailedShipments } from '../lib/ecotrack/sync.mjs';
 import { shipmentCreated, shipmentCancelled } from '../lib/notify.mjs';
 import { getSettings, saveSettings } from '../lib/settings.mjs';
+import { WILAYAS, wilayaId } from '../lib/wilayas.mjs';
 import { siteUrl } from '../lib/site.mjs';
 import { authorized as cronAuthorized } from '../lib/cron-auth.mjs';
 import { toVercel } from '../lib/http.mjs';
@@ -136,6 +139,111 @@ async function handleClearConfirmation(query, confirmed) {
     return answer('حدث خطأ، أعد المحاولة.');
   }
 }
+
+/*
+ * ── تأكيد /void ─────────────────────────────────────────────────
+ *
+ * المحو بلا تراجع، علاش يمرّ بزوج أزرار كيما /clear. الرقم يسافر في
+ * `callback_data` روحو (`vdo:260819-a1b2c` ولا `vdp:0661445566`) —
+ * زوجهم تحت 64 بايت، فما يلزمش تخزين وسط الطريق.
+ *
+ * ⚠️ محصور في شات المالك — نفس قاعدة النشر وحذف المنتج: الفعل يمسح
+ * بيانات بلا رجعة، فما نعتمدوش على "شكون يوصلو الزر" وحدها.
+ */
+async function handleVoidConfirmation(query, kind, target, answer) {
+  const message = query.message;
+  const who = displayName(query.from);
+
+  const ownerChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) {
+    return answer('ليست لديك الصلاحية.');
+  }
+
+  const edit = (text) => telegram('editMessageText', {
+    chat_id: message.chat.id, message_id: message.message_id, text, parse_mode: 'HTML',
+  }).catch(() => {});
+
+  if (kind === 'vdn') {
+    await edit('❌ تراجعت — ما تمسح والو.');
+    return answer('تمّ التراجع ✅');
+  }
+
+  try {
+    if (kind === 'vdo') {
+      const result = await purgeOrder(target, { by: who });
+      if (!result.ok) return answer(result.error);
+      await edit(L_VOID_DONE([result], who, { phone: result.order.phone }));
+      return answer('تمسح 🗑️');
+    }
+
+    const { ok, error, purged, failed } = await purgeOrdersByPhone(target, { by: who });
+    if (!ok && !purged.length) return answer(error ?? failed[0]?.error ?? 'ما تمسح والو.');
+
+    /* السلّة المفتوحة تاع نفس الرقم تمشي معاهم — وإلا الزبون يرجع
+       يتنبّه عليه في /leads وطلباتو راهم ممسوحين */
+    await forgetLead(target).catch((error2) =>
+      console.error('Lead cleanup after /void failed:', error2.message, '| phone:', target));
+
+    await edit(L_VOID_DONE(purged, who, { phone: target, failed }));
+    return answer(`تمسحو ${purged.length} 🗑️`);
+  } catch (error) {
+    console.error('/void failed:', error.message, '| target:', target);
+    return answer('حدث خطأ، أعد المحاولة.');
+  }
+}
+
+/*
+ * واش رايح يصرا كي ينقر "نعم" — مكتوب قبل، ماشي بعد.
+ *
+ * ⚠️ التأكيد اللي يقول "متأكد؟" برك يخلّي المشغّل ينقر بلا ما يعرف
+ * بلّي الطردة رايحة تتلغى والمخزون رايح يرجع. الثلاث خطوات مكتوبين
+ * بالأرقام باش النقرة تكون على شي معروف.
+ */
+const voidPlan = (orders) => {
+  const tracked = orders.filter((order) => order?.shipment?.tracking).length;
+  const restocking = orders.filter((order) => order.status === 'accepted' && !order.returnReceivedAt).length;
+
+  return [
+    '<b>الخطوات:</b>',
+    tracked
+      ? `1️⃣ إلغاء ${tracked} طردة عند الموصّل`
+      : '1️⃣ ما كاين حتى طردة عند الموصّل',
+    restocking
+      ? `2️⃣ ترجيع سلعة ${restocking} طلب للمخزون`
+      : '2️⃣ المخزون ما يتبدّلش (ما كانش ناقص منّو والو)',
+    '3️⃣ محو الطلب من التخزين',
+  ];
+};
+
+/* واش صرا للطردة في كل طلب — كلمة وحدة يفهمها المشغّل */
+const SHIPMENT_RESULT = {
+  cancelled: 'الطردة تمسحت عند الموصّل',
+  return_asked: 'طلبنا رجعة الطردة',
+  final: '⚠️ الطردة كملت — ما تلغاتش',
+  none: null,
+};
+
+const L_VOID_DONE = (purged, who, { phone = null, failed = [] } = {}) => {
+  const restocked = purged.reduce((sum, row) => sum + row.restocked, 0);
+
+  return [
+    '🗑️ <b>تمسح نهائياً</b>',
+    '',
+    ...(phone ? [`الرقم: <code>${esc(phone)}</code>`] : []),
+    ...purged.map((row) => {
+      const note = SHIPMENT_RESULT[row.shipment];
+      return `• <code>${esc(row.order.id)}</code>${note ? ` — ${esc(note)}` : ''}`;
+    }),
+    `مسحو: ${esc(who)}`,
+    '',
+    restocked
+      ? `📦 رجّعنا <b>${restocked}</b> للمخزون.`
+      : '📦 المخزون ما تبدّلش — الطلب ما كانش ناقص منّو والو.',
+    'ما بقى منهم والو — لا في اللوحة، لا في التقارير، لا في تاريخ الزبون.',
+    ...(failed.length ? ['', '⚠️ <b>ما تمسحوش:</b>',
+      ...failed.map((row) => `• <code>${esc(row.id)}</code> — ${esc(row.error)}`)] : []),
+  ].join('\n');
+};
 
 /*
  * "🚀 انشر" تحت منتج تصنع بـ /newproduct — يقلب status لـ active.
@@ -294,6 +402,12 @@ async function handleCallback(query) {
   if (action === 'rm') {
     if (!message) return;
     return handleDeleteProduct(query, orderId, answer);
+  }
+
+  /* محو نهائي — `orderId` هنا يكون id تاع طلب ولا رقم هاتف حسب الفعل */
+  if (action === 'vdo' || action === 'vdp' || action === 'vdn') {
+    if (!message) return;
+    return handleVoidConfirmation(query, action, orderId, answer);
   }
 
   /*
@@ -945,10 +1059,14 @@ async function handleCommand(message) {
       '/cost — سعر الشراء، الإعلانات، الإرجاع، التوصيل',
       '',
       '<b>الإعدادات</b>',
-      '/settings — الإرسال التلقائي، نسبة الرجعة، تكاليفها',
+      '/settings — الإرسال التلقائي، نسبة الرجعة، والولايات اللي توصّل فيها بيدك',
       '',
       '<b>الزبائن</b>',
       '/block · /unblock · /blocked',
+      '',
+      '/void &lt;رقم الزبون&gt; — ⚠️ يلغي الطردة، يرجّع المخزون، ويمحي كل طلبات الرقم',
+      '/void &lt;رقم الطلب&gt; — ⚠️ نفس الشيء على طلب واحد (يطلب تأكيد)',
+      '/unvoid &lt;رقم الطلب&gt; — يرجّع طلب أخرجتو من الحساب من اللوحة',
       '',
       '/clear — ⚠️ يحذف كل الطلبات',
       '',
@@ -1198,6 +1316,7 @@ async function handleCommand(message) {
 
     if (!arg) {
       const settings = await getSettings();
+      const self = (settings.selfDeliveredWilayas ?? []).map((id) => WILAYAS[id - 1] ?? id);
       return reply([
         '⚙️ <b>إعدادات المحل</b>',
         '',
@@ -1206,12 +1325,47 @@ async function handleCommand(message) {
         `سومة السلعة تتحسب في الرجعة: <b>${settings.returnIncludesProduct ? 'نعم' : 'لا'}</b>`,
         `تكلفة رجعة ثابتة زايدة: <b>${dz(settings.returnExtraCost)}</b>`,
         '',
+        `توصيل بيدك: <b>${self.length ? esc(self.join('، ')) : 'ما كاين حتى وحدة'}</b>`,
+        '<i>في هاذ الولايات برك تقدر تعلّم «وصلت» بيدك — الباقي يستنّى تأكيد الموصّل.</i>',
+        '',
         '<b>بدّلها:</b>',
         '<code>/settings autoship off</code>',
         '<code>/settings returnship 40</code>',
         '<code>/settings returnproduct on</code>',
         '<code>/settings returnextra 100</code>',
+        '<code>/settings selfdelivery باتنة، سطيف</code>',
+        '<code>/settings selfdelivery -</code> — يحيّدهم كامل',
       ].join('\n'));
+    }
+
+    /*
+     * الولايات اللي توصّل فيها بيدك — تتكتب بأسمائها، وتتخزّن بأرقامها.
+     * الاسم يتكتب بثلاث طرق والرقم واحد، ونفس السبب اللي خلّى جدول
+     * التوصيل يتفهرس بالرقم (شوف shipping-rates.mjs).
+     */
+    if (String(arg).toLowerCase() === 'selfdelivery') {
+      const raw = text.slice(text.indexOf(arg) + arg.length).trim();
+      if (!raw) return reply('اكتب الولايات: <code>/settings selfdelivery باتنة، سطيف</code>');
+
+      /* "-" تعني: ما كاين حتى وحدة، الموصّل يأكّد كلش */
+      if (raw === '-') {
+        await saveSettings({ selfDeliveredWilayas: [] });
+        return reply('✅ ما بقاتش حتى ولاية توصّل فيها بيدك — كل «وصلت» تستنّى الموصّل.');
+      }
+
+      const names = raw.split(/[,،]/).map((one) => one.trim()).filter(Boolean);
+      const ids = [];
+      const unknown = [];
+      for (const name of names) {
+        const id = wilayaId(name);
+        if (id) ids.push(id);
+        else unknown.push(name);
+      }
+      if (unknown.length) return reply(`⚠️ ما نعرفوش هاذ الولايات: ${esc(unknown.join('، '))}`);
+
+      const saved = await saveSettings({ selfDeliveredWilayas: ids });
+      const shown = saved.selfDeliveredWilayas.map((id) => WILAYAS[id - 1]);
+      return reply(`✅ توصيل بيدك في: <b>${esc(shown.join('، '))}</b>\nفي هاذو برك تقدر تعلّم «وصلت» بلا الموصّل.`);
     }
 
     const key = FIELDS[String(arg).toLowerCase()];
@@ -1256,6 +1410,98 @@ async function handleCommand(message) {
 
     await shipmentCancelled(result.order).catch(() => {});
     return reply('🚫 الطردة تلغات. المخزون ما رجعش — ارفض الطلب ولا سجّل الرجعة باش يرجع.');
+  }
+
+  /*
+   * ── /void ────────────────────────────────────────────────────────
+   *
+   * يمحي الطلب نهائياً — بالرقم تاع الزبون بلا رمز الدولة
+   * (`/void 0661445566`) ولا بـ id الطلب (`/void 260819-a1b2c`).
+   *
+   * ⚠️ محو، ماشي إلغاء محاسبي. `voidOrder` في decisions.mjs تخرّج
+   * الطلب من الحساب وتخلّي السجلّ، واللوحة تستعملها و/unvoid يرجّعها.
+   * اللي هنا يحيّد الطلب من التخزين كامل: اللوحة، التقارير، صفّ
+   * المكالمات، وتاريخ الزبون. بلا تراجع.
+   *
+   * ⚠️ علاش زوج أزرار قبل المحو: نفس سبب /clear — رقم غالط مكتوب
+   * في سطر واحد يمحي طلبات زبون حقيقي، والمسح ما يترجّعش.
+   *
+   * الشغل روحو في `purgeOrder` (decisions.mjs): تلغي الطردة عند
+   * الموصّل، ترجّع المخزون، وتمحي الطلب — بهاذ الترتيب. هنا غير
+   * الرسالة والتأكيد.
+   */
+  if (command === '/void') {
+    if (!arg) {
+      return reply([
+        'اكتب رقم الزبون ولا رقم الطلب:',
+        '<code>/void 0661445566</code> — يمحي كل طلبات هاذ الرقم',
+        '<code>/void 260819-a1b2c</code> — يمحي طلب واحد',
+      ].join('\n'));
+    }
+
+    /* رقم جزائري = محو بالزبون. أي حاجة أخرى = id تاع طلب. */
+    const phone = normalizeDzPhone(arg);
+
+    if (phone) {
+      const found = await listOrdersByPhone(phone).catch(() => []);
+      if (!found.length) return reply(`ما لقيت حتى طلب بالرقم <code>${esc(phone)}</code>.`);
+
+      return telegram('sendMessage', {
+        chat_id: message.chat.id,
+        text: [
+          '⚠️ <b>متأكد؟</b>',
+          '',
+          `سيمحي <b>${found.length}</b> طلب تاع <code>${esc(phone)}</code> نهائياً:`,
+          ...found.map((order) => `• <code>${esc(order.id)}</code> — ${esc(order.name ?? '')}`),
+          '',
+          ...voidPlan(found),
+          '',
+          'وتاريخ الزبون وسلّتو المفتوحة يمشيو معاهم. لا يمكن التراجع!',
+        ].join('\n'),
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ نعم، امحي ${found.length}`, callback_data: `vdp:${phone}` },
+            { text: '❌ لا، تراجعت', callback_data: 'vdn:' },
+          ]],
+        },
+      }).catch((error) => console.error('/void prompt failed:', error.message));
+    }
+
+    const order = await getOrder(arg).catch(() => null);
+    if (!order) return reply(`ما لقيتش الطلب <code>${esc(arg)}</code>.`);
+
+    return telegram('sendMessage', {
+      chat_id: message.chat.id,
+      text: [
+        '⚠️ <b>متأكد؟</b>',
+        '',
+        `سيمحي الطلب <code>${esc(order.id)}</code> نهائياً`,
+        `الزبون: ${esc(order.name ?? '')} · <code>${esc(order.phone ?? '')}</code>`,
+        '',
+        ...voidPlan([order]),
+        '',
+        'ما يبقى منّو والو — لا في اللوحة لا في التقارير. لا يمكن التراجع!',
+      ].join('\n'),
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '✅ نعم، امحيه', callback_data: `vdo:${order.id}` },
+          { text: '❌ لا، تراجعت', callback_data: 'vdn:' },
+        ]],
+      },
+    }).catch((error) => console.error('/void prompt failed:', error.message));
+  }
+
+  /*
+   * /unvoid يبقى للإلغاء المحاسبي اللي يتصنع من اللوحة (voidedAt) —
+   * الطلب الممسوح بـ /void ما يترجّعش، ما بقاش موجود أصلاً.
+   */
+  if (command === '/unvoid') {
+    if (!arg) return reply('اكتب رقم الطلب: <code>/unvoid 260819-a1b2c</code>');
+
+    const back = await unvoidOrder(arg, { by: displayName(message.from) });
+    return reply(back.ok ? '↩️ رجع للدفاتر — يتحسب من جديد.' : `⚠️ ${esc(back.error)}`);
   }
 }
 

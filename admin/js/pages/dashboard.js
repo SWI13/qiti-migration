@@ -256,6 +256,21 @@ function recentOrdersCard(summary) {
   return rowListCard(t('dashboard.recentOrders'), rows, viewAllLink('#/orders'));
 }
 
+/*
+ * زرّ "زامن" — يسأل الموصّل دروك بدل ما تستنّى كرون نصف الليل.
+ *
+ * ⚠️ بلا هذا، الطردة اللي وصلت الصباح ما تدخلش في الربح حتى نصف
+ * الليل: الموصّل ما عندوش webhook، فالحالة تجي غير كي نسألو احنا.
+ * تحديث الصفحة ما كان يدير والو — القراءة كانت من نفس المعطيات
+ * القديمة.
+ */
+function syncButtonHtml(busy) {
+  return '<button type="button" class="btn btn--outline btn--xs" id="dashboardSync"' +
+    (busy ? ' disabled' : '') + '>' +
+    esc(busy ? t('sync.running') : t('sync.button')) +
+  '</button>';
+}
+
 function rangeSelectHtml(busy) {
   return '<select id="dashboardRange" aria-label="' + esc(t('dashboard.rangeAriaLabel')) + '"' + (busy ? ' disabled' : '') + '>' +
     RANGE_OPTIONS.map(function (opt) {
@@ -288,7 +303,24 @@ export function renderDashboard() {
       '<div style="margin-top:14px">' + recentOrdersCard(summary) + '</div>';
   }
 
-  root.innerHTML = shell(t('dashboard.title'), rangeSelectHtml(false), body);
+  root.innerHTML = shell(t('dashboard.title'), syncButtonHtml(false) + rangeSelectHtml(false), body);
+
+  document.getElementById('dashboardSync').addEventListener('click', async function () {
+    root.innerHTML = shell(t('dashboard.title'), syncButtonHtml(true) + rangeSelectHtml(true), skeletonDashboard());
+    try {
+      var result = await api('shipments.sync');
+      /* الأرقام تتعاود تتجاب بعد المزامنة — السيرفر رمى الكاش، فهاذي
+         تجي بالحالة الجديدة ماشي بالقديمة */
+      state.dashboard = (await api('dashboard.summary', { days: state.dashboardDays })).summary;
+      renderDashboard();
+      toast(result.changed || result.outcomes
+        ? t('sync.moved', { changed: result.changed, outcomes: result.outcomes })
+        : t('sync.quiet', { checked: result.checked }));
+    } catch (error) {
+      toast(error.message, true);
+      renderDashboard();
+    }
+  });
 
   document.getElementById('dashboardRange').addEventListener('change', async function (event) {
     var daysBefore = state.dashboardDays;
