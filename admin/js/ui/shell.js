@@ -13,6 +13,9 @@ export var NAV = [
   { view: 'media', group: 'content', label: 'nav.media', icon: 'media' },
   { view: 'products', group: 'store', label: 'nav.products', icon: 'products' },
   { view: 'categories', group: 'store', label: 'nav.categories', icon: 'categories' },
+  /* السجلّ آخر واحد: ما تمشيش ليه كل يوم، تمشي ليه كي تسأل
+     "شكون دار هذي؟" — فما يستاهلش يكون فوق الشغل اليومي */
+  { view: 'logs', group: 'store', label: 'nav.logs', icon: 'logs' },
 ];
 
 var GROUPS = [

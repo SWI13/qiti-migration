@@ -105,6 +105,24 @@ The queue accepts and denies too. That logic lives in `lib/decisions.mjs` and bo
 
 Numbers in those shots are fake, there's no live store in the environment I take screenshots in.
 
+### Logs
+
+`/admin#/logs`. Everything that changed something, in one list: who did it, where from, what it was before, what it is now, and whether it worked.
+
+The shop is run from three places at once — the panel, the bot, and the storefront — and until now the only record of an action was its result. The order says `denied`, with a name and a timestamp on it. It cannot tell you that the accept was tried first and refused for stock, that the parcel call failed twice before the third one worked, or who changed the price last Tuesday. That history existed only in Vercel's function logs, which are gone in an hour.
+
+Events are written from the layer that owns the action, never from the caller. `lib/decisions.mjs` logs accept/deny/delivery/void/purge once, and a tap in Telegram and a click in the panel produce the same line with a different `source` — because writing it at each call site is how you end up with a log that quietly misses one of them. Same rule for shipments: `lib/ecotrack/shipments.mjs` logs every parcel outcome, including the failures that go through `markFailed`, so auto-ship, `/ship` and the retry cron are all covered by one write.
+
+Three properties the system is built around:
+
+- **It cannot break the thing it records.** `logEvent` swallows every error and returns `null`. An order that gets accepted while its audit line is lost beats an order that fails to accept because the log did.
+- **Secrets never reach storage.** Field names that look like credentials are replaced before writing, and the real values of the token env vars are stripped out of every string — error text from an outside service can carry a token in the middle of a sentence.
+- **The same event is written once.** Telegram re-sends an update when a response is slow; `dedupeKey` puts the write behind `SET NX`, so a replayed webhook does not become a second row.
+
+Storage is a capped Redis list — `LPUSH` + `LTRIM` in one trip, newest first — plus a per-order list that backs the order timeline, and a per-day hash of counters incremented with `HINCRBY` so two events in the same second cannot eat each other. Unfiltered reads (the common case) fetch just the page with `LRANGE`; filtering scans a bounded window and matches in memory, because a second index per field is a second thing that can drift from the first.
+
+There is no delete and no edit — not in the API, not in the UI. The only thing that removes an entry is the retention cap trimming the tail.
+
 ## Telegram
 
 I don't sit in the admin all day. The bot is where the shop actually gets run from, and every order shows up like this:

@@ -12,6 +12,7 @@ export var NAV_EN = {
   'nav.products': 'Products',
   'nav.categories': 'Categories',
   'nav.media': 'Media',
+  'nav.logs': 'Logs',
   'nav.logout': 'Log out',
   'nav.collapse': 'Collapse sidebar',
   'nav.expand': 'Expand sidebar',

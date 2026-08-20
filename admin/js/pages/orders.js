@@ -5,6 +5,7 @@ import { t } from '../i18n.js';
 import { shell } from '../ui/shell.js';
 import { dataTable } from '../ui/table.js';
 import { mountModal } from '../ui/dialog.js';
+import { orderTimeline } from './logs.js';
 
 var root = document.getElementById('adminRoot');
 var filter = { status: 'all', q: '' };
@@ -323,8 +324,20 @@ function orderDetail(order) {
   overlay.innerHTML = '<div class="modal">' +
     '<h3>' + esc(t('orders.detailTitle')) + '</h3>' +
     body +
-    '<div class="modal__foot"><button class="btn btn--outline btn--xs" data-close>' + esc(t('common.back')) + '</button></div>' +
+    '<div class="modal__foot">' +
+      '<button class="btn btn--outline btn--xs" data-act="order-timeline">' + esc(t('logs.timelineOpen')) + '</button>' +
+      '<button class="btn btn--outline btn--xs" data-close>' + esc(t('common.back')) + '</button>' +
+    '</div>' +
   '</div>';
+
+  /*
+   * ⚠️ الخطّ الزمني يتجيب عند النقرة، ماشي مع الطلب: أغلب فتحات
+   * النافذة هي "شكون الزبون وواش طلب"، وجيبان السجلّ في كل وحدة
+   * معناه نداء زايد على كل نقرة في اللائحة.
+   */
+  overlay.addEventListener('click', function (event) {
+    if (event.target.closest('[data-act="order-timeline"]')) orderTimeline(order.id);
+  });
 
   mountModal(overlay);
 }

@@ -1,0 +1,95 @@
+
+export var LOGS_EN = {
+  'logs.title': 'Logs',
+  'logs.subtitle': 'Every action that changed something — admin, Telegram, storefront and system.',
+
+  /* بطاقات فوق الصفحة */
+  'logs.statEvents': 'Events today',
+  'logs.statFailed': 'Failed today',
+  'logs.statAdmin': 'Admin actions',
+  'logs.statTelegram': 'Telegram events',
+  'logs.statYesterday': '{n} yesterday',
+  'logs.criticalTitle': 'Recent failures',
+  'logs.criticalEmpty': 'Nothing failed recently.',
+
+  /* الجدول */
+  'logs.colTime': 'Time',
+  'logs.colActor': 'Actor',
+  'logs.colSource': 'Source',
+  'logs.colAction': 'Action',
+  'logs.colEntity': 'Entity',
+  'logs.colOrder': 'Order',
+  'logs.colResult': 'Result',
+  'logs.colDetails': 'Details',
+  'logs.view': 'Open',
+
+  /* الفلاتر */
+  'logs.searchPlaceholder': 'Order, phone, actor, request id, error…',
+  'logs.filterSource': 'Source',
+  'logs.filterStatus': 'Result',
+  'logs.filterAction': 'Action',
+  'logs.filterRange': 'Period',
+  'logs.filterAll': 'All',
+  'logs.allSources': 'All sources',
+  'logs.allResults': 'All results',
+  'logs.allActions': 'All actions',
+  'logs.rangeToday': 'Today',
+  'logs.range7': 'Last 7 days',
+  'logs.range30': 'Last 30 days',
+  'logs.rangeAll': 'All time',
+  'logs.clearFilters': 'Clear filters',
+  'logs.activeFilters': '{n} filters active',
+
+  'logs.sourceAdmin': 'Admin',
+  'logs.sourceTelegram': 'Telegram',
+  'logs.sourceSystem': 'System',
+  'logs.sourceStorefront': 'Storefront',
+  'logs.sourceCron': 'Scheduled',
+
+  'logs.statusSuccess': 'Success',
+  'logs.statusFailed': 'Failed',
+
+  /* التفاصيل */
+  'logs.detailTitle': 'Event detail',
+  'logs.fieldWhen': 'When',
+  'logs.fieldActor': 'Actor',
+  'logs.fieldSource': 'Source',
+  'logs.fieldAction': 'Action',
+  'logs.fieldEntity': 'Entity',
+  'logs.fieldOrder': 'Order',
+  'logs.fieldProduct': 'Product',
+  'logs.fieldCustomer': 'Customer',
+  'logs.fieldDescription': 'What happened',
+  'logs.fieldResult': 'Result',
+  'logs.fieldError': 'Error',
+  'logs.fieldRequestId': 'Request id',
+  'logs.fieldIp': 'IP address',
+  'logs.fieldUserAgent': 'Browser',
+  'logs.fieldChat': 'Telegram chat',
+  'logs.fieldMessage': 'Telegram message',
+  'logs.fieldUpdate': 'Telegram update',
+  'logs.fieldMetadata': 'Extra',
+  'logs.changesTitle': 'What changed',
+  'logs.changeField': 'Field',
+  'logs.changeBefore': 'Before',
+  'logs.changeAfter': 'After',
+  'logs.noChanges': 'No field-level changes recorded.',
+
+  /* الخطّ الزمني */
+  'logs.timelineTitle': 'Order timeline',
+  'logs.timelineOpen': 'Order timeline',
+  'logs.timelineEmpty': 'No events recorded for this order yet.',
+  'logs.timelineFor': 'Order {id}',
+
+  /* حالات */
+  'logs.emptyTitle': 'No events yet',
+  'logs.emptyBody': 'Actions from the admin panel, Telegram and the storefront will show up here.',
+  'logs.emptyFilteredTitle': 'No events match',
+  'logs.emptyFilteredBody': 'Widen the period or clear a filter.',
+  'logs.truncated': 'Showing the most recent {n} events — older entries are outside the search window.',
+  'logs.retentionNote': 'Logs are append-only. Nothing here can be edited or deleted from the panel.',
+
+  'logs.paginationSummary': '{from}–{to} of {n}',
+  'logs.pagePrev': 'Previous',
+  'logs.pageNext': 'Next',
+};

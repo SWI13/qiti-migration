@@ -104,6 +104,7 @@ import { getSettings, saveSettings } from '../lib/settings.mjs';
 import { WILAYAS, wilayaId } from '../lib/wilayas.mjs';
 import { siteUrl } from '../lib/site.mjs';
 import { authorized as cronAuthorized } from '../lib/cron-auth.mjs';
+import { logEvent, newRequestId } from '../lib/audit.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const displayName = (from) =>
@@ -150,7 +151,7 @@ async function handleClearConfirmation(query, confirmed) {
  * ⚠️ محصور في شات المالك — نفس قاعدة النشر وحذف المنتج: الفعل يمسح
  * بيانات بلا رجعة، فما نعتمدوش على "شكون يوصلو الزر" وحدها.
  */
-async function handleVoidConfirmation(query, kind, target, answer) {
+async function handleVoidConfirmation(query, kind, target, answer, requestId = null) {
   const message = query.message;
   const who = displayName(query.from);
 
@@ -191,7 +192,7 @@ async function handleVoidConfirmation(query, kind, target, answer) {
 
   try {
     if (!byPhone) {
-      const result = await purgeOrder(target, { by: who, skipShipment: forced });
+      const result = await purgeOrder(target, { by: who, skipShipment: forced, source: 'telegram', requestId });
 
       /*
        * ⚠️ الفشل يتكتب في الرسالة، ماشي في الـ toast وحدو: الـ toast
@@ -210,7 +211,7 @@ async function handleVoidConfirmation(query, kind, target, answer) {
     }
 
     const { ok, error, purged, failed } = await purgeOrdersByPhone(target,
-      { by: who, skipShipment: forced });
+      { by: who, skipShipment: forced, source: 'telegram', requestId });
     if (!ok && !purged.length) {
       const why = error ?? failed[0]?.error ?? 'ما تمسح والو.';
       await edit(L_VOID_FAILED(target, why, failed.length ? 'كاين' : null),
@@ -466,6 +467,22 @@ async function handleLeadAction(query, phone, action, who, answer) {
       : {}),
   }).catch((error) => console.error('Lead message edit failed:', error.message));
 
+  await logEvent({
+    action: action === 'ldc' ? 'lead.contacted' : 'lead.dismissed',
+    source: 'telegram',
+    actorType: 'telegram',
+    actorName: who,
+    actorId: query.from?.id != null ? String(query.from.id) : null,
+    entityType: 'lead',
+    entityId: phone,
+    customerPhone: phone,
+    description: action === 'ldc' ? 'عيّط للزبون اللي ما كمّلش' : 'شطب سلّة ما كملتش',
+    oldValues: { status: lead.status ?? null },
+    newValues: { status: updated.status ?? null, contactedBy: updated.contactedBy ?? null },
+    telegramChatId: message.chat.id,
+    telegramMessageId: message.message_id,
+  });
+
   return answer(action === 'ldc' ? 'تمّ التسجيل ✅' : 'تمّ الحذف 🗑️');
 }
 
@@ -504,7 +521,7 @@ async function buildLeadsMessage() {
 }
 
 /* ── نقرة زر ─────────────────────────────────────────────────────── */
-async function handleCallback(query) {
+async function handleCallback(query, requestId = null) {
   const message = query.message;
   const data = String(query.data ?? '');
 
@@ -538,7 +555,7 @@ async function handleCallback(query) {
   if (action === 'vdo' || action === 'vdp' || action === 'vds' || action === 'vdf'
       || action === 'vdpf' || action === 'vdn') {
     if (!message) return;
-    return handleVoidConfirmation(query, action, orderId, answer);
+    return handleVoidConfirmation(query, action, orderId, answer, requestId);
   }
 
   /*
@@ -574,7 +591,7 @@ async function handleCallback(query) {
    * وأزرار القبول/الرفض تبقى، غير زر التأكيد يختفي.
    */
   if (isConfirm) {
-    const result = await confirmOrder(orderId, { by: who, chatId })
+    const result = await confirmOrder(orderId, { by: who, chatId, source: 'telegram', requestId })
       .catch((error) => {
         console.error('Confirm failed:', error.message, '| order:', orderId);
         return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
@@ -599,7 +616,7 @@ async function handleCallback(query) {
   }
 
   if (action === 'ok') {
-    const result = await acceptOrder(orderId, { by: who, chatId })
+    const result = await acceptOrder(orderId, { by: who, chatId, source: 'telegram', requestId })
       .catch((error) => {
         console.error('Accept failed:', error.message, '| order:', orderId);
         return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
@@ -609,7 +626,7 @@ async function handleCallback(query) {
 
   if (isDeliveryOutcome) {
     const deliveryStatus = action === 'del' ? 'delivered' : 'returned';
-    const result = await setDeliveryOutcome(orderId, deliveryStatus, { by: who, chatId })
+    const result = await setDeliveryOutcome(orderId, deliveryStatus, { by: who, chatId, source: 'telegram', requestId })
       .catch((error) => {
         console.error('Delivery outcome update failed:', error.message, '| order:', orderId);
         return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
@@ -619,7 +636,7 @@ async function handleCallback(query) {
   }
 
   if (isReturnReceipt) {
-    const result = await receiveReturn(orderId, { by: who, chatId })
+    const result = await receiveReturn(orderId, { by: who, chatId, source: 'telegram', requestId })
       .catch((error) => {
         console.error('Return-receipt update failed:', error.message, '| order:', orderId);
         return { ok: false, error: 'حدث خطأ، أعد المحاولة.' };
@@ -653,7 +670,7 @@ async function handleCallback(query) {
 }
 
 /* ── جواب فيه سبب الرفض ──────────────────────────────────────────── */
-async function handleReply(message) {
+async function handleReply(message, requestId = null) {
   const promptId = message.reply_to_message?.message_id;
   if (!promptId) return;
 
@@ -665,7 +682,11 @@ async function handleReply(message) {
 
   try {
     const result = await denyOrder(orderId, {
-      by: displayName(message.from), reason, chatId: message.chat.id,
+      by: displayName(message.from),
+      reason,
+      chatId: message.chat.id,
+      source: 'telegram',
+      requestId,
     });
     if (!result.ok) throw new Error(result.error);
 
@@ -1140,7 +1161,7 @@ async function handleListCategories(reply) {
   return reply(lines.join('\n'));
 }
 
-async function handleCommand(message) {
+async function handleCommand(message, requestId = null) {
   const ownerChatId = process.env.TELEGRAM_CHAT_ID;
   if (!ownerChatId || String(message.chat.id) !== String(ownerChatId)) return;
 
@@ -1150,6 +1171,26 @@ async function handleCommand(message) {
      التنظيف، ولا أمر ما يتعرف كي البوت يكون مع بوتات أخرى */
   const command = parts[0].split('@')[0];
   const arg = parts[1];
+
+  /*
+   * ⚠️ نسجّلو الأمر روحو، ماشي النص كامل: الأمر يقدر يجي معاه اسم
+   * زبون ولا سبب مكتوب بيد المشغّل، وما عندناش سبب نخزّنو هاذوك
+   * في سجلّ يتقرا من صفحة أخرى.
+   */
+  await logEvent({
+    action: 'telegram.command',
+    source: 'telegram',
+    actorType: 'telegram',
+    actorName: displayName(message.from),
+    actorId: message.from?.id != null ? String(message.from.id) : null,
+    entityType: 'command',
+    entityId: command,
+    description: `أمر ${command}`,
+    requestId,
+    telegramChatId: message.chat.id,
+    telegramMessageId: message.message_id,
+    metadata: { hasArgument: Boolean(arg) },
+  });
   const reply = (line) =>
     telegram('sendMessage', {
       chat_id: message.chat.id, text: line, parse_mode: 'HTML', disable_web_page_preview: true,
@@ -1264,7 +1305,7 @@ async function handleCommand(message) {
        فاللي ينسخ المثال يلقى "الطلب غير موجود" وما يفهمش علاش. */
     if (!orderId) return reply('اكتب رقم الطلب: <code>/ship 260819-a1b2c</code>');
 
-    const result = await sendShipment(orderId, { by: displayName(message.from) });
+    const result = await sendShipment(orderId, { by: displayName(message.from), source: 'telegram' });
     if (!result.ok) return reply(`⚠️ ما تبعثش: ${esc(result.error)}`);
     if (result.already) return reply(`الطردة موجودة من قبل — <code>${esc(result.tracking)}</code>`);
 
@@ -1536,7 +1577,7 @@ async function handleCommand(message) {
   if (command === '/cancel') {
     if (!arg) return reply('اكتب رقم الطلب: <code>/cancel 260819-a1b2c</code>');
 
-    const result = await cancelShipment(arg, { by: displayName(message.from) });
+    const result = await cancelShipment(arg, { by: displayName(message.from), source: 'telegram' });
     if (!result.ok) return reply(`⚠️ ما تلغاتش: ${esc(result.error)}`);
 
     await shipmentCancelled(result.order).catch(() => {});
@@ -1699,6 +1740,16 @@ async function handler(request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret || request.headers.get('x-telegram-bot-api-secret-token') !== secret) {
     console.error('Rejected webhook call: bad or missing secret token');
+    await logEvent({
+      action: 'telegram.webhook.rejected',
+      source: 'telegram',
+      actorType: 'system',
+      status: 'failed',
+      error: 'سرّ الويبهوك غالط ولا ناقص',
+      description: 'نداء ويبهوك مرفوض — التوقيع ما يطابقش',
+      ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      userAgent: request.headers.get('user-agent'),
+    });
     return new Response('Forbidden', { status: 403 });
   }
 
@@ -1709,15 +1760,66 @@ async function handler(request) {
     return new Response('Bad request', { status: 400 });
   }
 
+  /*
+   * ⚠️ معرّف واحد لكل تحديث، يمشي مع كل حدث يخرج منّو. كي المشغّل
+   * يشوف "الطردة ما خرجتش"، يقلّب بالـ requestId ويلقى كل ما صرا في
+   * نفس النقرة — الاستقبال، القرار، نداء الموصّل، والخطأ.
+   *
+   * ⚠️ تيليغرام يعاود يبعث نفس `update_id` كي الجواب يتأخّر. سطر
+   * "تحديث وصل" يمرّ على `dedupeKey`، فالإعادة ما تزيدش سطر ثاني.
+   */
+  const requestId = newRequestId();
+  const from = update.callback_query?.from ?? update.message?.from ?? null;
+  const chat = update.callback_query?.message?.chat ?? update.message?.chat ?? null;
+
+  const kind = update.callback_query ? 'callback' : (update.message?.text?.startsWith('/') ? 'command' : 'message');
+  await logEvent({
+    action: 'telegram.webhook.received',
+    source: 'telegram',
+    actorType: 'telegram',
+    actorName: [from?.first_name, from?.last_name].filter(Boolean).join(' ') || null,
+    actorId: from?.id != null ? String(from.id) : null,
+    entityType: 'webhook',
+    entityId: update.update_id != null ? String(update.update_id) : null,
+    description: `تحديث ${kind} وصل`,
+    requestId,
+    telegramChatId: chat?.id,
+    telegramMessageId: update.callback_query?.message?.message_id ?? update.message?.message_id,
+    telegramUpdateId: update.update_id,
+    metadata: {
+      kind,
+      data: update.callback_query?.data ?? null,
+      text: update.message?.text ? String(update.message.text).slice(0, 80) : null,
+    },
+    dedupeKey: update.update_id != null ? `tg-update-${update.update_id}` : null,
+  });
+
   try {
-    if (update.callback_query) await handleCallback(update.callback_query);
-    else if (update.message?.reply_to_message) await handleReply(update.message);
-    else if (update.message?.text?.startsWith('/')) await handleCommand(update.message);
+    if (update.callback_query) await handleCallback(update.callback_query, requestId);
+    else if (update.message?.reply_to_message) await handleReply(update.message, requestId);
+    else if (update.message?.text?.startsWith('/')) await handleCommand(update.message, requestId);
     /* آخر واحد: رسالة عادية. handleFreeText تسكت على كل شي ما فيهش
        نيّة صريحة، فالهدرة العادية في الگروب ما تتلمسش. */
     else if (update.message?.text) await handleFreeText(update.message);
   } catch (error) {
     console.error('Webhook handler error:', error.message);
+    /*
+     * ⚠️ الخطأ هنا كان يعيش في لوغ Vercel وحدو، والويبهوك يرجّع 200
+     * (بقصد — وإلا تيليغرام يعاود للأبد). يعني نقرة تطيح = سكات
+     * كامل، لا في الشات لا في اللوحة. دروك على الأقل تبان في السجلّ.
+     */
+    await logEvent({
+      action: 'telegram.webhook.failed',
+      source: 'telegram',
+      actorType: 'system',
+      status: 'failed',
+      error: error.message,
+      description: `معالجة تحديث ${kind} طاحت`,
+      requestId,
+      telegramChatId: chat?.id,
+      telegramUpdateId: update.update_id,
+      metadata: { kind, data: update.callback_query?.data ?? null },
+    });
   }
 
   /* ديما 200: إذا رجعنا خطأ، تيليغرام يعاود يبعث نفس التحديث بلا فايدة */

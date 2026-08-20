@@ -10,7 +10,7 @@
  * الأخطاء الجايّة من catalog.mjs (رابط مكرّر، سومة غالطة...) مكتوبة
  * بالدارجة للمشغّل روحو — نرجعوها كيما هي بـ 400.
  */
-import { requireAdmin, unauthorized } from '../lib/auth.mjs';
+import { requireAdmin, adminSession, unauthorized } from '../lib/auth.mjs';
 import {
   listCampaigns, getCampaign, saveCampaign, duplicateCampaign, deleteCampaign,
   listProducts, getProduct, saveProduct, deleteProduct,
@@ -38,6 +38,9 @@ import { getSettings, saveSettings, NOTIFY_EVENTS } from '../lib/settings.mjs';
 import { cancelShipment, sendShipment } from '../lib/ecotrack/shipments.mjs';
 import { syncOpenShipments, retryFailedShipments } from '../lib/ecotrack/sync.mjs';
 import { shipmentCancelled, shipmentCreated } from '../lib/notify.mjs';
+import {
+  logEvent, listEvents, eventsForOrder, getEvent, auditSummary, newRequestId, diff,
+} from '../lib/audit.mjs';
 import { toVercel } from '../lib/http.mjs';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
@@ -56,6 +59,17 @@ const bad = (message) => json(400, { error: message });
  * وله رسالة مكتوبة للمشغّل. نترجموه هنا لجواب HTTP.
  */
 const decide = (result) => (result.ok ? ok({ order: result.order }) : bad(result.error));
+
+/*
+ * خيارات القرار الجايّة من اللوحة. المصدر ومعرّف الطلب يمشيو لسجلّ
+ * التدقيق جوّا decisions.mjs — نفس القرار كي يجي من زرّ تيليغرام
+ * ياخذ 'telegram'، فالسطر في السجلّ يقول منين تنقر.
+ */
+const decisionOptions = (body) => ({
+  by: DASHBOARD_ACTOR,
+  source: 'admin',
+  requestId: (body && body.__audit && body.__audit.requestId) || null,
+});
 
 /**
  * يزيد على السجلّ الحسابات اللي تحتاجها الواجهة — الحالة في الصفّ وعدد
@@ -276,12 +290,12 @@ const ACTIONS = {
    * نفس فحص المخزون، نفس لقطة التكاليف، نفس الرسم المجدّد للرسالة.
    * الفرق الوحيد هو اللي نقر.
    */
-  'orders.confirm': async (body) => decide(await confirmOrder(body.id, { by: DASHBOARD_ACTOR })),
-  'orders.accept': async (body) => decide(await acceptOrder(body.id, { by: DASHBOARD_ACTOR })),
-  'orders.deny': async (body) => decide(await denyOrder(body.id, { by: DASHBOARD_ACTOR, reason: body.reason })),
+  'orders.confirm': async (body) => decide(await confirmOrder(body.id, decisionOptions(body))),
+  'orders.accept': async (body) => decide(await acceptOrder(body.id, decisionOptions(body))),
+  'orders.deny': async (body) => decide(await denyOrder(body.id, { ...decisionOptions(body), reason: body.reason })),
   'orders.delivery': async (body) =>
-    decide(await setDeliveryOutcome(body.id, body.outcome, { by: DASHBOARD_ACTOR })),
-  'orders.returnReceived': async (body) => decide(await receiveReturn(body.id, { by: DASHBOARD_ACTOR })),
+    decide(await setDeliveryOutcome(body.id, body.outcome, decisionOptions(body))),
+  'orders.returnReceived': async (body) => decide(await receiveReturn(body.id, decisionOptions(body))),
 
   /*
    * الطلبات اللي ما كملوش — يبانو في نفس صفحة الطلبات بحالة "lead".
@@ -317,7 +331,7 @@ const ACTIONS = {
    * التلقائي خدّام كان يلقى روحو بطردة عند الموصّل بلا زرّ يوقّفها.
    */
   'orders.cancelShipment': async (body) => {
-    const result = await cancelShipment(body.id, { by: DASHBOARD_ACTOR });
+    const result = await cancelShipment(body.id, { by: DASHBOARD_ACTOR, source: 'admin' });
     if (!result.ok) return bad(result.error);
     await shipmentCancelled(result.order).catch(() => {});
     return ok({ order: result.order });
@@ -325,7 +339,7 @@ const ACTIONS = {
 
   /* إعادة إرسال طردة طاحت — الزرّ اللي يقابل رسالة الخطأ في تيليغرام */
   'orders.ship': async (body) => {
-    const result = await sendShipment(body.id, { by: DASHBOARD_ACTOR });
+    const result = await sendShipment(body.id, { by: DASHBOARD_ACTOR, source: 'admin' });
     if (!result.ok) return bad(result.error);
     if (!result.already) await shipmentCreated(result.order).catch(() => {});
     return ok({ order: result.order, tracking: result.tracking, already: Boolean(result.already) });
@@ -373,17 +387,55 @@ const ACTIONS = {
    * تنساه. شوف voidOrder في decisions.mjs.
    */
   'orders.void': async (body) => {
-    const result = await voidOrder(body.id, { by: DASHBOARD_ACTOR, reason: body.reason });
+    const result = await voidOrder(body.id, { ...decisionOptions(body), reason: body.reason });
     if (!result.ok) return bad(result.error);
     clearDashboardCache();
     return ok({ order: result.order });
   },
 
   'orders.unvoid': async (body) => {
-    const result = await unvoidOrder(body.id, { by: DASHBOARD_ACTOR });
+    const result = await unvoidOrder(body.id, decisionOptions(body));
     if (!result.ok) return bad(result.error);
     clearDashboardCache();
     return ok({ order: result.order });
+  },
+
+  /*
+   * ── سجلّ التدقيق ─────────────────────────────────────────────────
+   *
+   * قراية برك. ما كاين لا `logs.delete` لا `logs.edit` — السجلّ
+   * append-only بقصد: سجلّ يقدر يتبدّل من نفس اللوحة اللي يراقبها
+   * ما يسوى والو كي تحتاجو. التقليم الوحيد هو LTRIM الآلي في
+   * lib/audit.mjs (سقف الاحتفاظ)، وما عندو حتى زرّ.
+   */
+  /*
+   * ⚠️ الفلاتر تجي في `body.filters` وماشي في جذر الجسم: `body.action`
+   * راهو اسم الأكشن تاع اللوحة روحو ("logs.list")، فلو قرينا الفلتر
+   * منّو، كل استعلام يفلتر على فعل اسمو `logs.list` — ويرجّع صفر
+   * سطر ديما. طاحت مرّة، والفحص هو اللي شدّها.
+   */
+  'logs.list': async (body) => {
+    const filters = body.filters ?? {};
+    return ok(await listEvents({
+      q: filters.q, source: filters.source, status: filters.status, action: filters.action,
+      actor: filters.actor, entityType: filters.entityType, orderId: filters.orderId,
+      productId: filters.productId, customerPhone: filters.customerPhone,
+      from: filters.from, to: filters.to, page: filters.page, limit: filters.limit,
+    }));
+  },
+
+  'logs.get': async (body) => {
+    const event = await getEvent(body.id);
+    if (!event) return bad('Log entry not found — it may have aged out of retention.');
+    return ok({ event });
+  },
+
+  'logs.summary': async () => ok({ summary: await auditSummary() }),
+
+  /* الخطّ الزمني تاع طلب — من الأقدم للأحدث، كيما صرا */
+  'logs.order': async (body) => {
+    if (!body.id) return bad('Order id is required.');
+    return ok({ events: await eventsForOrder(body.id) });
   },
 
   /* أقسام فارغة جاهزة حسب نوع المنتج — تخدم كي اللوحة تبدا حملة جديدة */
@@ -407,6 +459,216 @@ const ACTIONS = {
   },
 };
 
+/*
+ * ── واش يتسجّل في سجلّ التدقيق ─────────────────────────────────────
+ *
+ * ⚠️ قائمة بيضا، ماشي "سجّل كلشي". `products.list` و`queue.count`
+ * يتنادو كل دقيقة من اللوحة روحها — لو دخلو للسجلّ، الأحداث اللي
+ * تهمّ (حذف منتج، تبديل سومة) يغرقو وسط آلاف سطور القراية، والسجلّ
+ * يولّي ما يتقراش. اللي هنا هو اللي يبدّل حاجة ولا يمسّ الأمان.
+ *
+ * كل مدخلة:
+ *   action      — اسم الحدث في السجلّ
+ *   entityType  — نوع الكيان (product / campaign / order / settings…)
+ *   id          — (body, data) → معرّف الكيان
+ *   before      — (body) → لقطة قبل التنفيذ (تتقرا قبل ما يجري الأكشن)
+ *   after       — (data, body) → لقطة بعد
+ *   describe    — (body, data) → سطر يقراه بني آدم
+ *   orderId     — (body, data) → ربط الحدث بطلب، كي يكون
+ */
+const AUDITED = {
+  'products.save': {
+    action: 'product.saved', entityType: 'product',
+    id: (body, data) => data?.product?.id ?? body.product?.id ?? body.id,
+    before: async (body) => {
+      const id = body.product?.id ?? body.id;
+      return id ? getProduct(id).catch(() => null) : null;
+    },
+    after: (data) => data?.product ?? null,
+    describe: (body, data) => (body.product?.id ?? body.id
+      ? `Product updated: ${data?.product?.name ?? ''}`
+      : `Product created: ${data?.product?.name ?? ''}`),
+  },
+  'products.delete': {
+    action: 'product.deleted', entityType: 'product',
+    id: (body) => body.id,
+    before: (body) => getProduct(body.id).catch(() => null),
+    after: () => ({ deleted: true }),
+    describe: (body) => `Product deleted: ${body.id}`,
+  },
+  'stock.set': {
+    action: 'stock.changed', entityType: 'product',
+    id: (body) => body.productId,
+    /*
+     * ⚠️ `listStockFor` تاخذ المنتج كامل (تمشي على `variants`) وترجّع
+     * `{ variant, stock }` — ماشي صفوف مسطّحة. نجيبو المنتج قبل، وإلا
+     * اللقطة "قبل" ترجع فارغة والسجلّ يقول الكمية جات من العدم.
+     */
+    before: async (body) => {
+      const item = await getProduct(body.productId).catch(() => null);
+      if (!item) return null;
+      const rows = await listStockFor(item).catch(() => []);
+      const row = rows.find((one) => one.variant?.sku === body.sku);
+      return row?.stock ? { qty: row.stock.qty, threshold: row.stock.threshold } : null;
+    },
+    after: (data) => (data?.stock ? { qty: data.stock.qty, threshold: data.stock.threshold } : null),
+    describe: (body) => `Stock set for ${body.productId} (${body.sku})`,
+  },
+  'campaigns.save': {
+    action: 'campaign.saved', entityType: 'campaign',
+    id: (body, data) => data?.campaign?.id ?? body.campaign?.id ?? body.id,
+    before: async (body) => {
+      const id = body.campaign?.id ?? body.id;
+      return id ? getCampaign(id).catch(() => null) : null;
+    },
+    after: (data) => data?.campaign ?? null,
+    describe: (body, data) => `Campaign saved: ${data?.campaign?.name ?? body.campaign?.name ?? ''}`,
+  },
+  'campaigns.publish': {
+    action: 'campaign.published', entityType: 'campaign',
+    id: (body) => body.id,
+    before: (body) => getCampaign(body.id).catch(() => null),
+    after: (data) => data?.campaign ?? null,
+    describe: (body, data) => `Campaign ${data?.campaign?.status === 'published' ? 'published' : 'unpublished'}: ${data?.campaign?.name ?? body.id}`,
+  },
+  'campaigns.delete': {
+    action: 'campaign.deleted', entityType: 'campaign',
+    id: (body) => body.id,
+    before: (body) => getCampaign(body.id).catch(() => null),
+    after: () => ({ deleted: true }),
+    describe: (body) => `Campaign deleted: ${body.id}`,
+  },
+  'campaigns.duplicate': {
+    action: 'campaign.duplicated', entityType: 'campaign',
+    id: (body, data) => data?.campaign?.id ?? body.id,
+    describe: (body, data) => `Campaign duplicated from ${body.id} → ${data?.campaign?.id ?? ''}`,
+  },
+  'categories.save': {
+    action: 'category.saved', entityType: 'category',
+    id: (body, data) => data?.category?.id ?? body.category?.id ?? body.id,
+    after: (data) => data?.category ?? null,
+    describe: (body, data) => `Category saved: ${data?.category?.name ?? ''}`,
+  },
+  'categories.delete': {
+    action: 'category.deleted', entityType: 'category',
+    id: (body) => body.id,
+    describe: (body) => `Category deleted: ${body.id}`,
+  },
+  'categories.seedPresets': {
+    action: 'category.seeded', entityType: 'category',
+    describe: (body, data) => `Seeded ${data?.created?.length ?? 0} preset categories`,
+  },
+  'media.delete': {
+    action: 'media.deleted', entityType: 'media',
+    id: (body) => body.id,
+    describe: (body) => `Media deleted: ${body.id}`,
+  },
+  'settings.save': {
+    action: 'settings.changed', entityType: 'settings',
+    id: () => 'settings',
+    before: () => getSettings().catch(() => null),
+    after: (data) => data?.settings ?? null,
+    describe: () => 'Store settings changed',
+  },
+  'queue.logCall': {
+    action: 'call.logged', entityType: (body) => (body.kind === 'lead' ? 'lead' : 'order'),
+    id: (body) => body.id ?? body.phone,
+    orderId: (body) => (body.kind === 'lead' ? null : body.id),
+    describe: (body) => `Call logged: ${body.outcome}`,
+  },
+  'queue.dismissLead': {
+    action: 'lead.dismissed', entityType: 'lead',
+    id: (body) => body.phone,
+    describe: (body) => `Lead dismissed: ${body.phone}`,
+  },
+  /*
+   * ⚠️ `orders.ship` و`orders.cancelShipment` ما راهمش هنا: الطردة
+   * تسجّل روحها في lib/ecotrack/shipments.mjs (باش الإرسال
+   * التلقائي وأمر تيليغرام يدخلو تاني). وصف هنا معناه سطرين على
+   * نفس الحدث، والسجلّ اللي يعدّ مرّتين ما يتثق فيه في والو.
+   */
+  'shipments.sync': {
+    action: 'shipments.synced', entityType: 'shipment',
+    describe: (body, data) => `Carrier sync: ${data?.checked ?? 0} checked, ${data?.changed ?? 0} changed`,
+  },
+};
+
+/*
+ * ⚠️ القرارات (قبول، رفض، توصيل، إلغاء من الدفاتر، محو) ما راهمش
+ * هنا بقصد — يتسجّلو جوّا lib/decisions.mjs باش نقرة تيليغرام ونقرة
+ * اللوحة يعطيو نفس السطر. اللي نزيدوه هنا هو `source: 'admin'` برك.
+ */
+const DECIDES_ITSELF = /^orders\.(confirm|accept|deny|delivery|returnReceived|void|unvoid)$/;
+
+async function runAudited(action, body, request, run) {
+  const descriptor = Object.hasOwn(AUDITED, action) ? AUDITED[action] : null;
+  const session = adminSession(request);
+  const requestId = request.headers.get('x-request-id') || newRequestId();
+
+  const context = {
+    source: 'admin',
+    actorType: 'admin',
+    actorName: DASHBOARD_ACTOR,
+    actorId: session?.sessionId ?? null,
+    requestId,
+    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+    userAgent: request.headers.get('user-agent'),
+  };
+
+  /* القرارات تسجّل روحها — نمرّرو ليها المصدر برك */
+  if (DECIDES_ITSELF.test(action)) {
+    return run({ ...body, __audit: context }, request);
+  }
+
+  if (!descriptor) return run(body, request);
+
+  const before = descriptor.before ? await descriptor.before(body).catch(() => null) : null;
+
+  let response;
+  try {
+    response = await run(body, request);
+  } catch (error) {
+    await logEvent({
+      ...context,
+      action: descriptor.action,
+      status: 'failed',
+      error: error.message,
+      entityType: typeof descriptor.entityType === 'function' ? descriptor.entityType(body) : descriptor.entityType,
+      entityId: descriptor.id ? descriptor.id(body, null) : null,
+      orderId: descriptor.orderId ? descriptor.orderId(body, null) : null,
+      description: descriptor.describe ? descriptor.describe(body, null) : action,
+    });
+    throw error;
+  }
+
+  /*
+   * ⚠️ الجواب يتقرا بنسخة (clone): `response.json()` تستهلك الجسم،
+   * واللي يرجع للوحة يولّي فارغ. هاذي طاحت مرّة في مشاريع أخرى
+   * بنفس الشكل بالضبط — الأكشن يخدم، والصفحة تبقى تدور.
+   */
+  const data = await response.clone().json().catch(() => null);
+  const failed = response.status >= 400;
+
+  const after = descriptor.after ? descriptor.after(data, body) : null;
+  const changes = before || after ? diff(before, after) : { oldValues: null, newValues: null };
+
+  await logEvent({
+    ...context,
+    action: descriptor.action,
+    status: failed ? 'failed' : 'success',
+    error: failed ? data?.error ?? 'failed' : null,
+    entityType: typeof descriptor.entityType === 'function' ? descriptor.entityType(body) : descriptor.entityType,
+    entityId: descriptor.id ? descriptor.id(body, data) : null,
+    orderId: descriptor.orderId ? descriptor.orderId(body, data) : null,
+    productId: descriptor.entityType === 'product' ? (descriptor.id ? descriptor.id(body, data) : null) : null,
+    description: descriptor.describe ? descriptor.describe(body, data) : action,
+    oldValues: changes.oldValues,
+    newValues: changes.newValues,
+  });
+
+  return response;
+}
+
 async function handler(request) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
   if (!await requireAdmin(request)) return unauthorized();
@@ -427,7 +689,7 @@ async function handler(request) {
   if (!run) return bad(`Unknown action: ${action}`);
 
   try {
-    return await run(body, request);
+    return await runAudited(action, body, request, run);
   } catch (error) {
     /* الأخطاء الجايّة من catalog.mjs مكتوبة بالدارجة للمشغّل — نرجعوها
        كيما هي. أي خطأ آخر (بلوب طاح، الخ) يبان برسالتو الخام، أحسن من

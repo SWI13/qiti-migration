@@ -19,6 +19,7 @@
  *                                                 هو اللي يبعثلك الكود
  */
 import { getStore } from '../lib/blobs.mjs';
+import { logEvent } from '../lib/audit.mjs';
 import { toVercel } from '../lib/http.mjs';
 import {
   verifyPassword, generateCode, newChallengeId, timingSafeStringEqual,
@@ -63,10 +64,35 @@ async function sendCode(code) {
   }
 }
 
-async function handlePassword(payload) {
+/*
+ * ⚠️ محاولات الدخول تتسجّل بالـ IP والمتصفّح: هاذي الحاجة الوحيدة
+ * في السجلّ كامل اللي تخدم للأمان ماشي للتشغيل. كلمة سرّ غالطة
+ * وحدة = واحد نسى؛ عشرين في خمس دقايق من نفس الـ IP = حاجة أخرى.
+ *
+ * ⚠️ لا كلمة السرّ لا الكود لا معرّف التحدّي يدخلو للسجلّ. redact()
+ * في audit.mjs تقصّهم حتى لو مرّو بالغلط، بصح ما نبعثوهمش أصلاً.
+ */
+const requestContext = (request) => ({
+  source: 'admin',
+  actorType: 'admin',
+  entityType: 'session',
+  ip: request?.headers?.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+  userAgent: request?.headers?.get('user-agent') ?? null,
+});
+
+async function handlePassword(payload, request) {
   const password = String(payload.password ?? '');
 
-  if (!verifyPassword(password)) return json(401, { error: GENERIC_ERROR });
+  if (!verifyPassword(password)) {
+    await logEvent({
+      ...requestContext(request),
+      action: 'admin.login.failed',
+      status: 'failed',
+      error: 'كلمة سرّ غالطة',
+      description: 'محاولة دخول بكلمة سرّ غالطة',
+    });
+    return json(401, { error: GENERIC_ERROR });
+  }
 
   const code = generateCode();
   const challengeId = newChallengeId();
@@ -101,7 +127,7 @@ async function handlePassword(payload) {
   return json(200, { challengeId });
 }
 
-async function handleCode(payload) {
+async function handleCode(payload, request) {
   const challengeId = String(payload.challengeId ?? '');
   const code = String(payload.code ?? '');
   if (!challengeId || !code) return json(401, { error: GENERIC_ERROR });
@@ -118,6 +144,14 @@ async function handleCode(payload) {
     if (attempts >= MAX_ATTEMPTS) {
       /* 5 محاولات غالطة تكفي — التحدّي يتحرق، يخصّو يبدا من كلمة السر */
       await challenges().delete(challengeId);
+      await logEvent({
+        ...requestContext(request),
+        action: 'admin.login.blocked',
+        status: 'failed',
+        error: 'تجاوز عدد المحاولات',
+        description: `التحدّي تحرق بعد ${MAX_ATTEMPTS} محاولات كود غالطة`,
+        metadata: { attempts },
+      });
     } else {
       /* ⚠️ الكتابة بلا ttlSeconds تمسح وقت الانتهاء اللي حطّيناه في
          handlePassword — التحدّي يقعد للأبد. نعاودو نحسبو الباقي من
@@ -126,16 +160,35 @@ async function handleCode(payload) {
       const remaining = Math.max(1, Math.ceil((challenge.expiresAt - Date.now()) / 1000));
       await challenges().setJSON(challengeId, { ...challenge, attempts }, { ttlSeconds: remaining });
     }
+    await logEvent({
+      ...requestContext(request),
+      action: 'admin.login.failed',
+      status: 'failed',
+      error: 'كود غالط',
+      description: 'كود دخول غالط',
+      metadata: { attempts },
+    });
     return json(401, { error: GENERIC_ERROR });
   }
 
   /* صحيح — نحرقو التحدّي فوراً (one-time)، وما يتعاودش استعمالو */
   await challenges().delete(challengeId);
 
+  await logEvent({
+    ...requestContext(request),
+    action: 'admin.login',
+    description: 'دخول للوحة (كلمة سرّ + كود تيليغرام)',
+  });
+
   return json(200, { ok: true }, { 'set-cookie': sessionCookie() });
 }
 
-function handleLogout() {
+async function handleLogout(request) {
+  await logEvent({
+    ...requestContext(request),
+    action: 'admin.logout',
+    description: 'خروج من اللوحة',
+  });
   return json(200, { ok: true }, { 'set-cookie': clearCookie() });
 }
 
@@ -149,9 +202,9 @@ async function handler(request) {
     return json(400, { error: 'طلب ماشي صحيح.' });
   }
 
-  if (payload?.step === 'password') return handlePassword(payload);
-  if (payload?.step === 'code') return handleCode(payload);
-  if (payload?.step === 'logout') return handleLogout();
+  if (payload?.step === 'password') return handlePassword(payload, request);
+  if (payload?.step === 'code') return handleCode(payload, request);
+  if (payload?.step === 'logout') return handleLogout(request);
 
   return json(400, { error: 'خطوة ماشي معروفة.' });
 }

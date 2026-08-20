@@ -1,0 +1,63 @@
+/* ══ صفحة السجلّ ═══════════════════════════════════════════════════════
+   بلاطات فوق، جدول تحت، ونافذة تفصيل فيها الفرق بين قبل وبعد.
+
+   ⚠️ الوسوم هنا تسمّي **المصدر** ماشي الحالة: نفس شكل .badge بصح
+   بألوان تفرّق بين اللوحة وتيليغرام والنظام بالعين، بلا ما تقرا.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.badge--source-admin      { background: var(--st-info-soft);    color: var(--st-info); }
+.badge--source-telegram   { background: var(--st-success-soft, var(--st-info-soft)); color: var(--st-success); }
+.badge--source-system     { background: var(--st-neutral-soft); color: var(--st-neutral); }
+.badge--source-storefront { background: var(--st-warn-soft);    color: var(--st-warn); }
+.badge--source-cron       { background: var(--st-neutral-soft); color: var(--st-neutral); }
+
+/* آخر الأحداث اللي طاحت — أوّل حاجة تتشاف كي تحلّ الصفحة */
+.logs-critical { margin-bottom: var(--sp-4); }
+.logs-critical h4 { margin: 0 0 var(--sp-3); font-size: var(--fs-label); color: var(--text-muted); }
+.logs-critical__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.logs-critical__list li { border-inline-start: 3px solid var(--st-danger); padding-inline-start: var(--sp-3); }
+
+/* ══ الخطّ الزمني تاع طلب ══════════════════════════════════════════════
+   الخيط العمودي يربط الأحداث: القراية تمشي من فوق لتحت وتشوف الرحلة
+   كاملة بلا ما تقارن أوقات بالعين. */
+.log-timeline { list-style: none; margin: var(--sp-3) 0 0; padding: 0 0 0 var(--sp-4); position: relative; }
+.log-timeline::before {
+  content: ''; position: absolute; inset-block: 6px; inset-inline-start: 4px;
+  width: 2px; background: var(--border);
+}
+.log-timeline__item {
+  position: relative; padding: 0 0 var(--sp-4) var(--sp-4);
+  display: grid; gap: var(--sp-hair);
+}
+.log-timeline__item::before {
+  content: ''; position: absolute; inset-inline-start: -1px; top: 6px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--st-info); box-shadow: 0 0 0 3px var(--surface);
+}
+.log-timeline__item.is-failed::before { background: var(--st-danger); }
+.log-timeline__item:last-child { padding-bottom: 0; }
+.log-timeline__when { font-size: var(--fs-label); color: var(--text-muted); }
+.log-timeline__what { display: grid; gap: 2px; }
+.log-timeline__what b { font-weight: var(--fw-bold); }
+
+/* الفرق بين قبل وبعد: القيمة الخام تبقى مقروية حتى كي تكون JSON */
+.order-detail code {
+  font-size: var(--fs-label);
+  background: var(--surface-2, rgba(127, 127, 127, .12));
+  padding: 1px 5px; border-radius: var(--r-sm, 4px);
+  overflow-wrap: anywhere;
+}
+
+/* الفعل فوق والوصف تحتو — بلا هذا يتلزقو في سطر واحد ويتقراو كجملة
+   وحدة غريبة ("order.acceptedالطلب تقبل") */
+.log-action { display: block; font-weight: var(--fw-bold); }
+.data-table .row-item__meta { display: block; }
+
+/* نصّ الخطأ: لون الخطر بلا شطب. كان يستعمل وسم الطلب المرفوض،
+   واللي فيه line-through — رسالة خطأ مشطوبة تتقرا كأنّها ملغاة. */
+.log-error {
+  color: var(--st-danger);
+  background: var(--st-danger-soft);
+  padding: 2px 7px; border-radius: var(--r-sm, 4px);
+  overflow-wrap: anywhere;
+}

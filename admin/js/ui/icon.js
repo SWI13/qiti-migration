@@ -28,6 +28,7 @@ var PATHS = {
   external: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
 
   sort:       '<path d="m8 9 4-4 4 4"/><path d="m8 15 4 4 4-4"/>',
+  logs:       '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H15l5 5v12.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20.5Z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
   'sort-asc':  '<path d="m6 15 6-6 6 6"/>',
   'sort-desc': '<path d="m6 9 6 6 6-6"/>',
 };

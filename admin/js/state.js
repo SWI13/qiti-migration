@@ -16,6 +16,10 @@ export var state = {
   queueCounts: null,
   queueDue: 0,
   dashboard: null,
+  /* السجلّ: صفحة وحدة كيما جاءت من السيرفر (rows/total/pages)،
+     والملخّص منفصل باش ما يتعاودش يتحسب مع كل تبديل فلتر */
+  logs: null,
+  logsSummary: null,
   dashboardDays: 30,
   draft: null,
   product: null,

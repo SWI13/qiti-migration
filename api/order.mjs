@@ -30,6 +30,7 @@ import { sendMetaEvent } from '../lib/meta.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
 import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
+import { logEvent } from '../lib/audit.mjs';
 import { toVercel } from '../lib/http.mjs';
 import { claim, release } from '../lib/locks.mjs';
 import { hit, requestIp, tooManyRequests } from '../lib/rate-limit.mjs';
@@ -505,8 +506,48 @@ async function handler(request) {
     await saveOrder(record);
   } catch (err) {
     console.error('Failed to persist order:', err.message, '| order:', JSON.stringify(record));
+    await logEvent({
+      action: 'order.createFailed',
+      source: 'storefront',
+      actorType: 'customer',
+      status: 'failed',
+      error: err.message,
+      entityType: 'order',
+      entityId: record.id,
+      orderId: record.id,
+      productId: record.productId,
+      customerPhone: record.phone,
+      description: 'التخزين طاح — الطلب ما تسجّلش',
+    });
     return json(503, { error: 'ما قدرناش نسجّلو الطلب دروك. عاود حاول أو اتصل بينا مباشرة.' });
   }
+
+  /*
+   * ⚠️ الطلب يتسجّل في السجلّ بعد ما يتخزّن، ماشي قبل: سطر يقول
+   * "طلب تصنع" على طلب ما تخزّنش يخلّي المشغّل يقلّب على طلب ما
+   * كانش. الترتيب هنا هو الفرق بين سجلّ يتثق فيه وسجلّ يكذب.
+   */
+  await logEvent({
+    action: 'order.created',
+    source: 'storefront',
+    actorType: 'customer',
+    actorName: record.name ?? null,
+    entityType: 'order',
+    entityId: record.id,
+    orderId: record.id,
+    productId: record.productId,
+    customerPhone: record.phone,
+    description: `طلب جديد من ${record.wilaya ?? ""} — ${record.total} دج`,
+    newValues: {
+      status: 'pending',
+      total: record.total,
+      qty: record.qty,
+      wilaya: record.wilaya,
+      commune: record.commune,
+      shipping: record.shipping,
+    },
+    metadata: { channel: record.channel ?? null, blocked: Boolean(record.blocked) },
+  });
 
   /*
    * الزبون كان مسجّل كـ "ما كملش" وها هو كمّل — رسالة الـ lead روحها
@@ -562,6 +603,19 @@ async function handler(request) {
       notifyErrorAt: new Date().toISOString(),
     }).catch((err) => console.error('Failed to store notify error:', err.message));
 
+    await logEvent({
+      action: 'telegram.notifyFailed',
+      source: 'telegram',
+      actorType: 'system',
+      status: 'failed',
+      error: ownerResult.reason.message,
+      entityType: 'order',
+      entityId: record.id,
+      orderId: record.id,
+      customerPhone: record.phone,
+      description: 'رسالة الطلب ما وصلاتش للگروب',
+    });
+
     return json(200, { ok: true, id: record.id });
   }
 
@@ -572,6 +626,17 @@ async function handler(request) {
       console.error('Failed to store message id:', err.message),
     );
   }
+
+  await logEvent({
+    action: 'telegram.notified',
+    source: 'telegram',
+    actorType: 'system',
+    entityType: 'order',
+    entityId: record.id,
+    orderId: record.id,
+    description: 'رسالة الطلب وصلت للگروب',
+    telegramMessageId: messageId,
+  });
 
   console.log(
     'Order received:', record.id, JSON.stringify(order),
