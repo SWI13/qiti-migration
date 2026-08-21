@@ -44,6 +44,14 @@ const server = createServer(async (req, res) => {
 
     let full = join(root, path);
     let info = await stat(full).catch(() => null);
+    /* رابط بلا امتداد (/checkout-success) — vercel.json يديرها
+       بـ rewrite في الإنتاج، وهنا نجرّبو الملف بـ .html */
+    if (!info) {
+      const asHtml = `${full}.html`;
+      const htmlInfo = await stat(asHtml).catch(() => null);
+      if (htmlInfo?.isFile()) { full = asHtml; info = htmlInfo; }
+    }
+
     if (info?.isDirectory()) {
       full = join(full, 'index.html');
       info = await stat(full).catch(() => null);

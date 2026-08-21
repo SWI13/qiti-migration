@@ -626,6 +626,35 @@
 
     var ORDER_ENDPOINT = '/api/order';
 
+    /*
+     * ── صفحة نجاح مستقلّة ────────────────────────────────────────────
+     *
+     * كي الفورم يحمل `data-success-url`، الطلب الناجح يوجّه لذاك
+     * الرابط بدل ما يبيّن بلوك "تسجّل الطلب" في نفس الصفحة.
+     *
+     * علاش: منصّات الإعلانات (تيك توك) تعرّف التحويل بقاعدة على
+     * الرابط. بلوك يبان بـ JavaScript ما يبدّلش الرابط، فما تخرج حتى
+     * إشارة تتقاس برّا. رابط مستقل = زيارة تتحسب.
+     *
+     * الخاصية اختيارية بقصد: صفحات الحملات المعروضة من الخادم تخلّي
+     * البلوك في مكانه — فيه عرض الزيادة (upsell) اللي يموت لو خرجنا
+     * من الصفحة.
+     */
+    var successUrl = form.getAttribute('data-success-url') || '';
+
+    /* البيكسل يبعث الحدث بطلب شبكة؛ توجيه فوري يقدر يقتلو قبل ما
+       يخرج. نستنّاو شوية — والـ Events API من الخادم يغطّي الباقي. */
+    var SUCCESS_REDIRECT_DELAY_MS = 350;
+
+    function goToSuccessPage(orderId) {
+      var target = successUrl;
+      if (orderId) {
+        target += (target.indexOf('?') === -1 ? '?' : '&') + 'order=' + encodeURIComponent(orderId);
+      }
+      /* replace ماشي assign: زرّ الرجوع ما يرجّعش لفورم معمّر يتبعث ثاني */
+      setTimeout(function () { window.location.replace(target); }, SUCCESS_REDIRECT_DELAY_MS);
+    }
+
     var upsellBox = document.getElementById('upsellOffer');
     var upsellBtn = document.getElementById('upsellAdd');
     var upsellDone = document.getElementById('upsellDone');
@@ -746,6 +775,12 @@
             orderEvent.value = cartTotal;
             orderEvent.order_id = String(data.id);
             ttSend('PlaceAnOrder', orderEvent, ttEventId(data.id, 'PlaceAnOrder'));
+          }
+
+          if (successUrl) {
+            submitBtn.textContent = 'تسجّل الطلب…';
+            goToSuccessPage(data && data.id);
+            return;
           }
 
           var orderDoneId = document.getElementById('orderDoneId');

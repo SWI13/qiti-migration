@@ -25,7 +25,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(repo, 'dist');
 
 /* كل ما يخصّ الزائر — ولا واحد آخر */
-const PUBLIC = ['index.html', 'assets', 'admin'];
+const PUBLIC = ['index.html', 'checkout-success.html', 'assets', 'admin'];
 
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
@@ -49,6 +49,17 @@ const indexPath = join(out, 'index.html');
 await writeFile(
   indexPath,
   injectTikTokPixel(injectShippingRates(stripHtml(await readFile(indexPath, 'utf8')))),
+);
+
+/*
+ * صفحة نجاح الطلب لازمها البيكسل حتى هي — هي الرابط اللي تيك توك
+ * تعرّف بيه التحويل، وبلا بيكسل الزيارة ما تتحسبش. جدول التوصيل
+ * ما يلزمهاش: ما فيها حتى حساب سومة.
+ */
+const successPath = join(out, 'checkout-success.html');
+await writeFile(
+  successPath,
+  injectTikTokPixel(stripHtml(await readFile(successPath, 'utf8'))),
 );
 
 console.log(`dist/ ready — ${PUBLIC.join(', ')} (+ جدول التوصيل + بيكسل تيك توك)`);
