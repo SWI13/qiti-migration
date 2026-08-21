@@ -24,6 +24,8 @@ import { renderSections, priceViewFor } from '../lib/render/index.mjs';
 import { offerProductIds } from '../lib/offers.mjs';
 import { getGeo, communesOf } from '../lib/ecotrack/geo.mjs';
 import { renderPage } from '../lib/render/layout.mjs';
+import { resolvePixelId, pixelScriptBody } from '../lib/tiktok.mjs';
+import { getSettings } from '../lib/settings.mjs';
 import { esc, escAttr, dz } from '../lib/render/html.mjs';
 import { toVercel } from '../lib/http.mjs';
 
@@ -97,6 +99,15 @@ async function handler(request) {
    */
   const geoWilaya = new URL(request.url).searchParams.get('communes');
   if (geoWilaya) return communesResponse(Number(geoWilaya));
+
+  /*
+   * كود البيكسل تاع الصفحة الرئيسية — نفس السبب تاع البلديات فوق:
+   * فنكشن جديدة تاكل من الحصّة، والجواب صغير.
+   *
+   * علاش ماشي محقون في البناء: الـ id يتبدّل من اللوحة، ولو كان
+   * محقون في الملف الستاتيك كل تبديل يطلب نشر جديد.
+   */
+  if (new URL(request.url).searchParams.get('pixel')) return pixelResponse();
 
   let route;
   try {
@@ -177,6 +188,29 @@ const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(b
   headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
 });
 
+/*
+ * أشمن بيكسل للصفحة. فشل قراية الإعدادات ما يقتلش الصفحة — نرجعو
+ * للافتراضي ونكمّلو، على خاطر صفحة بلا تتبّع خير من صفحة ما تخرجش.
+ */
+async function pixelFor(campaign) {
+  const settings = await getSettings().catch(() => null);
+  return resolvePixelId({ campaign, settings });
+}
+
+/* كود البيكسل كملف جافاسكريبت. الجواب ديما 200 حتى لو فارغ: 404
+   يخرج خطأ في الكونصول تاع كل زائر بلا فايدة. */
+async function pixelResponse() {
+  const settings = await getSettings().catch(() => null);
+  return new Response(pixelScriptBody(resolvePixelId({ settings })), {
+    status: 200,
+    headers: {
+      'content-type': 'text/javascript; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+      ...CACHE_PUBLIC,
+    },
+  });
+}
+
 async function loadOfferProducts(campaign) {
   const ids = offerProductIds(campaign);
   if (!ids.length) return {};
@@ -209,6 +243,7 @@ async function renderCampaign(id, origin) {
   return html(
     renderPage({
       content, campaign, product, priceView, siteOrigin: origin, track: { kind: 'campaign', id: campaign.id },
+      pixelId: await pixelFor(campaign),
     }),
     200,
     CACHE_PUBLIC,
@@ -247,6 +282,7 @@ async function renderProduct(id, origin) {
       priceView,
       siteOrigin: origin,
       track: { kind: 'product', id: product.id },
+      pixelId: await pixelFor(pseudoCampaign),
     }),
     200,
     CACHE_PUBLIC,
@@ -296,6 +332,7 @@ async function renderCategory(id, origin) {
       product: null,
       priceView: null,
       siteOrigin: origin,
+      pixelId: await pixelFor(pseudoCampaign),
     }),
     200,
     CACHE_PUBLIC,

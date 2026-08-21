@@ -11,6 +11,9 @@ export var NAV = [
   { view: 'orders', group: null, label: 'nav.orders', icon: 'orders', badge: 'pendingOrders' },
   { view: 'campaigns', group: 'content', label: 'nav.campaigns', icon: 'campaigns' },
   { view: 'media', group: 'content', label: 'nav.media', icon: 'media' },
+  /* البيكسلات تحت الحملات: تبدّلهم كي تبدّل صفحة ولا تطلق وحدة
+     جديدة — نفس اللحظة، نفس المجموعة */
+  { view: 'pixels', group: 'content', label: 'nav.pixels', icon: 'external' },
   { view: 'products', group: 'store', label: 'nav.products', icon: 'products' },
   { view: 'categories', group: 'store', label: 'nav.categories', icon: 'categories' },
   /* السجلّ آخر واحد: ما تمشيش ليه كل يوم، تمشي ليه كي تسأل

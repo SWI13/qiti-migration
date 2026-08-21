@@ -15,6 +15,7 @@ import {
 } from './pages/products.js';
 import { categoryModal, presetPicker, deleteCategory } from './pages/categories.js';
 import { pickMedia, deleteMedia } from './pages/media.js';
+import { savePixels } from './pages/pixels.js';
 
 var root = document.getElementById('adminRoot');
 
@@ -230,6 +231,7 @@ async function onClick(event) {
     return;
   }
 
+  if (act === 'save-pixels') return savePixels();
   if (act === 'save-campaign') return saveCampaign(false);
   if (act === 'save-publish') return saveCampaign(true);
   if (act === 'save-product') return saveProduct();

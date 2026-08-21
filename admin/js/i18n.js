@@ -10,12 +10,13 @@ import { QUEUE_EN } from './strings/queue.en.js';
 import { DASHBOARD_EN } from './strings/dashboard.en.js';
 import { STATE_EN } from './strings/state.en.js';
 import { LOGS_EN } from './strings/logs.en.js';
+import { PIXELS_EN } from './strings/pixels.en.js';
 
 var STRINGS_EN = Object.assign(
   {},
   COMMON_EN, NAV_EN, LOGIN_EN,
   CAMPAIGNS_EN, PRODUCTS_EN, CATEGORIES_EN, MEDIA_EN,
-  ORDERS_EN, QUEUE_EN, DASHBOARD_EN, STATE_EN, LOGS_EN,
+  ORDERS_EN, QUEUE_EN, DASHBOARD_EN, STATE_EN, LOGS_EN, PIXELS_EN,
 );
 
 export function t(key, vars) {

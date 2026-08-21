@@ -9,20 +9,20 @@
  * الحقن يصرا في البناء برك (scripts/build.mjs)، ماشي في خادم التجريب:
  * تصفّح محلّي ما يلزمش يزيد زيارات كاذبة لبيانات الإنتاج.
  *
- * مصدر الـ id واحد: lib/tiktok.mjs. زوج نسخ من الـ id في زوج بلايص
- * معناها نهار تبدّلو وحدة وتنسى الأخرى.
+ * ⚠️ اللي يتحقن هو **وسم يجيب الكود**، ماشي الكود روحو بالـ id مكتوب
+ * فيه. الـ id تاع الصفحة الرئيسية يتبدّل من اللوحة، ولو كان محروق في
+ * الملف الستاتيك، كل تبديل في اللوحة يطلب نشر جديد — واللوحة تولّي
+ * تبيّن رقم والصفحة تبعث لرقم آخر.
  */
-import { tiktokPixelSnippet } from '../lib/tiktok.mjs';
+import { tiktokPixelLoaderTag, PIXEL_SCRIPT_URL } from '../lib/tiktok.mjs';
 
 export function injectTikTokPixel(html) {
-  const snippet = tiktokPixelSnippet();
-  /* مطفي (TIKTOK_PIXEL_ID فارغة) — الصفحة تخرج كيما هي */
-  if (!snippet) return html;
+  const tag = tiktokPixelLoaderTag();
 
   /* محقون من قبل (بناء مرّتين) — نسخة ثانية تعني كل زيارة تتحسب زوج مرّات */
-  if (html.includes('window.__qitiTtq')) return html;
+  if (html.includes(PIXEL_SCRIPT_URL)) return html;
 
-  if (html.includes('</head>')) return html.replace('</head>', `${snippet}\n</head>`);
-  if (html.includes('</body>')) return html.replace('</body>', `${snippet}\n</body>`);
-  return html + snippet;
+  if (html.includes('</head>')) return html.replace('</head>', `${tag}\n</head>`);
+  if (html.includes('</body>')) return html.replace('</body>', `${tag}\n</body>`);
+  return html + tag;
 }

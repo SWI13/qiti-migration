@@ -30,7 +30,8 @@ const ok = (label, pass, extra = '') => {
    تتخبّى في الذاكرة، والقيم تتقرا وقت النداء ماشي وقت الاستيراد */
 const tiktok = await import('../../lib/tiktok.mjs');
 const {
-  tiktokPixelId, tiktokPixelSnippet, tiktokEventId, sendTikTokEvent, sanitizePixelId, pixelIdFor,
+  tiktokPixelId, tiktokPixelSnippet, tiktokEventId, sendTikTokEvent, sanitizePixelId, resolvePixelId,
+  pixelScriptBody, tiktokPixelLoaderTag, PIXEL_SCRIPT_URL,
 } = tiktok;
 const { injectTikTokPixel } = await import('../inject-pixel.mjs');
 
@@ -63,43 +64,72 @@ ok('السكريبت async (ما يوقّفش الرسم)', snippet.includes('n.
 
 /* ── الحقن في الصفحة الستاتيك ──────────────────────────────────────── */
 
+/*
+ * الصفحة الرئيسية ما تاخذش الـ id في البناء — تاخذ وسم ينادي
+ * /api/render?pixel=1. علاش: الـ id يتبدّل من اللوحة، والملف الستاتيك
+ * ما يتبدّلش حتى تعاود تنشر.
+ */
 const page = '<!DOCTYPE html><html><head><title>x</title></head><body>hi</body></html>';
 const once = injectTikTokPixel(page);
 const twice = injectTikTokPixel(once);
 
-/* نعدّو نداءات ttq.load() — هي اللي تحسب. الحارس روحو مكتوب مرّتين
-   في الوسم (فحص + ضبط)، فعدّو يغلّط. */
 const countLoads = (html) => (html.match(/ttq\.load\(/g) ?? []).length;
+const countTags = (html) => (html.match(/api\/render\?pixel=1/g) ?? []).length;
 
-ok('الحقن يدخل قبل </head>', once.includes('</head>') && once.indexOf('__qitiTtq') < once.indexOf('</head>'));
-ok('حقنة وحدة = تحميل واحد', countLoads(once) === 1, String(countLoads(once)));
-ok('حقنتين = تحميل واحد برك', countLoads(twice) === 1, String(countLoads(twice)));
+ok('الحقن يدخل قبل </head>', once.indexOf(PIXEL_SCRIPT_URL) < once.indexOf('</head>'));
+ok('الوسم ما فيهش id محروق', !once.includes('ttq.load('));
+ok('حقنة وحدة = وسم واحد', countTags(once) === 1, String(countTags(once)));
+ok('حقنتين = وسم واحد برك', countTags(twice) === 1, String(countTags(twice)));
+ok('الوسم defer (ما يوقّفش الرسم)', tiktokPixelLoaderTag().includes('defer'));
+
+/* ── كود البيكسل كملف جافاسكريبت (اللي يرجّعو /api/render?pixel=1) ── */
+
+const scriptBody = pixelScriptBody();
+ok('الملف فيه id الإنتاج', scriptBody.includes(`ttq.load('${PROD_PIXEL_ID}')`));
+ok('الملف بلا وسم <script>', !scriptBody.includes('<script'));
+ok('الملف عندو حارس ضدّ التحميل مرّتين', scriptBody.includes('window.__qitiTtq'));
 
 process.env.TIKTOK_PIXEL_ID = '';
-ok('البيكسل مطفي → الصفحة ما تتبدّلش', injectTikTokPixel(page) === page);
+ok('البيكسل مطفي → ملف فارغ', pixelScriptBody() === '');
 delete process.env.TIKTOK_PIXEL_ID;
+
+const renderSource = readFileSync(join(repo, 'api', 'render.mjs'), 'utf8');
+ok('render.mjs يجاوب على ?pixel', /searchParams\.get\('pixel'\)/.test(renderSource));
+ok('الجواب يمرّ على الإعدادات', /pixelScriptBody\(resolvePixelId\(\{ settings \}\)\)/.test(renderSource));
+ok('كل صفحة معروضة تاخذ pixelId', (renderSource.match(/pixelId: await pixelFor\(/g) ?? []).length === 3);
 
 /* ── الغلاف المعروض من الخادم ──────────────────────────────────────── */
 
 const { renderPage } = await import('../../lib/render/layout.mjs');
-const rendered = renderPage({ content: '<p>x</p>', product: { name: 'Qiti', price: 3900 } });
+const rendered = renderPage({ content: '<p>x</p>', product: { name: 'Qiti', price: 3900 }, pixelId: PROD_PIXEL_ID });
 ok('الصفحة المعروضة فيها البيكسل', rendered.includes(`ttq.load('${PROD_PIXEL_ID}')`));
 ok('الصفحة المعروضة فيها نسخة وحدة', countLoads(rendered) === 1, String(countLoads(rendered)));
 ok('البيكسل في <head>', rendered.indexOf('__qitiTtq') < rendered.indexOf('</head>'));
+ok('بلا pixelId → بلا بيكسل', countLoads(renderPage({ content: '<p>x</p>' })) === 0);
 
-/* ── بيكسل خاص بكل حملة ────────────────────────────────────────────── */
+/* ── بيكسل لكل صفحة ────────────────────────────────────────────────── */
 
-ok('حملة بلا بيكسل → الافتراضي', pixelIdFor({ name: 'x' }) === PROD_PIXEL_ID);
-ok('حملة ببيكسل → تاعها', pixelIdFor({ tiktokPixelId: 'CAMPAIGNPIXEL1' }) === 'CAMPAIGNPIXEL1');
-ok('بيكسل حملة مكسّر → يرجع للافتراضي',
-  pixelIdFor({ tiktokPixelId: "</script><script>alert(1)</script>" }) === PROD_PIXEL_ID);
+ok('بلا والو → الافتراضي', resolvePixelId({}) === PROD_PIXEL_ID);
+ok('بيكسل الرئيسية من الإعدادات',
+  resolvePixelId({ settings: { tiktokPixelMain: 'MAINPIXEL1' } }) === 'MAINPIXEL1');
+ok('بيكسل الحملة يغلب تاع الرئيسية',
+  resolvePixelId({ campaign: { tiktokPixelId: 'CAMPAIGNPIXEL1' }, settings: { tiktokPixelMain: 'MAINPIXEL1' } })
+    === 'CAMPAIGNPIXEL1');
+ok('حملة بلا بيكسل ترث الرئيسية',
+  resolvePixelId({ campaign: { name: 'x' }, settings: { tiktokPixelMain: 'MAINPIXEL1' } }) === 'MAINPIXEL1');
+ok('بيكسل حملة مكسّر → يرجع للي وراه',
+  resolvePixelId({ campaign: { tiktokPixelId: '</script>' }, settings: { tiktokPixelMain: 'MAINPIXEL1' } })
+    === 'MAINPIXEL1');
+ok('بيكسل رئيسية مكسّر → الافتراضي',
+  resolvePixelId({ settings: { tiktokPixelMain: 'BROKEN PIXEL!' } }) === PROD_PIXEL_ID);
 ok('الكود كامل ملصوق في الخانة → يتردّ', sanitizePixelId(tiktokPixelSnippet()) === '');
 ok('فراغات حوالي الـ id تتحيّد', sanitizePixelId('  ABC123  ') === 'ABC123');
 
 const campaignPage = renderPage({
   content: '<p>x</p>',
-  campaign: { name: 'promo', tiktokPixelId: 'CAMPAIGNPIXEL1' },
+  campaign: { name: 'promo' },
   product: { name: 'Qiti', price: 3900 },
+  pixelId: 'CAMPAIGNPIXEL1',
 });
 ok('الصفحة تحمّل بيكسل الحملة', campaignPage.includes("ttq.load('CAMPAIGNPIXEL1')"));
 ok('الصفحة ما تحمّلش الافتراضي معاه', !campaignPage.includes(`ttq.load('${PROD_PIXEL_ID}')`));
@@ -107,8 +137,9 @@ ok('نسخة وحدة برك', countLoads(campaignPage) === 1, String(countLoads
 
 const previewPage = renderPage({
   content: '<p>x</p>',
-  campaign: { name: 'promo', tiktokPixelId: 'CAMPAIGNPIXEL1' },
+  campaign: { name: 'promo' },
   product: { name: 'Qiti', price: 3900 },
+  pixelId: 'CAMPAIGNPIXEL1',
   preview: true,
 });
 ok('معاينة اللوحة بلا بيكسل', countLoads(previewPage) === 0);
@@ -116,16 +147,31 @@ ok('معاينة اللوحة بلا بيكسل', countLoads(previewPage) === 0)
 const adminApi = readFileSync(join(repo, 'api', 'admin-api.mjs'), 'utf8');
 ok('المعاينة في admin-api تمرّر preview:true', /renderPage\(\{[^}]*preview: true/.test(adminApi));
 
-/* اللوحة: الخانة موجودة ومربوطة بنفس الاسم اللي يخزّنو السيرفر */
+/* ── اللوحة: صفحة البيكسلات، ماشي محرّر الحملة ─────────────────────── */
+
+const adminPixels = readFileSync(join(repo, 'admin', 'js', 'pages', 'pixels.js'), 'utf8');
 const adminCampaigns = readFileSync(join(repo, 'admin', 'js', 'pages', 'campaigns.js'), 'utf8');
-ok('اللوحة فيها خانة البيكسل', adminCampaigns.includes("'tiktokPixelId'"));
-ok('اللوحة تفحص الـ id قبل النشر', /tiktokPixelId: \{ pattern:/.test(adminCampaigns));
+const adminNav = readFileSync(join(repo, 'admin', 'js', 'ui', 'shell.js'), 'utf8');
+const adminRouter = readFileSync(join(repo, 'admin', 'js', 'router.js'), 'utf8');
+
+ok('صفحة البيكسلات في القائمة', /view: 'pixels'/.test(adminNav));
+ok('الراوتر يعرف الصفحة', /state\.view === 'pixels'/.test(adminRouter));
+ok('الصفحة تجيب الإعدادات والحملات',
+  /api\('settings\.get'\)/.test(adminRouter) && /api\('campaigns\.list'\)/.test(adminRouter));
+ok('الرئيسية تتخزّن في الإعدادات', /settings\.save'[^)]*tiktokPixelMain/.test(adminPixels));
+ok('الحملة تتخزّن في سجلّها', /campaigns\.save'[\s\S]{0,200}tiktokPixelId/.test(adminPixels));
+ok('اللوحة تفحص الـ id قبل ما تبعث', /PIXEL_RE\.test/.test(adminPixels));
+ok('محرّر الحملة ما فيهش البيكسل', !adminCampaigns.includes('tiktokPixel'));
+
+const settingsSource = readFileSync(join(repo, 'lib', 'settings.mjs'), 'utf8');
+ok('الإعدادات فيها tiktokPixelMain', /tiktokPixelMain: ''/.test(settingsSource));
+ok('الإعدادات تنظّف الـ id', /tiktokPixelMain: sanitizePixelId\(/.test(settingsSource));
 
 const catalog = readFileSync(join(repo, 'lib', 'catalog.mjs'), 'utf8');
 ok('الحملة تخزّن البيكسل منظّف', /tiktokPixelId: sanitizePixelId\(/.test(catalog));
 
 const orderSource = readFileSync(join(repo, 'api', 'order.mjs'), 'utf8');
-ok('الطلبية تخزّن بيكسل وقت الطلب', /tiktokPixelId: pixelIdFor\(campaign\)/.test(orderSource));
+ok('الطلبية تخزّن بيكسل وقت الطلب', /tiktokPixelId: resolvePixelId\(\{/.test(orderSource));
 
 /* ── `event_id`: السيرفر والمتصفّح لازم يتفقو ──────────────────────── */
 

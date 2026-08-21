@@ -214,9 +214,6 @@ function publishRules() {
     name: { required: true, maxLength: 80 },
     slug: { required: true, slug: true },
     productId: { required: true, message: t('campaigns.productRequired') },
-    /* الغلطة الشائعة: لصق الكود كامل بدل الـ id. السيرفر يحيّدها
-       بصمت، فبلا هذا الفحص المشغّل يحسب البيكسل مركّب وهو ماشي. */
-    tiktokPixelId: { pattern: /^[A-Za-z0-9_-]{1,64}$/, message: t('campaigns.tiktokPixelInvalid') },
   };
 }
 
@@ -227,7 +224,7 @@ function stepForPath(path) {
 }
 
 function stepStatus(errors) {
-  var detailsBad = !!(errors.name || errors.slug || errors.productId || errors.tiktokPixelId);
+  var detailsBad = !!(errors.name || errors.slug || errors.productId);
   return { details: detailsBad ? 'alert' : 'check', design: 'check', content: 'check', review: detailsBad ? 'alert' : 'check' };
 }
 
@@ -300,27 +297,7 @@ function detailsPanel(draft) {
     '<div class="field field--full">' +
       fieldHtml(areaField('seo.description', t('campaigns.seoDescription')), (draft.seo || {}).description, 'seo.description') +
     '</div>' +
-  '</div></div>' +
-  trackingCard(draft);
-}
-
-/*
- * بيكسل خاص بهذه الصفحة.
- *
- * كل حملة تقدر تكون منتج آخر وحساب إعلاني آخر. خانة فارغة = البيكسل
- * الافتراضي تاع الموقع، وهذا اللي يحبّو أغلب الوقت — علاش نقولوها في
- * الملاحظة بدل ما نخلّيو الخانة الفارغة تبان كأنها نسيان.
- */
-function trackingCard(draft) {
-  var current = draft.tiktokPixelId || '';
-  var note = current
-    ? ''
-    : '<div class="hint">' + esc(t('campaigns.tiktokPixelDefault')) + '</div>';
-
-  return '<div class="admin-card"><h3>' + esc(t('campaigns.tracking')) + '</h3><div class="form-grid">' +
-    fieldHtml(textField('tiktokPixelId', t('campaigns.tiktokPixel'), t('campaigns.tiktokPixelHint')),
-      current, 'tiktokPixelId') +
-  '</div>' + note + '</div>';
+  '</div></div>';
 }
 
 function contentPanel(draft) {
@@ -416,8 +393,6 @@ function reviewSummary(draft) {
     '<dt>' + esc(t('campaigns.reviewLink')) + '</dt><dd>/' + esc(draft.slug || '') + '</dd>' +
     '<dt>' + esc(t('campaigns.product')) + '</dt><dd>' +
       (product ? esc(product.name) + ' — ' + esc(fmtMoney(product.price)) : esc(t('campaigns.selectProduct'))) + '</dd>' +
-    '<dt>' + esc(t('campaigns.tiktokPixel')) + '</dt><dd>' +
-      esc(draft.tiktokPixelId || t('campaigns.tiktokPixelDefault')) + '</dd>' +
     '<dt>' + esc(t('theme.title')) + '</dt><dd>' +
       '<span class="review-swatch" style="background:' + esc(theme.accent || defaults.accent) + '"></span>' +
       esc(theme.mood === 'dark' ? 'Dark' : 'Light') + '</dd>' +

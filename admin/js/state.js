@@ -4,6 +4,9 @@ export var state = {
   view: 'campaigns',
   id: null,
   campaigns: [],
+  /* إعدادات المتجر — تتقرا غير في صفحة البيكسلات دروك، فتبقى null
+     حتى تحلّها بدل ما نجيبوها في كل تحميل */
+  settings: null,
   products: [],
   categories: [],
   media: [],

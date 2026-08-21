@@ -12,6 +12,7 @@ import { renderMedia } from './pages/media.js';
 import { renderOrderList } from './pages/orders.js';
 import { renderQueue, reloadQueue } from './pages/queue.js';
 import { renderLogs, loadLogs } from './pages/logs.js';
+import { renderPixels } from './pages/pixels.js';
 
 export { NAV };
 
@@ -25,6 +26,7 @@ var VIEW_TITLE = {
   products: 'nav.products',
   categories: 'nav.categories',
   media: 'nav.media',
+  pixels: 'nav.pixels',
   logs: 'nav.logs',
 };
 
@@ -32,7 +34,7 @@ function loadingTitle() {
   return t(VIEW_TITLE[state.view] || 'nav.dashboard');
 }
 
-var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, queue: true, orders: true, products: true, campaigns: true, categories: true, logs: true };
+var LIST_VIEWS_WITH_ACTIONS = { dashboard: true, queue: true, orders: true, products: true, campaigns: true, categories: true, logs: true, pixels: true };
 
 function loadingActions() {
   if (state.id || !LIST_VIEWS_WITH_ACTIONS[state.view]) return '';
@@ -125,6 +127,15 @@ export async function route() {
     if (state.view === 'logs') {
       await loadLogs();
       renderLogs();
+      return;
+    }
+
+    if (state.view === 'pixels') {
+      /* الزوج لازمهم: الرئيسية من الإعدادات، والباقي من الحملات */
+      var pixelData = await Promise.all([api('settings.get'), api('campaigns.list')]);
+      state.settings = pixelData[0].settings;
+      state.campaigns = pixelData[1].campaigns;
+      renderPixels();
       return;
     }
 

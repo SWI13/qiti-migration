@@ -27,7 +27,8 @@ import { findBundle, upsellOf, linesTotal } from '../lib/offers.mjs';
 import { legacyProduct } from '../lib/legacy-stock.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
-import { sendTikTokEvent, pixelIdFor } from '../lib/tiktok.mjs';
+import { sendTikTokEvent, resolvePixelId } from '../lib/tiktok.mjs';
+import { getSettings } from '../lib/settings.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
 import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
@@ -464,7 +465,10 @@ async function handler(request) {
      * قرينا بيكسل الحملة وقتها، وكان المشغّل بدّلو، التحويلة تروح
      * لحساب إعلاني ما صرفش عليها، والحساب اللي صرف ما يشوف والو.
      */
-    tiktokPixelId: pixelIdFor(campaign) || null,
+    tiktokPixelId: resolvePixelId({
+      campaign,
+      settings: await getSettings().catch(() => null),
+    }) || null,
     status: 'pending',
     actor: null,
     reason: null,
