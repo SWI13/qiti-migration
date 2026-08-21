@@ -42,6 +42,68 @@
 
   var attribution = captureAttribution();
 
+  /*
+   * ── تيك توك: مركز واحد لكل الأحداث ────────────────────────────────
+   *
+   * كل `ttq.track` في هذا الملف يعدّي من هنا، وماشي منثور في كل بلاصة.
+   * علاش: البيكسل يقدر ما يتحمّلش (ad blocker، شبكة طايحة، رابط تيك
+   * توك محجوب) — لو ناديناه مباشرةً، `ttq is not defined` يقتل السطر
+   * اللي بعدو، واللي بعدو يقدر يكون إرسال الطلب. حدث تتبّع ضايع ما
+   * يسواش طلبية ضايعة.
+   *
+   * `TT_SENT` يمنع التكرار: حدث زايد = رقم تحويل مضخّم = ميزانية
+   * تتصرف على أرقام كاذبة.
+   */
+  var TT_SENT = {};
+
+  function ttSend(name, params, eventId) {
+    try {
+      var ttq = window.ttq;
+      if (!ttq || typeof ttq.track !== 'function') return;
+      ttq.track(name, params || {}, eventId ? { event_id: eventId } : undefined);
+    } catch (e) {}
+  }
+
+  function ttOnce(key, name, params, eventId) {
+    if (TT_SENT[key]) return;
+    TT_SENT[key] = 1;
+    ttSend(name, params, eventId);
+  }
+
+  /* نفس الصيغة بالضبط اللي يبنيها السيرفر (lib/tiktok.mjs) — بيها تيك
+     توك تعرف بلّي حدث المتصفّح وحدث الـ Events API هوما نفس الطلبية */
+  function ttEventId(orderId, name) {
+    return String(orderId) + '-' + String(name).toLowerCase();
+  }
+
+  /*
+   * `_ttp` كوكي يحطّها بيكسل تيك توك في المتصفّح، وهي من أقوى مفاتيح
+   * المطابقة. السيرفر ما يقدرش يخترعها — لازم المتصفّح يعطيهالو مع
+   * الطلب. نقراوها وقت الإرسال ماشي وقت التحميل: البيكسل يتحمّل
+   * async، فوقت ما تحلّ الصفحة تقدر ما تكونش موجودة بعد.
+   */
+  function readTtp() {
+    try {
+      var match = document.cookie.match(/(?:^|;\s*)_ttp=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* مصدر الطلب + `_ttp` — للطلبية برك. الـ leads يبعثو `attribution`
+     كيما هي، باش زيادة الكوكي ما تبدّلش البصمة وتعاود ترسل lead بلا داعي. */
+  function attributionPayload() {
+    var ttp = readTtp();
+    if (!ttp) return attribution;
+    var merged = {};
+    if (attribution) {
+      Object.keys(attribution).forEach(function (key) { merged[key] = attribution[key]; });
+    }
+    merged.ttp = ttp;
+    return merged;
+  }
+
   var stickyBar = document.getElementById('stickyBar');
   var orderCard = document.getElementById('order');
   if (stickyBar && orderCard && 'IntersectionObserver' in window) {
@@ -76,13 +138,14 @@
   }
 
   var PRICING = (function () {
-    var fallback = { price: 3900, shipping: { home: 600, desk: 400 }, options: [], variants: [] };
+    var fallback = { productName: 'Qiti', price: 3900, shipping: { home: 600, desk: 400 }, options: [], variants: [] };
     var el = document.getElementById('qiti-pricing');
     if (!el) return fallback;
     try {
       var parsed = JSON.parse(el.textContent);
       return {
         productId: parsed.productId || null,
+        productName: parsed.productName || fallback.productName,
         price: typeof parsed.price === 'number' ? parsed.price : fallback.price,
         shipping: parsed.shipping || fallback.shipping,
         options: parsed.options || [],
@@ -99,6 +162,40 @@
 
   var PRODUCT_PRICE = PRICING.price;
   var SHIPPING = PRICING.shipping;
+
+  /*
+   * شكل المنتج اللي تفهمو تيك توك. `value` ديما بالدينار — عملة
+   * الحساب الإعلاني تقدر تكون دولار، وتيك توك هي اللي تحوّل. الأرقام
+   * اللي نبعثوها لازم تكون اللي يشوفها الزبون، ماشي محوّلة بيدنا.
+   */
+  function ttContents(qty, unitPrice) {
+    var item = {
+      content_id: String(PRICING.productId || 'qiti'),
+      content_type: 'product',
+      content_name: PRICING.productName,
+      quantity: qty,
+      price: unitPrice
+    };
+    return {
+      contents: [item],
+      content_type: 'product',
+      currency: 'DZD',
+      value: unitPrice * qty
+    };
+  }
+
+  /* الزائر حلّ صفحة المنتج — أعلى الفمّة. مرّة وحدة في كل تحميل صفحة. */
+  ttOnce('view', 'ViewContent', ttContents(1, PRODUCT_PRICE));
+
+  /*
+   * "اتصل بينا" — نقرة على رقم الهاتف ولا واتساب. مرّة وحدة في
+   * الصفحة: زبون يعاود ينقر ماشي زبون جديد.
+   */
+  document.addEventListener('click', function (event) {
+    var target = event.target;
+    if (!target || !target.closest) return;
+    if (target.closest('a[href^="tel:"], a[href*="wa.me"]')) ttOnce('contact', 'Contact', {});
+  });
 
   var RATES = (function () {
     var fallback = { def: SHIPPING, byId: {}, table: null };
@@ -205,6 +302,27 @@
       return null;
     }
 
+    /*
+     * ما كاينش "سلّة" في Qiti — منتج واحد، كمية، وباقة تقدر تتبدّل.
+     * أقرب حاجة لـ AddToCart هي أوّل مرّة الزبون يمسّ الاختيار: يزيد
+     * الكمية، يختار باقة، ولا يبدّل لون. من تمّة نعتبروه "حطّها في
+     * السلّة" — نيّة شراء واضحة، ماشي غير زائر يقرا.
+     */
+    function ttQty() {
+      return Math.max(1, Math.min(10, parseInt(qtyInput.value, 10) || 1));
+    }
+
+    function ttUnitPrice() {
+      var offer = currentOffer();
+      if (offer) return offer.price;
+      var variant = currentVariant();
+      return Math.max(0, PRODUCT_PRICE + ((variant && variant.priceDelta) || 0));
+    }
+
+    function ttAddToCart() {
+      ttOnce('addtocart', 'AddToCart', ttContents(ttQty(), ttUnitPrice()));
+    }
+
     function updateSummary() {
       var qty = Math.max(1, Math.min(10, parseInt(qtyInput.value, 10) || 1));
       qtyInput.value = qty;
@@ -277,6 +395,7 @@
         var next = (parseInt(qtyInput.value, 10) || 1) + delta;
         qtyInput.value = Math.max(1, Math.min(10, next));
         updateSummary();
+        ttAddToCart();
       });
     });
     shipInputs.forEach(function (el) { el.addEventListener('change', updateSummary); });
@@ -287,9 +406,11 @@
     });
     form.querySelectorAll('input[name="offer"]').forEach(function (el) {
       el.addEventListener('change', updateSummary);
+      el.addEventListener('change', ttAddToCart);
     });
     form.querySelectorAll('input[data-option]').forEach(function (el) {
       el.addEventListener('change', updateSummary);
+      el.addEventListener('change', ttAddToCart);
     });
     updateSummary();
 
@@ -384,14 +505,24 @@
       return !msg;
     }
 
+    /*
+     * InitiateCheckout = بدا يعمّر معلوماتو (اسم، هاتف، ولاية، بلدية).
+     * ماشي مع الكمية ولا الباقة — هذوك AddToCart. الفرق يهمّ: لو
+     * الزوج يطلقو من نفس النقرة، الفمّة تولّي سطر واحد وما تشوفش وين
+     * الناس يهربو.
+     */
     Object.keys(validators).forEach(function (id) {
       var input = document.getElementById(id);
       input.addEventListener('blur', function () { validateField(id); });
       input.addEventListener('input', function () {
+        ttOnce('checkout', 'InitiateCheckout', ttContents(ttQty(), ttUnitPrice()));
         if (input.closest('.field').classList.contains('has-error')) validateField(id);
         updateProgress();
       });
-      input.addEventListener('change', updateProgress);
+      input.addEventListener('change', function () {
+        ttOnce('checkout', 'InitiateCheckout', ttContents(ttQty(), ttUnitPrice()));
+        updateProgress();
+      });
     });
 
     var LEAD_ENDPOINT = '/api/lead';
@@ -579,7 +710,7 @@
           shipping: currentShipping(),
           qty: qtyInput.value,
           website: document.getElementById('fWebsite').value,
-          attribution: attribution,
+          attribution: attributionPayload(),
           productId: PRICING.productId,
           campaignId: (form.querySelector('input[name="campaignId"]') || {}).value || null,
           bundleId: (currentOffer() || {}).id || null,
@@ -596,6 +727,26 @@
           leadDone = true;
           clearTimeout(leadTimer);
           clearTimeout(leadIdleTimer);
+
+          /*
+           * PlaceAnOrder ماشي CompletePayment: الدفع عند الاستلام،
+           * فالفلوس ما دخلاتش بعد. CompletePayment يتبعث من السيرفر
+           * غير كي الطردة توصّل (lib/decisions.mjs).
+           *
+           * `event_id` مبني من رقم الطلب — نفس الصيغة تاع السيرفر،
+           * باش الحدثين يولّيو واحد عند تيك توك ماشي زوج.
+           *
+           * ماشي ttOnce: "اطلب مرّة أخرى" يولّد طلبية جديدة برقم
+           * جديد، وهذيك تستاهل حدثها. المنع يصرا بالـ event_id.
+           */
+          if (data && data.id) {
+            var orderEvent = ttContents(ttQty(), ttUnitPrice());
+            /* القيمة = اللي يخلّصو الزبون فعلاً (سلعة + توصيل)، كيما
+               يحسبها السيرفر — ماشي سومة السلعة وحدها */
+            orderEvent.value = cartTotal;
+            orderEvent.order_id = String(data.id);
+            ttSend('PlaceAnOrder', orderEvent, ttEventId(data.id, 'PlaceAnOrder'));
+          }
 
           var orderDoneId = document.getElementById('orderDoneId');
           if (orderDoneId && data && data.id) {

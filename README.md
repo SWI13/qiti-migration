@@ -292,6 +292,8 @@ Has to be Vercel, or anything that runs `api/`. GitHub Pages can't host it.
 
 Optional: `ECOTRACK_URL` and `ECOTRACK_TOKEN` (the courier), `SITE_URL`, Twilio (`TWILIO_*`), Meta CAPI (`META_*`), trust check (`TKAWEN_*`). Skip one and that part doesn't run: without the courier pair, accepting an order still cuts stock and the shop works the way it did before.
 
+TikTok is the one that needs no setup: the pixel id is compiled in, so the browser side tracks out of the box. `TIKTOK_PIXEL_ID` overrides it, and setting it to an empty string turns the pixel off entirely — useful for a preview deployment that shouldn't touch live campaign data. The server side (Events API) stays silent until `TIKTOK_ACCESS_TOKEN` is set; `TIKTOK_TEST_EVENT_CODE` routes events to the Test Events tab while you verify, and should be removed afterwards.
+
 Without both `ADMIN_*` vars the admin locks everyone out, including you. Hash the password with:
 
 ```bash

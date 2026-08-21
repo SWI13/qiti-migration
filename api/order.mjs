@@ -27,6 +27,7 @@ import { findBundle, upsellOf, linesTotal } from '../lib/offers.mjs';
 import { legacyProduct } from '../lib/legacy-stock.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
+import { sendTikTokEvent } from '../lib/tiktok.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
 import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
@@ -566,7 +567,7 @@ async function handler(request) {
    * إشعارك انت هو الحرج — إذا فشل، الطلب يضيع، فنرجعو خطأ للزبون باش يعاود.
    * رسالة الزبون ثانوية: إذا فشلت وحدها، الطلب وصلك وخلاص، ما نوقفوش العملية.
    */
-  const [ownerResult, customerResult, metaResult] = await Promise.allSettled([
+  const [ownerResult, customerResult, metaResult, tiktokResult] = await Promise.allSettled([
     notifyOwner(record),
     notifyCustomer(record),
     /*
@@ -574,6 +575,13 @@ async function handler(request) {
      * يتبعث غير كي الطلبية توصّل فعلاً (شوف telegram-webhook.mjs).
      */
     sendMetaEvent('Lead', record),
+    /*
+     * تيك توك تسمّيه PlaceAnOrder. المتصفّح يبعث نفس الحدث بنفس الـ
+     * `event_id` — تيك توك تحسبهم واحد. علاش الزوج: المتصفّح عندو
+     * كوكي `_ttp`، والسيرفر عندو رقم الهاتف؛ المطابقة تولّي أقوى من
+     * الزوج معاً، والسيرفر يوصل حتى لو البيكسل محجوب.
+     */
+    sendTikTokEvent('PlaceAnOrder', record, { value: record.total }),
   ]);
 
   if (customerResult.status === 'rejected') {
@@ -583,6 +591,9 @@ async function handler(request) {
   /* التتبّع ما يوقّفش الطلب أبداً — نسجّلو الخطأ ونكمّلو */
   const meta = metaResult.status === 'fulfilled' ? metaResult.value : { error: metaResult.reason?.message };
   if (meta?.error) console.error('Meta CAPI Lead failed:', meta.error, '| order:', record.id);
+
+  const tiktok = tiktokResult.status === 'fulfilled' ? tiktokResult.value : { error: tiktokResult.reason?.message };
+  if (tiktok?.error) console.error('TikTok Events PlaceAnOrder failed:', tiktok.error, '| order:', record.id);
 
   /*
    * ⚠️ تيليغرام طبقة إشعار، ماشي جزء من الطلب.
