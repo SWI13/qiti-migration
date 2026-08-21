@@ -454,7 +454,7 @@ const ACTIONS = {
        طلبية حقيقية بإشعار واتصال لرقم وهمي */
     const content = renderSections(campaign, product, { preview: true });
     const origin = new URL(request.url).origin;
-    const html = renderPage({ content, campaign, product, priceView, siteOrigin: origin });
+    const html = renderPage({ content, campaign, product, priceView, siteOrigin: origin, preview: true });
     return ok({ html });
   },
 };

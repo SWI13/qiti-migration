@@ -27,7 +27,7 @@ import { findBundle, upsellOf, linesTotal } from '../lib/offers.mjs';
 import { legacyProduct } from '../lib/legacy-stock.mjs';
 import { sanitizeAttribution, channelKey } from '../lib/attribution.mjs';
 import { sendMetaEvent } from '../lib/meta.mjs';
-import { sendTikTokEvent } from '../lib/tiktok.mjs';
+import { sendTikTokEvent, pixelIdFor } from '../lib/tiktok.mjs';
 import { checkTrust, clientIp } from '../lib/trust.mjs';
 import { wilayaId } from '../lib/wilayas.mjs';
 import { shippingFee, deskAvailable, isServed } from '../lib/shipping-rates.mjs';
@@ -458,6 +458,13 @@ async function handler(request) {
     /* منين جا الزبون — يبان في الرسالة ويتجمّع في التقارير حسب القناة */
     attribution,
     channel: channelKey(attribution),
+    /*
+     * بيكسل الحملة وقت الطلب — لقطة، ماشي إشارة.
+     * حدث CompletePayment يتبعث من بعد أيام (كي توصّل الطردة). لو
+     * قرينا بيكسل الحملة وقتها، وكان المشغّل بدّلو، التحويلة تروح
+     * لحساب إعلاني ما صرفش عليها، والحساب اللي صرف ما يشوف والو.
+     */
+    tiktokPixelId: pixelIdFor(campaign) || null,
     status: 'pending',
     actor: null,
     reason: null,

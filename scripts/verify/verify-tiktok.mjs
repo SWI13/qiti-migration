@@ -29,7 +29,9 @@ const ok = (label, pass, extra = '') => {
 /* الوحدة تتقرا في كل مرّة باش تبديل متغيّرات البيئة يبان — الوحدات
    تتخبّى في الذاكرة، والقيم تتقرا وقت النداء ماشي وقت الاستيراد */
 const tiktok = await import('../../lib/tiktok.mjs');
-const { tiktokPixelId, tiktokPixelSnippet, tiktokEventId, sendTikTokEvent } = tiktok;
+const {
+  tiktokPixelId, tiktokPixelSnippet, tiktokEventId, sendTikTokEvent, sanitizePixelId, pixelIdFor,
+} = tiktok;
 const { injectTikTokPixel } = await import('../inject-pixel.mjs');
 
 const PROD_PIXEL_ID = 'DA3Q4VRC77U14HQM5R50';
@@ -84,6 +86,46 @@ const rendered = renderPage({ content: '<p>x</p>', product: { name: 'Qiti', pric
 ok('الصفحة المعروضة فيها البيكسل', rendered.includes(`ttq.load('${PROD_PIXEL_ID}')`));
 ok('الصفحة المعروضة فيها نسخة وحدة', countLoads(rendered) === 1, String(countLoads(rendered)));
 ok('البيكسل في <head>', rendered.indexOf('__qitiTtq') < rendered.indexOf('</head>'));
+
+/* ── بيكسل خاص بكل حملة ────────────────────────────────────────────── */
+
+ok('حملة بلا بيكسل → الافتراضي', pixelIdFor({ name: 'x' }) === PROD_PIXEL_ID);
+ok('حملة ببيكسل → تاعها', pixelIdFor({ tiktokPixelId: 'CAMPAIGNPIXEL1' }) === 'CAMPAIGNPIXEL1');
+ok('بيكسل حملة مكسّر → يرجع للافتراضي',
+  pixelIdFor({ tiktokPixelId: "</script><script>alert(1)</script>" }) === PROD_PIXEL_ID);
+ok('الكود كامل ملصوق في الخانة → يتردّ', sanitizePixelId(tiktokPixelSnippet()) === '');
+ok('فراغات حوالي الـ id تتحيّد', sanitizePixelId('  ABC123  ') === 'ABC123');
+
+const campaignPage = renderPage({
+  content: '<p>x</p>',
+  campaign: { name: 'promo', tiktokPixelId: 'CAMPAIGNPIXEL1' },
+  product: { name: 'Qiti', price: 3900 },
+});
+ok('الصفحة تحمّل بيكسل الحملة', campaignPage.includes("ttq.load('CAMPAIGNPIXEL1')"));
+ok('الصفحة ما تحمّلش الافتراضي معاه', !campaignPage.includes(`ttq.load('${PROD_PIXEL_ID}')`));
+ok('نسخة وحدة برك', countLoads(campaignPage) === 1, String(countLoads(campaignPage)));
+
+const previewPage = renderPage({
+  content: '<p>x</p>',
+  campaign: { name: 'promo', tiktokPixelId: 'CAMPAIGNPIXEL1' },
+  product: { name: 'Qiti', price: 3900 },
+  preview: true,
+});
+ok('معاينة اللوحة بلا بيكسل', countLoads(previewPage) === 0);
+
+const adminApi = readFileSync(join(repo, 'api', 'admin-api.mjs'), 'utf8');
+ok('المعاينة في admin-api تمرّر preview:true', /renderPage\(\{[^}]*preview: true/.test(adminApi));
+
+/* اللوحة: الخانة موجودة ومربوطة بنفس الاسم اللي يخزّنو السيرفر */
+const adminCampaigns = readFileSync(join(repo, 'admin', 'js', 'pages', 'campaigns.js'), 'utf8');
+ok('اللوحة فيها خانة البيكسل', adminCampaigns.includes("'tiktokPixelId'"));
+ok('اللوحة تفحص الـ id قبل النشر', /tiktokPixelId: \{ pattern:/.test(adminCampaigns));
+
+const catalog = readFileSync(join(repo, 'lib', 'catalog.mjs'), 'utf8');
+ok('الحملة تخزّن البيكسل منظّف', /tiktokPixelId: sanitizePixelId\(/.test(catalog));
+
+const orderSource = readFileSync(join(repo, 'api', 'order.mjs'), 'utf8');
+ok('الطلبية تخزّن بيكسل وقت الطلب', /tiktokPixelId: pixelIdFor\(campaign\)/.test(orderSource));
 
 /* ── `event_id`: السيرفر والمتصفّح لازم يتفقو ──────────────────────── */
 
@@ -153,6 +195,15 @@ ok('ttp يتبعث خام', event.user.ttp === 'TTP456');
 ok('الاسم والولاية ما يتبعثوش',
   !('name' in event.user) && !('city' in event.user) && !('ip' in event.user));
 
+/* الطلبية اللي جات من حملة عندها بيكسل تاعها — الحدث يمشي لذاك الحساب */
+stubFetch({ code: 0 });
+await sendTikTokEvent('CompletePayment', { ...ORDER, tiktokPixelId: 'CAMPAIGNPIXEL1' }, { value: 100 });
+ok('الحدث يمشي لبيكسل الطلبية', captured.body.event_source_id === 'CAMPAIGNPIXEL1');
+
+stubFetch({ code: 0 });
+await sendTikTokEvent('CompletePayment', { ...ORDER, tiktokPixelId: 'BROKEN PIXEL!' }, { value: 100 });
+ok('بيكسل طلبية مكسّر → الافتراضي', captured.body.event_source_id === PROD_PIXEL_ID);
+
 /* بلا توكن مطابقة (زيارة مباشرة بلا ttclid ولا هاتف) — ما نضيّعوش طلب */
 captured = null;
 const noKeys = await sendTikTokEvent('PlaceAnOrder', { id: 'B1', attribution: null }, { value: 100 });
@@ -181,7 +232,7 @@ const orderApi = readFileSync(join(repo, 'api', 'order.mjs'), 'utf8');
 const decisions = readFileSync(join(repo, 'lib', 'decisions.mjs'), 'utf8');
 
 ok('الطلب يبعث PlaceAnOrder', orderApi.includes("sendTikTokEvent('PlaceAnOrder'"));
-ok('الطلب ما يبعثش CompletePayment', !orderApi.includes('CompletePayment'));
+ok('الطلب ما يبعثش CompletePayment', !/sendTikTokEvent\(\s*'CompletePayment'/.test(orderApi));
 ok('CompletePayment يتبعث من قرار التوصيل', decisions.includes("sendTikTokEvent('CompletePayment'"));
 ok(
   'CompletePayment داخل شرط delivered',
