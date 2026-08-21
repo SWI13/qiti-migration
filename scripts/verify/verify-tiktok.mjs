@@ -32,7 +32,7 @@ const tiktok = await import('../../lib/tiktok.mjs');
 const { tiktokPixelId, tiktokPixelSnippet, tiktokEventId, sendTikTokEvent } = tiktok;
 const { injectTikTokPixel } = await import('../inject-pixel.mjs');
 
-const PROD_PIXEL_ID = 'DA3ONQBC77U8CMLK4K8G';
+const PROD_PIXEL_ID = 'DA3Q4VRC77U14HQM5R50';
 const sha256 = (value) => createHash('sha256').update(String(value)).digest('hex');
 
 /* ── id البيكسل ────────────────────────────────────────────────────── */
