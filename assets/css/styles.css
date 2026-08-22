@@ -475,6 +475,12 @@ details[open] > .faq__q::after { content: '−'; }
 
 /* ── 12. بعد الطلب ────────────────────────────────────────────────────── */
 .done { text-align: center; padding: 24px 8px; display: grid; gap: 10px; justify-items: center; }
+/* ⚠️ لازم: main.js يخبّي هاذ البلوك بخاصيّة hidden برك (سطر 799/816)،
+   و`display: grid` اللي فوق يغلب قاعدة المتصفّح [hidden]{display:none}
+   (ورقة الكاتب تغلب ورقة المتصفّح مهما كانت الأولويّة). بلا هاذ السطر
+   شاشة "تسجّل الطلب!" تبان لكل زائر تحت الفورم قبل ما يطلب حتى والو.
+   نفس الحالة مصلّحة في .upsell[hidden] (القسم 23). */
+.done[hidden] { display: none; }
 .done__ico {
   width: 56px; height: 56px; border-radius: 50%;
   background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success);
@@ -1171,35 +1177,51 @@ body {
      وقاصح — درجة دافية وحدة تكفي باش البلاطة تدخل مع الصفحة. */
   --clay-surface: #FFFCF9;
 
+  /* حدّ سميك ودافي. مرجع الأسلوب يطلب 3-4px — الخيط 1px يعطي
+     "بطاقة مرسومة"، والحدّ السميك يعطي "حاجة تشدّها". اللون رملي
+     ماشي رمادي: حدّ رمادي على خلفية دافية يبرّد الصفحة كاملة. */
+  --clay-edge: #F2E3D6;
+  --clay-edge-w: 2.5px;
+
   /* الضوء تاع فوق والظلّ تاع تحت — جوّا العنصر، فما يزيدوش حجم */
-  --clay-top: inset 0 1.5px 0 rgba(255,255,255,.9),
-              inset 0 -3px 7px -5px rgba(20,17,15,.16);
-  /* الرفع — واسع وباهت. -14px تخلّي الظلّ يبان من تحت برك، ماشي حلقة
-     دايرة بالعنصر. */
-  --clay-lift: 0 12px 26px -14px rgba(20,17,15,.28),
-               0 3px 8px -5px rgba(20,17,15,.10);
+  --clay-top: inset 0 2px 0 rgba(255,255,255,.95),
+              inset 0 -7px 13px -9px rgba(150,100,72,.28);
+
+  /* الرفع: ثلاث طبقات. وحدة قريبة وقاسحة، وحدة وسط، ووحدة بعيدة
+     وباهتة — هكذا يخدم الظلّ في الواقع. قبل كانت طبقة وحدة بـ -14px
+     spread، يعني الظلّ يتقلّص لصفر تقريباً وما يبان والو: التوكِن كان
+     موجود والملمس ما كانش. واللون تاع الظلّ بنّي دافي ماشي أسود —
+     الأسود على خلفية رمليّة يوسّخها. */
+  --clay-lift: 0 2px 3px -1px rgba(150,100,72,.10),
+               0 8px 14px -6px rgba(150,100,72,.20),
+               0 20px 34px -14px rgba(150,100,72,.30);
   --clay: var(--clay-top), var(--clay-lift);
 
   /* الحقول بالعكس: غاطسة. الزبونة تعرف بالعين وين تكتب ووين تضغط. */
-  --clay-in: inset 0 2px 5px -3px rgba(20,17,15,.22);
+  --clay-in: inset 0 3px 7px -3px rgba(150,100,72,.30),
+             inset 0 1px 2px rgba(150,100,72,.16);
 
   /* الضغطة: العنصر يهبط ويرجع بنطّة صغيرة. هذي هي اللي تعطي
      الإحساس بالملمس — بلاها الظلّ زخرفة برك. */
-  --clay-press: inset 0 2px 6px -3px rgba(20,17,15,.28);
-  --ease-bounce: cubic-bezier(.34,1.4,.64,1);
+  --clay-press: inset 0 3px 9px -3px rgba(150,100,72,.38);
+  --ease-bounce: cubic-bezier(.34,1.56,.64,1);
   --dur-press: .2s;
 }
 
 [data-theme="dark"] {
   /* في الليلي الضوء ما يجيش من فوق بنفس القوّة — الحافّة الفاتحة تولّي
      خفيفة بزّاف وإلا تبان خطّ أبيض. الظلّ يولّي هو اللي يخدم. */
-  --clay-surface: #171513;
-  --clay-top: inset 0 1px 0 rgba(255,255,255,.06),
-              inset 0 -3px 7px -5px rgba(0,0,0,.5);
-  --clay-lift: 0 12px 26px -14px rgba(0,0,0,.7),
-               0 3px 8px -5px rgba(0,0,0,.45);
-  --clay-in: inset 0 2px 5px -3px rgba(0,0,0,.55);
-  --clay-press: inset 0 2px 6px -3px rgba(0,0,0,.6);
+  --clay-surface: #1A1715;
+  --clay-edge: #2A2320;
+  --clay-edge-w: 2.5px;
+  --clay-top: inset 0 1px 0 rgba(255,255,255,.07),
+              inset 0 -7px 13px -9px rgba(0,0,0,.55);
+  --clay-lift: 0 2px 3px -1px rgba(0,0,0,.5),
+               0 8px 14px -6px rgba(0,0,0,.55),
+               0 20px 34px -14px rgba(0,0,0,.6);
+  --clay-in: inset 0 3px 7px -3px rgba(0,0,0,.6),
+             inset 0 1px 2px rgba(0,0,0,.4);
+  --clay-press: inset 0 3px 9px -3px rgba(0,0,0,.66);
 }
 
 /* البلاطات: كريمي دافي + عمق ناعم بدل الظلّ الواحد تاع القسم 20 */
@@ -1269,6 +1291,313 @@ body {
    none !important). الظلّ يبقى — هو شكل، ماشي حركة. */
 
 
+/* ── 25. أقسام الحملات: نفس الملمس ────────────────────────────────────
+   الأقسام 20-24 دارو الدفا والطين على بلاطات الصفحة الأساسية، بصح
+   أقسام الحملات (how, reviews) بقات على تصميم القسم 14: سطح أبيض خام،
+   حدّ 1px حادّ، وزاوية 16px. النتيجة إنّو حملة فيها "كيفاش تطلب" ولا
+   "آراء الزبائن" تقرا كأنّها من موقع آخر — نفس الصفحة، وزوج لغات
+   بصريّة.
+
+   هنا نكمّلوهم بنفس اللغة، بلا ما نزيدو حتى توكن جديد: --clay-lift
+   للحاجة المرفوعة، --clay-surface للسطح الدافي، و--rose للّمسة.
+   الـ HTML تاع lib/render/sections ما يتبدّلش — كلاسات كيما هي.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* الأقسام كانت لاصقة في بعضها. فراغ أكثر = القارئ يعرف وين تكمّل
+   فكرة ووين تبدا اللي بعدها. */
+.strip { margin-top: 26px; }
+.strip__title { margin-bottom: 14px; }
+
+/* الخطوات: بلاطة مرفوعة كيما .card، والرقم في دائرة ورديّة فيها غطس
+   خفيف. الرقم ما يتضغطش، فالغطس هنا عمق برك ماشي إشارة اختيار —
+   إشارة الاختيار محجوزة للمختارات (القسم 24). */
+.step {
+  background: var(--clay-surface);
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: var(--clay-lift);
+}
+.step__n {
+  width: 30px; height: 30px;
+  background: var(--rose-soft);
+  color: var(--rose);
+  box-shadow: inset 0 1px 3px -1px color-mix(in srgb, var(--rose) 35%, transparent);
+}
+
+/* آراء الزبائن: نفس البلاطة، وزاوية وحدة مقصوصة تحت جهة البداية —
+   تقرا كفقّاعة كلام بلا ما نرسمو ذيل فقّاعة. */
+.quote {
+  background: var(--clay-surface);
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 20px;
+  border-end-start-radius: 6px;
+  padding: 14px;
+  box-shadow: var(--clay-lift);
+}
+
+/* الوقت حذا الاسم كان بلون الفعل (البرتقالي)، والبرتقالي في هاذ
+   الصفحة معناه "اضغط هنا". تاريخ ما يتضغطش — ولّى باهت. */
+.quote__stars { color: var(--text-faint); font-weight: 600; letter-spacing: 0; }
+
+/* ردّ المحلّ (isBrand): يقرا كردّ ماشي كرأي — خلفية ورديّة، والفقّاعة
+   تنقلب (القصّة تولّي فوق) وتزيح للداخل، وبلا رفع: ما هي بلاطة
+   جديدة، هي تكملة تاع اللي فوقها. */
+.quote--reply {
+  background: var(--blush-50);
+  border-color: color-mix(in srgb, var(--rose) 22%, transparent);
+  border-start-start-radius: 6px;
+  border-end-start-radius: 20px;
+  margin-inline-start: 18px;
+  box-shadow: none;
+}
+.quote--reply .quote__who { color: var(--rose); }
+
+
+/* ── 26. النداء الأخير ────────────────────────────────────────────────
+   الصفحة كانت تكمّل على الأسئلة وطوالي التذييل. في التيليفون ما
+   بانتش المشكلة على خاطر الشريط السفلي ديما في الشاشة (السومة
+   والزرّ)، بصح في الكمبيوتر الشريط مطفي (القسم 15) — يعني اللي قرا
+   الصفحة كاملة على شاشة كبيرة يلقى روحو في التذييل بلا حتى زرّ.
+
+   البلاطة هذي هي آخر حاجة تتقرا: تعاود السومة، تعاود الضمانة، وتردّ
+   للفورم. ما فيها حتى وظيفة جديدة — رابط لـ #order وخلاص.
+   ────────────────────────────────────────────────────────────────────── */
+.last {
+  margin-top: 26px;
+  text-align: center;
+  background: linear-gradient(170deg, var(--blush-50), var(--clay-surface) 62%);
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 24px;
+  padding: 24px 18px;
+  box-shadow: var(--clay-lift);
+}
+.last h2 { font-family: var(--font-display); font-size: 1.24rem; text-wrap: balance; }
+.last__sub { color: var(--text-muted); font-size: .92rem; margin-top: 8px; text-wrap: balance; }
+.last__price {
+  display: flex; justify-content: center; align-items: baseline;
+  gap: 10px; margin: 16px 0;
+}
+/* نفس كلاسات السومة تاع فوق (.price / .price__old) — سومة وحدة في
+   الصفحة لازم تتقرا بنفس الشكل في الزوج بلايص، وإلا الزبون يشكّ. */
+.last__price .price { font-family: var(--font-display); font-size: 1.9rem; }
+.last .btn { max-width: 340px; margin-inline: auto; }
+.last__note {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 12px; font-size: .84rem; color: var(--text-muted);
+}
+.last__note .ico { width: 17px; height: 17px; color: var(--success); }
+
+/* ── 27. الطين بجدّ: حدّ سميك، بلاطة منفوخة، وفائدة تتشدّ ─────────────
+   القسم 24 حطّ توكِنز الطين، بصح بقياس خجول: ظلّ بـ -14px spread (يعني
+   يتقلّص لصفر تقريباً وما يبان والو) وحدّ 1px. مرجع الأسلوب يطلب حدّ
+   3-4px وظلّ مزدوج يتشاف بالعين. التوكِنز تصلّحو في القسم 24 — هنا
+   نلبّسوهم للعناصر.
+
+   القاعدة تاع القسم 24 تبقى كيما هي: **ماشي كلش ينفخ**. الحدّ والظلّ
+   يمشيو للحاجة اللي الإصبع يمسّها ولا اللي لازم تبان مرفوعة. النصّ
+   والصور والتذييل يبقاو مسطّحين.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* الحدّ السميك الدافي على كل حاجة مرفوعة. رملي ماشي رمادي: حدّ رمادي
+   على خلفية دافية يبرّد الصفحة كاملة. */
+.card, .last, .step, .quote, .trust__it, .pick__box, .offer__box, .faq__q, .perk {
+  border: var(--clay-edge-w) solid var(--clay-edge);
+}
+
+/* زوايا أسمن. مرجع الأسلوب: 16-24px — البلاطة الكبيرة تاخذ فوق
+   المدى شوية على خاطر كل ما كبرت البلاطة كل ما لزمها زاوية أكبر
+   باش تبان بنفس النعومة. */
+.card, .last { border-radius: 28px; }
+.step, .quote, .trust__it, .pick__box, .offer__box, .perk, .faq__q { border-radius: 22px; }
+.input, select.input { border-radius: 18px; border-width: 2px; }
+.qty { border-radius: 18px; }
+
+/* ── الفوائد: من أربع أسطر نصّ لأربع بلاطات ──────────────────────────
+   هذا هو التبديل اللي يتشاف من بعيد. المواصفة تطلب بلاطات ودّية،
+   وهاذو نفس الكلاسات اللي يستعملهم محرّك الحملات (features, cta,
+   gallery) — فالتبديل هنا يمشي فيهم كامل بلا ما نلمسو حتى سطر HTML.
+
+   عمودين: أربع فوائد في صفّين. سطر واحد طويل يتقرا بالعين بسرعة
+   بصح ما يتحسّش — والمواصفة تطلب "tactile". */
+.perks { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+.perk {
+  flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 14px 13px;
+  background: linear-gradient(165deg, var(--clay-surface), var(--blush-50));
+  box-shadow: var(--clay);
+  font-size: .86rem; line-height: 1.5;
+}
+.perk .ico { width: 34px; height: 34px; padding: 8px; }
+.perk b { display: block; margin-bottom: 1px; }
+
+/* ── الخطوات والآراء: نفس الحدّ، وحشوة أوسع ──────────────────────── */
+.step, .quote { padding: 15px; }
+.step__n { width: 32px; height: 32px; font-size: .92rem; }
+
+/* ── الأزرار: أسمن وأنعم ─────────────────────────────────────────── */
+.btn { border-radius: var(--r-full); border-width: 2px; }
+.btn--ghost { border-color: var(--clay-edge); }
+.qty__btn { border-radius: 14px; }
+
+/* ── شكل عضوي باهت ورا الهيرو ────────────────────────────────────────
+   المواصفة تطلب "soft decorative shapes" و"subtle floating elements".
+   تدرّج دائري ورديّ، مموّه، ورا النصّ (z-index سالب) — ما ياخذ حتى
+   تباين من الحروف وما يمنعش ضغطة. */
+.head { position: relative; }
+.head::before {
+  content: '';
+  position: absolute; z-index: -1; pointer-events: none;
+  inset-block-start: -46px; inset-inline-end: -54px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%,
+              color-mix(in srgb, var(--rose) 30%, transparent), transparent 70%);
+}
+.head::after {
+  content: '';
+  position: absolute; z-index: -1; pointer-events: none;
+  inset-block-end: -20px; inset-inline-start: -60px;
+  width: 170px; height: 170px; border-radius: 50%;
+  background: radial-gradient(circle at 60% 40%,
+              color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
+}
+
+/* بلاطة النداء الأخير: نفس الشكل، ورا النصّ */
+.last { position: relative; overflow: hidden; }
+.last::before {
+  content: '';
+  position: absolute; z-index: 0; pointer-events: none;
+  inset-block-start: -70px; inset-inline-start: -50px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+              color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
+}
+.last > * { position: relative; z-index: 1; }
+
+/* ── 28. رأس الصفحة: شارة، عنوان بلونين، وثلاث أرقام ──────────────────
+   إلهام من صفحة PawSpa (pet grooming): الشارة الصغيرة فوق العنوان،
+   الكلمة الملوّنة في وسط العنوان، صفّ الأرقام تحتو، وأيقونات في
+   مربّعات ملوّنة بدل دوائر لون واحد.
+
+   ⚠️ واش ما جبناهش منها: صفّ "5,000+ Happy Pets · 4.9 Rating". هذاك
+   نمط مليح بصح المحتوى تاعو يلزمو أرقام حقيقية، وما عندناش. الأرقام
+   اللي حطّينا (22 غرام، 12 شهر، 58 ولاية) مكتوبين أصلاً في الفوائد
+   وشريط الثقة والتذييل — نفس الشكل، بلا ادّعاء جديد.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* الشارة: قرص كريمي بحدّ ورديّ رقيق. تعطي السطر الأوّل شخصيّة قبل
+   ما يبدا العنوان، وتحمل معلومة تبيع (بلا اشتراك). */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-bottom: 12px; padding: 7px 14px 7px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--rose) 26%, transparent);
+  border-radius: var(--r-full);
+  background: linear-gradient(160deg, var(--rose-soft), var(--clay-surface));
+  color: var(--rose);
+  font-size: .78rem; font-weight: 800; letter-spacing: .01em;
+  box-shadow: var(--clay-lift);
+}
+.eyebrow .ico { width: 15px; height: 15px; }
+
+/* العنوان بلونين. <em> بلا ميلان — هي علامة دلالة (الجزء المهمّ)
+   ماشي نبرة صوت. */
+.head h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+/* ── الأرقام ─────────────────────────────────────────────────────────
+   ثلاثة، محاذيين لبداية السطر، بلا بلاطات وبلا خطوط فاصلة. الرقم كبير
+   وملوّن والكلمة تحتو صغيرة وهادية — التباين بيناتهم هو اللي يخلّي
+   الصفّ يتقرا في لمحة. */
+.stats { display: flex; gap: 22px; margin-top: 16px; }
+.stat { display: grid; gap: 1px; }
+.stat b {
+  font-family: var(--font-display);
+  font-size: 1.55rem; font-weight: 900; line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--accent);
+}
+.stat small { font-size: .72rem; color: var(--text-muted); font-weight: 600; }
+/* لون مختلف لكل رقم — نفس فكرة المرجع. ماشي ألوان أفعال، فما
+   تتعاركش مع البرتقالي تاع الزرّ: الزرّ وحدو قرص كبير مملوخ. */
+.stat--b b { color: var(--success); }
+.stat--c b { color: var(--rose); }
+
+/* ── أيقونات الفوائد: مربّعات ملوّنة بدل دوائر لون واحد ──────────────
+   المرجع يحطّ كل أيقونة في مربّع صغير مقوّس بلون خاص بيه. أربع فوائد
+   = أربع ألوان، والصفحة تولّي تبان لعّابة بلا ما نزيدو حتى صورة.
+
+   الألوان هذي كلّها موجودة في اللوحة أصلاً (rose, success, accent,
+   gold) — ما زدنا حتى توكِن، فالوضع الليلي يمشي وحدو. */
+.perk .ico {
+  border-radius: 13px;
+  background: var(--rose-soft);
+  color: var(--rose);
+  box-shadow: var(--clay-top);
+}
+.perks .perk:nth-child(2) .ico {
+  background: color-mix(in srgb, var(--success) 13%, transparent);
+  color: var(--success);
+}
+.perks .perk:nth-child(3) .ico {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+/* الذهبي الخام باهت بزّاف على خلفيتو الفاتحة — الرسمة برتبة تباين
+   قريبة 2:1 وما تبانش. نغمّقوه بخلطة مع الحبر: نفس اللون، مقروء. */
+.perks .perk:nth-child(4) .ico {
+  background: color-mix(in srgb, var(--gold) 20%, transparent);
+  color: color-mix(in srgb, var(--gold) 68%, var(--ink));
+}
+
+/* ── شكل ثالث: نعناعي هادي ────────────────────────────────────────────
+   المرجع عندو ثلاث بقع: خوخي، ورديّ، ونعناعي. القسم 27 دار الخوخي
+   والورديّ — هذا النعناعي. المواصفة تسمح بأخضر/أزرق خفيف. */
+.stats { position: relative; }
+.stats::before {
+  content: '';
+  position: absolute; z-index: -1; pointer-events: none;
+  /* بعيدة على الأرقام: كانت تحت الصفّ مباشرة وتغسل النصّ بأخضر
+     باهت. البقعة زخرفة — ما تلمسش سطر يتقرا. */
+  inset-block-start: 10px; inset-inline-start: -110px;
+  width: 170px; height: 170px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+              color-mix(in srgb, var(--success) 10%, transparent), transparent 72%);
+}
+
+/* ── 29. تقريب الفورم ─────────────────────────────────────────────────
+   القياس على 430×932: الفورم كان يبدا في 1138px — شاشة وربع تحت.
+   الزبونة الجزائرية تشري من التيليفون، وكل زحليقة زايدة قبل أوّل حقل
+   تطيّح نسبة الطلب.
+
+   من وين جبنا البلاصة:
+     288px  الفوائد نزلو تحت الفورم (تبديل HTML) — كانو يعاودو نفس
+            المعلومة تاع صفّ الأرقام اللي فوقهم
+      86px  صورة الهيرو من مربّع (1:1) لـ 5:4
+      ~28px تضييق التباعد في الرأس
+
+   ⚠️ ما نحيّدو والو: الصورة، الوعد، الأرقام، والسومة كلّهم يبقاو قبل
+   الفورم. اللي تحرّك هو التكرار برك.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* الصورة تبقى هي البائع، بصح المربّع الكامل على شاشة 932px ياكل نصفها
+   قبل ما يبان العنوان. 5:4 تخلّي القطّة كاملة وتربح 86px. */
+.shot { aspect-ratio: 5 / 4; }
+
+/* تضييق الرأس — كل واحدة صغيرة، بصح مجموعهم يقرّب سطر كامل. */
+.head { padding-top: 0; }
+.eyebrow { margin-bottom: 10px; }
+.head h1 { line-height: 1.3; }
+.head__sub { margin-top: 4px; }
+.stats { margin-top: 14px; }
+.pricebar { margin-top: 12px; }
+.livemap + .dots { margin-top: 10px; }
+
+/* الفوائد ولّاو قسم قائم بذاتو تحت الفورم — يرثو تباعد .strip، فما
+   يحتاجوش هامش فوقاني تاعهم. */
+#why .perks { margin-top: 0; }
+
 /*
  * الوضع الليلي تاع المتجر.
  *
@@ -1336,13 +1665,17 @@ body {
   --gold:      #D9B478;
   --paw-tex: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='210' height='210' viewBox='0 0 210 210'><g fill='%23FF9AAB' fill-opacity='.05'><g transform='translate(16 22) rotate(-18) scale(1.15)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(132 74) rotate(22) scale(.95)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(58 138) rotate(6) scale(1.05)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(150 168) rotate(-8) scale(.85)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g></g></svg>");
 
-  --clay-surface: #171513;
-  --clay-top: inset 0 1px 0 rgba(255,255,255,.06),
-              inset 0 -3px 7px -5px rgba(0,0,0,.5);
-  --clay-lift: 0 12px 26px -14px rgba(0,0,0,.7),
-               0 3px 8px -5px rgba(0,0,0,.45);
-  --clay-in: inset 0 2px 5px -3px rgba(0,0,0,.55);
-  --clay-press: inset 0 2px 6px -3px rgba(0,0,0,.6);
+  --clay-surface: #1A1715;
+  --clay-edge: #2A2320;
+  --clay-edge-w: 2.5px;
+  --clay-top: inset 0 1px 0 rgba(255,255,255,.07),
+              inset 0 -7px 13px -9px rgba(0,0,0,.55);
+  --clay-lift: 0 2px 3px -1px rgba(0,0,0,.5),
+               0 8px 14px -6px rgba(0,0,0,.55),
+               0 20px 34px -14px rgba(0,0,0,.6);
+  --clay-in: inset 0 3px 7px -3px rgba(0,0,0,.6),
+             inset 0 1px 2px rgba(0,0,0,.4);
+  --clay-press: inset 0 3px 9px -3px rgba(0,0,0,.66);
 
   }
 }

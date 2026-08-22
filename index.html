@@ -91,9 +91,27 @@
   </div>
 
   <section class="head">
-    <h1>قطّتك ديما في أمان — وانت مرتاح البال</h1>
+    <!-- شارة فوق العنوان. المعلومة فيها حقيقيّة ومكتوبة في الصفحة
+         (بلا اشتراك) — ماشي وسام مخترع. -->
+    <p class="eyebrow">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+      بلا اشتراك شهري · تشريه مرّة وحدة
+    </p>
+
+    <!-- العنوان بلونين: الجزء اللي فيه الوعد ياخذ لون العلامة، والباقي
+         يبقى أسود. العين تلقى الفكرة قبل ما تقرا السطر كامل. -->
+    <h1>قطّتك ديما <em>في أمان</em> — وانت مرتاح البال</h1>
     <p class="head__sub">طوق Qiti الذكي: تشوف وين راهي في أي لحظة، من تيليفونك.
       خفيف على رقبتها، وما يحتاج حتى اشتراك.</p>
+
+    <!-- ثلاث أرقام. كلّهم مكتوبين أصلاً في الصفحة (الفوائد، شريط
+         الثقة، التذييل) — ما زدنا حتى رقم جديد، وما حطّينا حتى "عدد
+         زبائن راضيين" على خاطر ما عندناش الرقم الحقيقي. -->
+    <div class="stats">
+      <div class="stat"><b>22</b><small>غرام برك</small></div>
+      <div class="stat stat--b"><b>12</b><small>شهر ضمان</small></div>
+      <div class="stat stat--c"><b>58</b><small>ولاية توصيل</small></div>
+    </div>
 
     <div class="pricebar">
       <span class="price">3,900 دج</span>
@@ -101,16 +119,6 @@
       <span class="tag tag--save">ربحت 1,600 دج</span>
     </div>
 
-    <div class="perks">
-      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
-        <span><b>تعرف وين راهي، ديما</b> — الموقع مباشر في التطبيق</span></p>
-      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
-        <span><b>22 غرام برك</b> — ما تحسّ بيه في رقبتها</span></p>
-      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
-        <span><b>عام كامل بشحنة</b> — تنساه وهو يخدم</span></p>
-      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
-        <span><b>ما يخافش من الماء</b> — المطر والوحل عادي</span></p>
-    </div>
   </section>
 
   <!-- ═══ الطلب ═══════════════════════════════════════════════════════
@@ -235,6 +243,24 @@
     </div>
   </section>
 
+  <!-- الفوائد نزلو تحت الفورم. فوق كان الصفّ تاع الأرقام (22 / 12 /
+       58) يقول نفس الحاجة بلاطة ونصف قبلهم — تكرار يبعّد الفورم
+       288px، يعني الزبونة تزحلق شاشة وربع قبل ما تشوف أوّل حقل.
+       اللي مقتنع من الصورة والسومة يطلب دروك، واللي يحتاج تفاصيل
+       يلقاهم تحت مباشرة. -->
+  <section class="strip" id="why">
+    <div class="perks">
+      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-heart"/></svg>
+        <span><b>تعرف وين راهي، ديما</b> — الموقع مباشر في التطبيق</span></p>
+      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
+        <span><b>22 غرام برك</b> — ما تحسّ بيه في رقبتها</span></p>
+      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
+        <span><b>عام كامل بشحنة</b> — تنساه وهو يخدم</span></p>
+      <p class="perk"><svg class="ico" viewBox="0 0 24 24"><use href="#i-check"/></svg>
+        <span><b>ما يخافش من الماء</b> — المطر والوحل عادي</span></p>
+    </div>
+  </section>
+
   <section class="trust">
     <div class="trust__it">
       <svg class="ico ico--lg" viewBox="0 0 24 24"><use href="#i-cash"/></svg>
@@ -253,6 +279,35 @@
     </div>
   </section>
 
+  <!-- كيفاش تخدم الطلبية. نفس كلاسات .steps تاع محرّك الحملات
+       (lib/render/sections/how.mjs) — ما زدنا حتى كلاس جديد.
+
+       تحت الفورم قصداً، ماشي فوقو: اللي راه مقتنع يطلب طوالي، واللي
+       باقي يشكّ في "واش يصرا من بعد ما نضغط" يلقى الجواب هنا. نفس
+       الترتيب اللي يدير محرّك الحملات للمنتجات تاع نوع pet.
+
+       المعلومات كامل مأخوذة من الصفحة روحها (الفورم، الأسئلة، شريط
+       الثقة) — ما كان حتى وعد جديد. -->
+  <section class="strip" id="how">
+    <div class="strip__title">
+      <h2>كيفاش تخدم؟ ثلاث خطوات</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="step__n">1</span>
+        <span><b>عمّر الطلب</b><small>اسمك، رقمك، والولاية. أقل من دقيقة، وما نطلبو منك حتى خلاص.</small></span>
+      </div>
+      <div class="step">
+        <span class="step__n">2</span>
+        <span><b>نتصلو بيك نأكّدو</b><small>مكالمة قصيرة باش نتأكّدو من العنوان قبل ما نبعثو الطوق.</small></span>
+      </div>
+      <div class="step">
+        <span class="step__n">3</span>
+        <span><b>يوصلك وتخلّص كاش</b><small>من 2 لـ 5 أيام حسب الولاية. تشوف السلعة في يدك، ومن بعد تخلّص.</small></span>
+      </div>
+    </div>
+  </section>
+
   <div class="faq">
     <details>
       <summary class="faq__q">شحال ياخذ باش يوصل؟</summary>
@@ -267,6 +322,23 @@
       <p class="faq__a">22 غرام برك، والحزام يتعدّل على رقبتها. أغلب القطط تنساه بعد يوم ولا يومين. وبلا اشتراك شهري — تشريه مرّة وحدة وخلاص.</p>
     </details>
   </div>
+
+  <!-- آخر حاجة تتقرا في الصفحة. في التيليفون الشريط السفلي ديما بان،
+       بصح في الكمبيوتر هو مطفي — بلا هاذ البلوك القارئ يوصل للتذييل
+       بلا زرّ. رابط لـ #order برك، ما كان حتى منطق جديد. -->
+  <section class="last">
+    <h2>قطّتك تستاهل تكون في أمان</h2>
+    <p class="last__sub">طوق واحد، وتعرف وين راهي في أي وقت — بلا اشتراك شهري وبلا تعقيد.</p>
+    <p class="last__price">
+      <span class="price">3,900 دج</span>
+      <span class="price__old">5,500 دج</span>
+    </p>
+    <a href="#order" class="btn btn--primary btn--block btn--xl">اطلب الآن — Commander</a>
+    <p class="last__note">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+      ضمان 12 شهر · تخلّص كي يوصلك · التوصيل لـ 58 ولاية
+    </p>
+  </section>
 
   <footer class="foot">
     <div class="foot__links">
