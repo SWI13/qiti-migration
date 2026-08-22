@@ -1149,6 +1149,126 @@ body {
 .upsell__old { color: var(--text-faint); font-size: .85rem; margin-inline-start: 6px; }
 .upsell__done { color: var(--success); font-size: .88rem; font-weight: 700; }
 
+/* ── 24. الطين اللّيّن ─────────────────────────────────────────────────
+   الأقسام 20-22 دارو الدفا واللمسة تاع القطّة. هذا القسم يزيد الحاجة
+   الوحيدة اللي كانت ناقصة: **الملمس**. البلاطة تبان كأنّها حاجة تقدر
+   تشدّها بيدك، ماشي مستطيل مرسوم.
+
+   الطريقة: ظلّ مزدوج — ضوء رقيق فوق (كأنّ الضوء طايح من فوق) وظلّ
+   ناعم تحت. بلا خطوط حادّة وبلا حدود ثخينة. الفرق بين "طين" و"زر
+   بلاستيك تاع 2010" هو هذا: ظلّ بلا حافّة.
+
+   ⚠️ القاعدة اللي تخلّي هذا يخدم: **ماشي كل حاجة تنفخ**. الظلّ يمشي
+   غير للحاجة اللي الإصبع يمسّها (بلاطات، أزرار، حقول، مختارات) ولا
+   اللي لازم تبان مرفوعة على الصفحة. العناوين والصور والتذييل والنص
+   يبقاو مسطّحين — لو كلش عايم، والو ما يبان عايم.
+
+   ⚠️ ما نمسّوش --surface ولا --accent (نفس تحذير القسم 20 — اللوحة
+   الإدارية تبني عليهم). الكريمي هنا توكن جديد يخدم البلاطات برك.
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  /* أبيض دافي للبلاطات. الأبيض الخام على خلفية رمليّة يبان بارد
+     وقاصح — درجة دافية وحدة تكفي باش البلاطة تدخل مع الصفحة. */
+  --clay-surface: #FFFCF9;
+
+  /* الضوء تاع فوق والظلّ تاع تحت — جوّا العنصر، فما يزيدوش حجم */
+  --clay-top: inset 0 1.5px 0 rgba(255,255,255,.9),
+              inset 0 -3px 7px -5px rgba(20,17,15,.16);
+  /* الرفع — واسع وباهت. -14px تخلّي الظلّ يبان من تحت برك، ماشي حلقة
+     دايرة بالعنصر. */
+  --clay-lift: 0 12px 26px -14px rgba(20,17,15,.28),
+               0 3px 8px -5px rgba(20,17,15,.10);
+  --clay: var(--clay-top), var(--clay-lift);
+
+  /* الحقول بالعكس: غاطسة. الزبونة تعرف بالعين وين تكتب ووين تضغط. */
+  --clay-in: inset 0 2px 5px -3px rgba(20,17,15,.22);
+
+  /* الضغطة: العنصر يهبط ويرجع بنطّة صغيرة. هذي هي اللي تعطي
+     الإحساس بالملمس — بلاها الظلّ زخرفة برك. */
+  --clay-press: inset 0 2px 6px -3px rgba(20,17,15,.28);
+  --ease-bounce: cubic-bezier(.34,1.4,.64,1);
+  --dur-press: .2s;
+}
+
+[data-theme="dark"] {
+  /* في الليلي الضوء ما يجيش من فوق بنفس القوّة — الحافّة الفاتحة تولّي
+     خفيفة بزّاف وإلا تبان خطّ أبيض. الظلّ يولّي هو اللي يخدم. */
+  --clay-surface: #171513;
+  --clay-top: inset 0 1px 0 rgba(255,255,255,.06),
+              inset 0 -3px 7px -5px rgba(0,0,0,.5);
+  --clay-lift: 0 12px 26px -14px rgba(0,0,0,.7),
+               0 3px 8px -5px rgba(0,0,0,.45);
+  --clay-in: inset 0 2px 5px -3px rgba(0,0,0,.55);
+  --clay-press: inset 0 2px 6px -3px rgba(0,0,0,.6);
+}
+
+/* البلاطات: كريمي دافي + عمق ناعم بدل الظلّ الواحد تاع القسم 20 */
+.card {
+  background: var(--clay-surface);
+  box-shadow: var(--clay);
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+/* الأزرار: نفس التدرّج تاع القسم 20، وزدنا ضوء فوق وضغطة تهبط.
+   البرتقالي ما يتبدّلش — لون الفعل وحدو في الصفحة. */
+.btn {
+  box-shadow: var(--clay);
+  transition: transform var(--dur-press) var(--ease-bounce),
+              box-shadow var(--dur-press) var(--ease);
+}
+.btn:active { transform: translateY(1px) scale(.985); box-shadow: var(--clay-press); }
+
+.btn--primary {
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.28),
+              0 14px 30px -14px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.btn--primary:active {
+  box-shadow: inset 0 2px 7px -3px rgba(20,17,15,.35),
+              0 6px 14px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.btn--ghost { box-shadow: none; }
+.btn--ghost:active { box-shadow: var(--clay-press); }
+
+/* الحقول غاطسة — والفوكس يبقى كيما كان (حلقة برتقالية)، ما نزيدوش
+   عليه ظلّ: الحلقة هي الإشارة، وزوج إشارات في بلاصة وحدة تضيّع وحدة. */
+.input, select.input, .qty { box-shadow: var(--clay-in); }
+.input:focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* أزرار الكمية: ملموسين، هذوما اللي الإصبع يلعب بيهم أكثر من غيرهم */
+.qty__btn { transition: box-shadow var(--dur-press) var(--ease); }
+.qty__btn:active { background: var(--surface-2); box-shadow: var(--clay-press); }
+
+/* المختارات (التوصيل، المقاس، الباقات): مرفوعين وهما مطفيين، وكي
+   يتعلّمو يهبطو ويولّيو غاطسين — الاختيار يتحسّ بالإصبع ماشي بالعين
+   برك. نفس اللغة في التلاتة، فالزبونة تتعلّمها مرّة وحدة. */
+.pick__box, .offer__box {
+  box-shadow: var(--clay);
+  transition: box-shadow var(--dur-press) var(--ease),
+              border-color .15s var(--ease),
+              background .15s var(--ease);
+}
+.pick input:checked + .pick__box,
+.offer input:checked + .offer__box { box-shadow: var(--clay-press); }
+.pick__box:active, .offer__box:active { box-shadow: var(--clay-press); }
+.pick--off .pick__box { box-shadow: none; }
+
+/* بلاطات الثقة والعرض الإضافي: مرفوعين خفيف. هذوما ما يتضغطوش،
+   فالرفع برك بلا ضغطة. */
+.trust__it { box-shadow: var(--clay-lift); }
+.upsell { box-shadow: var(--clay-lift); }
+
+/* الأسئلة: أنعم من بلاطة كاملة — سطر يتحلّ، ماشي شي يتشدّ */
+.faq__q { box-shadow: var(--clay-top); }
+
+/* الشريط السفلي يبقى زجاجي (القسم 20) — هنا غير خيط ضوء فوقو باش
+   الحافّة تبان ناعمة بدل خطّ. */
+.bar { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 -6px 20px -12px rgba(0,0,0,.35); }
+[data-theme="dark"] .bar { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 -6px 20px -12px rgba(0,0,0,.6); }
+
+/* الحركة تتحيّد وحدها من بلوك prefers-reduced-motion فوق (transition:
+   none !important). الظلّ يبقى — هو شكل، ماشي حركة. */
+
+
 /*
  * الوضع الليلي تاع المتجر.
  *
@@ -1215,5 +1335,14 @@ body {
   --sand:      #100E0D;
   --gold:      #D9B478;
   --paw-tex: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='210' height='210' viewBox='0 0 210 210'><g fill='%23FF9AAB' fill-opacity='.05'><g transform='translate(16 22) rotate(-18) scale(1.15)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(132 74) rotate(22) scale(.95)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(58 138) rotate(6) scale(1.05)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g><g transform='translate(150 168) rotate(-8) scale(.85)'><ellipse cx='5.6' cy='8.6' rx='2.2' ry='2.9'/><ellipse cx='10.6' cy='5.8' rx='2.3' ry='3.1'/><ellipse cx='16' cy='6.9' rx='2.2' ry='2.9'/><ellipse cx='19.6' cy='11.2' rx='1.9' ry='2.5'/><path d='M12.4 10.6c3.1 0 6 2.6 6 5.3 0 2.2-1.8 3.5-4 3.5-1.2 0-1.8-.5-2.9-.5s-1.7.5-2.9.5c-2.2 0-4-1.3-4-3.5 0-2.7 4.7-5.3 7.8-5.3z'/></g></g></svg>");
+
+  --clay-surface: #171513;
+  --clay-top: inset 0 1px 0 rgba(255,255,255,.06),
+              inset 0 -3px 7px -5px rgba(0,0,0,.5);
+  --clay-lift: 0 12px 26px -14px rgba(0,0,0,.7),
+               0 3px 8px -5px rgba(0,0,0,.45);
+  --clay-in: inset 0 2px 5px -3px rgba(0,0,0,.55);
+  --clay-press: inset 0 2px 6px -3px rgba(0,0,0,.6);
+
   }
 }
